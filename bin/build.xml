@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+    <project name="TranformXml" default="TransformAll">
+        <taskdef resource="net/sf/antcontrib/antlib.xml"/>
+        <target name="TransformFile">
+            <dirname property="buildfile.dir" file="${ant.file}"/>
+            <property name="tmp.dir"  value="../tmp"/><!-- Target directory for the TEI XML page extract files -->
+            <property name="dist.dir"  value="../dist"/><!-- Target directory for the final html rendered pages -->
+            <property name="chunk.dir"  value="../chunk"/><!-- Chunk directory: target of the chunking process; source of data for the pagify process -->
+            <property name="data.dir"  value="../data"/><!-- Souce of the original data files -->
+            <property name="junk.dir"  value="../delete-me"/><!-- Destination directory for empty junk files created by ant's xslt task when running pagify.xsl -->
+            
+            <delete dir="${chunk.dir}" />
+            <delete dir="${dist.dir}" />
+            <delete dir="${junk.dir}" />
+            <delete dir="${tmp.dir}" />
+
+            <mkdir dir="${chunk.dir}"/>
+            <mkdir dir="${dist.dir}"/>
+            <mkdir dir="${tmp.dir}"/>
+            
+            <fileset id="original_xml" dir="${data.dir}" includes="**/*.xml" />
+            
+            <!-- pagify.xsl creates multiple output files from each document passed to it using xsl:result-document. It replicates the hierarchy of the 
+                 data files using the path_to_buildfile, data_dir parameters and creates the same hierarchy in dest_dir.
+                 
+                 Unfortunately, ant's xslt task  can't tell (or be made to realise) that an xsl stylesheet might be manually outputting files using
+                 xsl:result-document. It assumes that each document passed to it will produce a single result document written to <xslt>/@destdir.
+                 This isn't a problem for the render phase of the process (msTeiTrans.xsl) since that's precisely what we want. However, for this 
+                 transformation, we end up with:
+                 a) the actual xsl:result-document that are written to dest_dir
+                 b) a series of empty .html documents written to <xslt>/@destdir. Normally, I'd have made @destdir point to /dev/null, but this
+                    causes errors because ant tries to replicate the folder hierarchy there and this causes an error. I therefore have forced these
+                    files to be written to junk.dir (defined above).
+                 
+                 None of this is new. It's how the transformation has always run. It's just that I felt the need to document it better now.
+            -->
+            <xslt destdir="${junk.dir}" style="../xslt/transcription/pagify.xsl" force="true" useimplicitfileset="false"  classpath="saxon/saxon-he-10.2.jar" reloadstylesheet="true">
+                <fileset refid="original_xml"/>
+                <factory name="net.sf.saxon.TransformerFactoryImpl">
+                    <attribute name="http://saxon.sf.net/feature/xinclude-aware"
+                        value="true"/>
+                </factory>
+                <param name="path_to_buildfile" expression="${buildfile.dir}"/>
+                <param name="dest_dir" expression="${chunk.dir}"/>
+                <param name="data_dir" expression="${data.dir}"/>
+                <param name="num_chunks" expression="8"/>
+            </xslt>
+
+            <delete dir="${junk.dir}" />
+            
+            <fileset id="chunk_xml" dir="${chunk.dir}" includes="**/*.xml" />
+
+            <xslt destdir="${junk.dir}" style="../xslt/transcription/pagify.xsl" force="true" useimplicitfileset="false"  classpath="saxon/saxon-he-10.2.jar" reloadstylesheet="true">
+                <fileset refid="chunk_xml"/>
+                <factory name="net.sf.saxon.TransformerFactoryImpl">
+                    <attribute name="http://saxon.sf.net/feature/xinclude-aware"
+                               value="true"/>
+                </factory>
+                <param name="path_to_buildfile" expression="${buildfile.dir}"/>
+                <param name="dest_dir" expression="${tmp.dir}"/>
+                <param name="data_dir" expression="${chunk.dir}"/>
+                <param name="num_chunks" expression="1"/>
+            </xslt>
+
+            <delete dir="${junk.dir}" />
+
+            <fileset id="page_files" dir="${tmp.dir}" includes="**/*.xml" />
+
+            <xslt destdir="${dist.dir}" style="../xslt/transcription/msTeiTrans.xsl" force="true" useimplicitfileset="false" extension=".html" classpath="saxon/saxon-he-10.2.jar" reloadstylesheet="true">
+                <fileset refid="page_files"/>
+                <factory name="net.sf.saxon.TransformerFactoryImpl">
+                    <attribute name="http://saxon.sf.net/feature/xinclude-aware"
+                        value="true"/>
+                </factory>
+            </xslt>
+
+            <copy todir="${dist.dir}">
+                <fileset dir="../xslt/transcription/web/">
+                </fileset>
+            </copy>
+
+            <delete dir="${chunk.dir}" />
+            <delete dir="${tmp.dir}" />
+            
+        </target>
+
+        <target name="TransformAll" depends="TransformFile" />
+    </project>

@@ -16,4 +16,21 @@ Required: Python3.8, AWS credentials configured for use.
 This script will zip up the xslt and uploads to s3.
 
 Once complete you can deploy the new version by editing the configuration in
-https://github.com/cambridge-collection/cudl-terraform  
+https://github.com/cambridge-collection/cudl-terraform
+
+## Building locally using ant:
+
+### Prereqs
+
+Install Ant
+
+### Link the data 
+
+Link a local checkout of the TEI data into the 'data' folder under the root level
+e.g.
+
+    ln -s ~/projects/cudl-data-source/data/items data
+
+### Building page extracts in dist
+
+```ant -noclasspath -buildfile ./bin/build.xml```
