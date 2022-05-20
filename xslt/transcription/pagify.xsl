@@ -48,9 +48,7 @@
                 </xsl:result-document>
             </xsl:when>
             <xsl:when test="util:chunkify-document($context)">
-                <!--<xsl:variable name="unique-pb-elems" select="//tei:pb[@facs = //tei:surface/concat('#',@xml:id)][util:has-valid-context(.)]"/>-->
                 <xsl:variable name="unique-pb-elems" select="//tei:pb[exists(key('surface-xmlid',@facs))][util:has-valid-context(.)]"/>
-                <!--<xsl:variable name="size_of_chunks" select="(count($unique_surface_elems) idiv $chunks, 2)[. != 0][1]"/>-->
                 <xsl:variable name="size_of_chunks" select="(count($unique-pb-elems) idiv $chunks, 2)[. != 0][1]"/>
                 <xsl:for-each-group select="$unique-pb-elems" group-by="string-join((ancestor::tei:div[@type='translation']/@type,string((position() -1) idiv $size_of_chunks)),'-')">
                     <xsl:variable name="current_surface_elems" select="key('surface-xmlid',current-group()/@facs)" as="item()*"/>
@@ -64,7 +62,6 @@
                     
                     <xsl:variable name="pbEnd_elem" select="key('pb-by-id',util:get-pb-elem($final-page-in-excerpt/@n, 'end', $context,$type), $context)[1]" as="item()*"/>
                     <xsl:variable name="final_node" select="if (not(empty($pbEnd_elem))) then $pbEnd_elem else ($context//node())[last()]" as="item()"/>
-                    <xsl:message select="concat('Chunk start/end:',string-join(($pbStart_elem/@facs,($final_node[self::tei:pb]/@facs,'End of document')[.!=''][1]),'-'))"/>
                     <xsl:if test="exists($pbStart_elem)">
                         <xsl:variable name="page_xml" as="item()*">
                             <xsl:apply-templates select="util:with-document-root(util:page-content($pbStart_elem,$final_node, $context))" mode="prune"/>
@@ -85,7 +82,6 @@
             <xsl:otherwise>
                 <!-- Paginate document -->
                 <xsl:for-each select="$unique_surface_elems">
-                    <xsl:message select="position()"/>
                     <xsl:variable name="position" select="position()"/>
                     <xsl:variable name="surface_elem" select="."/>
                     <xsl:variable name="surfaceID" select="@xml:id" as="xs:string*"/>
@@ -114,20 +110,12 @@
                             </xsl:for-each>
                         </xsl:when>
                         <xsl:otherwise>
-                            <xsl:message select="concat('Start: ',string($surface_elem/@xml:id))"/>
                             <xsl:for-each select="('',$matching_pb_elems/ancestor::tei:div[@type='translation']/@type)">
                                 <xsl:variable name="type" select="."/>
                                 <xsl:variable name="pbStart_elem" select="key('pb-by-id',util:get-pb-elem($matching_pb_elems[1]/@n, 'start', $context,$type), $context)[1]" as="item()*"/>
-                                <xsl:if test="util:chunkify-document($context)">
-                                    <xsl:message select="concat('END: ',$unique_surface_elems[position() = ( floor(count($unique_surface_elems) div $chunks) * $position, last())][1]/string(@xml:id))" />
-                                    <xsl:message select="key('pb-by-facs',$unique_surface_elems[position() = ( floor(count($unique_surface_elems) div $chunks) * $position, last())][1]/string(@xml:id), $context)/string(@n)"/>
-                                </xsl:if>
                                 <xsl:variable name="final-page-in-excerpt" select="if (util:chunkify-document($context) eq false()) then $pbStart_elem else key('pb-by-facs',$unique_surface_elems[position() = ( floor(count($unique_surface_elems) div $chunks) * $position, last())][1]/string(@xml:id), $context)[1]"/>
                                 <xsl:variable name="pbEnd_elem" select="key('pb-by-id',util:get-pb-elem($final-page-in-excerpt/@n, 'end', $context,$type), $context)[1]" as="item()*"/>
                                 <xsl:variable name="final_node" select="if (not(empty($pbEnd_elem))) then $pbEnd_elem else ($context//node())[last()]" as="item()"/>
-                                <xsl:if test="count($pbStart_elem) gt 1">
-                                    <xsl:message select="string-join($pbStart_elem/@xml:id,' ')"></xsl:message>
-                                </xsl:if>
                                 <xsl:if test="exists($pbStart_elem)">
                                     <xsl:variable name="page_xml" as="item()*">
                                         <xsl:apply-templates select="util:with-document-root(util:page-content($pbStart_elem,$final_node, $context))"  mode="prune"></xsl:apply-templates>
@@ -364,11 +352,6 @@
         <!-- The only @type value that's accepted into the filename 
              at this time is 'translation' -->
         <xsl:variable name="type_cleaned" select="$type[. = 'translation']" as="xs:string*"/>
-        
-        <xsl:message select="concat('Type: ',if (string($type_cleaned) = 'translation') then $type_cleaned else ($type_cleaned,$type,'transcription')[. != ''][1])"/>
-        <xsl:message select="concat('surfaceID: ',string($surfaceID))"/>
-        <xsl:message select="concat('Suppemental: ',string($supplemental))"/>
-        <xsl:message select="concat('Node root docuri: ',string(document-uri(root($node))))"/>
 
         <xsl:variable name="document-uri" select="document-uri(root($node))"/>
         <xsl:variable name="filename-root" select="replace(normalize-space(tokenize(document-uri(root($node)), '/')[last()]),'\..*$','')" as="xs:string"/>
@@ -376,7 +359,7 @@
         <xsl:variable name="output-filename" as="xs:string">
             <xsl:choose>
                 <xsl:when test="util:chunkify-document(root($node)/*) eq false() or root($node)//tei:div[tokenize(@decls,'\s+')='#unpaginated'] and $chunks = 1">
-                    <xsl:value-of select="concat(string-join(($filename-root,$surfaceID, $supplemental,$type_cleaned)[.!=''],'-'),'.xml')"/>
+                    <xsl:value-of select="concat(string-join(($filename-root,distinct-values(($surfaceID, $supplemental)),$type_cleaned)[.!=''],'-'),'.xml')"/>
                 </xsl:when>
                 <xsl:when test="root($node)//tei:div[tokenize(@decls,'\s+')='#unpaginated']">
                     <xsl:value-of select="concat($filename-root,'.xml')"/>
