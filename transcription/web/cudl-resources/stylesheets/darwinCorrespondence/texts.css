@@ -1,0 +1,23 @@
+body.dcp {font-family: Junicode; font-size:18px;}
+.dcp h1, .dcp h2, .dcp h3, .dcp h4, .dcp h5, .dcp h6, .dcp h7 {font-size:inherit;}
+
+.dcpBiblFooter {padding-top:0.5rem}
+.dcpBiblFooter>p, .dcpTitle>p {margin: 0.5rem 0;}
+
+.dcp .opener .placeName, .dcp .opener .date { 
+text-align:right;
+margin-top: 0;
+margin-bottom: 0;
+}
+
+.blockQuote, .dcp .blockIndent, .dcp .insetBlock {
+    margin-left: 3rem;
+}
+.blockQuote, .dcp .insetBlock {
+    margin-right:3rem;
+}
+
+.dcp .footnotes h5 {margin-top:0.5rem; margin-bottom:0.5rem;}
+.dcp .footnote {font-size:1rem;}
+
+.dcp .print { font-style: italic; }

@@ -1,0 +1,41 @@
+.transcription-credit { float: right; color:#999999; }
+body { background-color:#ffffff; font-family: Gentium, Times, Gentium Plus, Arial Unicode MS; }
+div#text { font-family: Gentium, Times, Gentium Plus, GFS Decker; background-color:#ffffff; font-size:1em; width:600px; }
+div#hyperlinks-top { width:620px;}
+h1 { font-family:Gentium, Times New Roman; color:darkRed; font-size:3em; float:left; display: inline; }
+h2 { font-family:Gentium, Times New Roman; font-size:1.5em; }
+h3 { font-family:Gentium, Times New Roman; font-size:1.3em; }
+span#logo { font-family:Gentium, Times New Roman; color:darkRed; font-size:3em; display: inline; float:left; }
+span#top { font-family:Gentium, Times New Roman; color:black; font-size:1.5em; display: inline; float:bottom; }
+p.menu { clear: both; }
+span.verse_number { color:grey;font-size:0.8em;float:right;margin: 0.2em 10px 0 5px;font-weight:bold;font-style:normal;}
+span.chapter_number {font-family:Gentium, Times New Roman;color:grey;font-size:0.8em;float:right;margin: 0.2em 30px 0 -120px;font-weight:bold;font-style:normal;}
+span.line_number {/*font-family:Gentium, Times New Roman;*/color:grey;font-size:0.8em;width:20px;float:left;vertical-align:text-bottom;margin: 0.2em 30px 0 3px;font-style:normal;}
+span.hang {text-align:left;margin: 0.2em 0 0 80px;}
+span.line {text-align:left;margin: 0.2em 0 0 100px;}
+span.line-key-heading {text-align:left;margin: 0.2em 0 0 -25px;}
+span.line-key {text-align:left;margin: 0.2em 0 0 -25px;}
+span.lineleftmargin {text-align:left;margin: 0.2em 0 0 -25px;}
+span.linerightmargin {text-align:right;margin: 0.2em -25px 0 0px;}
+span.indent {text-align:left;margin: 0.2em 0px 0 130px;}
+span.rightJust {text-align:right;margin-left:50%;}
+span.centerJustmargin {text-align:center;margin-left:13%;}
+span.centerJust {text-align:center;margin-left:30%;}
+span.column2 {text-align:left;position:absolute;left:350px;}
+span.hermeneia {color:black;margin-left:20%;}
+span.lect {color:purple;}
+span.pageNum {text-align:right;margin-left:50%;}
+span.runTitle {margin-left:100px;font-size:0.8em;}
+span.marginlineleft {font-size:0.8em; float:left; margin-right:-100px;}
+span.marginlineright {font-size:0.8em; float:right; margin-right:100px;}
+span.marginpage {/*line-height:60%;*/}
+span.pageheader {font-family:Gentium, Times New Roman;font-size:0.9em; color:grey; font-style:normal;}
+span.supplement { font-style:italic;}
+span.title {color:black;  font-size:1.3em;}
+span.supplied {color:red;}
+span.unclear { color:grey;}
+span.rubric {color:darkred;}
+span.original {color:green;}
+span.editorialnote {color:blue;position: relative; top: -0.5em; font-size: 80%;font-style:normal;}
+span.italic {font-style:italic;}
+

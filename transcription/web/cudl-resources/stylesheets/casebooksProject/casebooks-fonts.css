@@ -1,0 +1,28 @@
+@font-face {
+    font-family: 'Newton Sans';
+    src: url('../../fonts/NewtonSans.eot'); /* IE9 Compat Modes */
+    src: url('../../fonts/NewtonSans.eot?#iefix') format('embedded-opentype'), /* IE6-IE8 */
+    url('../../fonts/NewtonSans.woff') format('woff'), /* Modern Browsers */
+    url('../../fonts/NewtonSans.ttf')  format('truetype'), /* Safari, Android, iOS */
+    url('../../fonts/NewtonSans.svg#717182e6b3f6e418f2528d246568536f') format('svg'); /* Legacy iOS */
+    
+    font-style:   normal;
+    font-weight:  400;
+    }
+    @font-face {
+    font-family: 'Cardo';
+    src: url('../../fonts/Cardo104s.eot'); /* IE9 Compat Modes */
+    src: url('../../fonts/Cardo104s.eot?#iefix') format('embedded-opentype'), /* IE6-IE8 */
+    url('../../fonts/Cardo104s.woff') format('woff'), /* Modern Browsers */
+    url('../../fonts/Cardo104s.ttf')  format('truetype'), /* Safari, Android, iOS */
+    url('../../fonts/Cardo104s.svg#ca898a635a8375daa7bc3c1ed216ba43') format('svg'); /* Legacy iOS */
+    
+    font-style:   normal;
+    font-weight:  400;
+    }
+    
+.ns {font-family: "Newton Sans"}
+.cardo {font-family: 'Cardo', serif; }
+
+.casebooks .footnotes h4 {margin-top:0.5rem; margin-bottom:0.5rem;}
+.casebooks .footnote {font-size:0.95rem;}

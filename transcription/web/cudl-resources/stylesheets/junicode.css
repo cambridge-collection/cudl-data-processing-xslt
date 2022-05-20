@@ -1,0 +1,36 @@
+@font-face {
+    font-family: 'Junicode';
+    src: url("../fonts/Junicode.eot");
+    src: url("../fonts/Junicode.eot?#iefix") format("embedded-opentype"), url("../fonts/Junicode.woff") format("woff"), url("../fonts/Junicode.ttf") format("truetype"), url("../fonts/Junicode.svg#bcc2a169a734227a88d2dcb4adf531fd") format("svg");
+    font-style: normal;
+    font-weight: 400;
+    unicode-range: U+0000-0369, U+0400-1EFF, U+2000-FFFFF
+}
+@font-face {
+    font-family: 'Junicode';
+    src: url("../fonts/Junicode-Bold.eot");
+    src: url("../fonts/Junicode-Bold.eot?#iefix") format("embedded-opentype"), url("../fonts/Junicode-Bold.woff") format("woff"), url("../fonts/Junicode-Bold.ttf") format("truetype"), url("../fonts/Junicode-Bold.svg#a4a3a01371cff8e72df79cb557f6a57d") format("svg");
+    font-style: normal;
+    font-weight: 700;
+    unicode-range: U+0000-0369, U+0400-1EFF, U+2000-FFFFF
+}
+@font-face {
+    font-family: 'Junicode';
+    src: url("../fonts/Junicode-BoldItalic.eot");
+    src: url("../fonts/Junicode-BoldItalic.eot?#iefix") format("embedded-opentype"), url("../fonts/Junicode-BoldItalic.woff") format("woff"), url("../fonts/Junicode-BoldItalic.ttf") format("truetype"), url("../fonts/Junicode-BoldItalic.svg#f3502fc61f511459dbb2216b7fd7011f") format("svg");
+    font-style: italic;
+    font-weight: 700;
+    unicode-range: U+0000-0369, U+0400-1EFF, U+2000-FFFFF
+}
+@font-face {
+    font-family: 'Junicode';
+    src: url("../fonts/Junicode-Italic.eot");
+    src: url("../fonts/Junicode-Italic.eot?#iefix") format("embedded-opentype"), url("../fonts/Junicode-Italic.woff") format("woff"), url("../fonts/Junicode-Italic.ttf") format("truetype"), url("../fonts/Junicode-Italic.svg#5e709cef3c3a2fc2ffc49d7e9749cab5") format("svg");
+    font-style: italic;
+    font-weight: 400;
+    unicode-range: U+0000-0369, U+0400-1EFF, U+2000-FFFFFF
+}
+
+.junicode {font-family: Junicode;}
+
+body.junicode {font-size:18px;}

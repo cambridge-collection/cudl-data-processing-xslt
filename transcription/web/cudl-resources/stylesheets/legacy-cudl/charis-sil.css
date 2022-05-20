@@ -1,0 +1,33 @@
+@font-face
+{
+    font-family: CharisSIL;
+    src: url("../../fonts/CharisSIL-R.woff2") format("woff2"), url("../../fonts/CharisSIL-R.woff") format("woff"), url("../../fonts/CharisSIL-R.ttf") format("truetype");
+    font-style: normal;
+    font-weight: 400;
+}
+@font-face
+{
+    font-family: CharisSIL;
+    src:url("../../fonts/CharisSIL-B.woff2") format("woff2"),url("../../fonts/CharisSIL-B.woff") format("woff"),url("../../fonts/CharisSIL-B.ttf") format("truetype");
+    font-style: normal;
+    font-weight: 700;
+}
+@font-face
+{
+    font-family: CharisSIL;
+    font-style: italic;
+    src:url("../../fonts/CharisSIL-I.woff2") format("woff2"),url("../../fonts/CharisSIL-I.woff") format("woff"),url("../../fonts/CharisSIL-I.ttf") format("truetype");
+    font-style: italic;
+    font-weight: 400;
+}
+@font-face
+{
+    font-family: CharisSIL;
+    src:url("../../fonts/CharisSIL-BI.woff2") format("woff2"),url("../../fonts/CharisSIL-BI.woff") format("woff"),url("../../fonts/CharisSIL-BI.ttf") format("truetype");
+    font-style: italic;
+    font-weight: 700;
+}
+
+.charisSIL {
+    font-family: CharisSIL;
+}
