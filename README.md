@@ -33,4 +33,4 @@ e.g.
 
 ### Building page extracts in dist
 
-```ant -noclasspath -buildfile ./bin/build.xml```
+    ant -noclasspath -buildfile ./bin/build.xml
