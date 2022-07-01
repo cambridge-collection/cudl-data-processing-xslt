@@ -28,7 +28,7 @@
         </xsl:choose>
     </xsl:variable>
 
-    <xsl:variable name="unique_surface_elems" select="/*/tei:facsimile/tei:surface[not(@xml:id = preceding-sibling::tei:surface/@xml:id)]" as="item()*"/>
+    <xsl:variable name="surfaces_with_content" select="/*/tei:facsimile/tei:surface[not(@xml:id = preceding-sibling::tei:surface/@xml:id)][util:surface-has-content(.)]" as="item()*"/>
 
     <xsl:key name="pb-by-n" match="tei:pb" use="@n"/>
     <xsl:key name="pb-by-id" match="tei:pb" use="@xml:id"/>
@@ -81,7 +81,7 @@
             </xsl:when>
             <xsl:otherwise>
                 <!-- Paginate document -->
-                <xsl:for-each select="$unique_surface_elems">
+                <xsl:for-each select="$surfaces_with_content">
                     <xsl:variable name="position" select="position()"/>
                     <xsl:variable name="surface_elem" select="."/>
                     <xsl:variable name="surfaceID" select="@xml:id" as="xs:string*"/>
@@ -113,7 +113,7 @@
                             <xsl:for-each select="('',$matching_pb_elems/ancestor::tei:div[@type='translation']/@type)">
                                 <xsl:variable name="type" select="."/>
                                 <xsl:variable name="pbStart_elem" select="key('pb-by-id',util:get-pb-elem($matching_pb_elems[1]/@n, 'start', $context,$type), $context)[1]" as="item()*"/>
-                                <xsl:variable name="final-page-in-excerpt" select="if (util:chunkify-document($context) eq false()) then $pbStart_elem else key('pb-by-facs',$unique_surface_elems[position() = ( floor(count($unique_surface_elems) div $chunks) * $position, last())][1]/string(@xml:id), $context)[1]"/>
+                                <xsl:variable name="final-page-in-excerpt" select="if (util:chunkify-document($context) eq false()) then $pbStart_elem else key('pb-by-facs',$surfaces_with_content[position() = ( floor(count($surfaces_with_content) div $chunks) * $position, last())][1]/string(@xml:id), $context)[1]"/>
                                 <xsl:variable name="pbEnd_elem" select="key('pb-by-id',util:get-pb-elem($final-page-in-excerpt/@n, 'end', $context,$type), $context)[1]" as="item()*"/>
                                 <xsl:variable name="final_node" select="if (not(empty($pbEnd_elem))) then $pbEnd_elem else ($context//node())[last()]" as="item()"/>
                                 <xsl:if test="exists($pbStart_elem)">
@@ -335,6 +335,30 @@
                                   (for $span in $preceding-add-spans return $span/@spanTo),
                                   root($context))[. >> $context]"/>
         <xsl:sequence select="boolean($span-ends)"/>
+    </xsl:function>
+    
+    <xsl:function name="util:surface-has-content" as="xs:boolean">
+        <!-- The purpose of this test is to exclude surface elements that don't need to be processed
+             from the expensive iteration and pagination process that occurs later.
+             
+             For the purposes of this text, a surface needs to be procesed if:
+             * it is within a div[@decls='#unpaginated']
+             OR
+             * the first non-whitespace only/comment node after the pb/@facs pointing to that surface 
+               is anything but a pb
+             OR
+             * the pb/@facs pointing to it is the last pb in the document
+        -->
+        <xsl:param name="surface_elem"/>
+        
+        <xsl:variable name="facs" select="concat('#',$surface_elem/@xml:id)"/>
+        
+        <xsl:sequence select="exists(key('pb-with-valid-context-by-facs',$facs, $surface_elem/ancestor::*[last()])
+            [
+            ancestor::tei:div[tokenize(@decls,'\s+')='#unpaginated']
+            or exists((following::node()[not(self::comment()|self::text()[not(normalize-space(.))])])[1][not(self::tei:pb)])
+            or . is (//tei:pb)[last()]
+            ])"/>
     </xsl:function>
 
     <xsl:function name="util:document-has-textual-content" as="xs:boolean">
