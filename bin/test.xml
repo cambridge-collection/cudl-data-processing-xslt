@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+    <project name="test" default="full">
+        <taskdef resource="net/sf/antcontrib/antlib.xml"/>
+        
+        <import file="build.xml" as="nesting" />
+        
+        <target name="full" depends="transcripts,json,tests-only"/>
+        
+        <target name="tests-only">
+            <property name="tmp.dir" value="../tmp"/><!-- directory containing dumps of the json information and existing html files-->
+            
+            <delete dir="${tmp.dir}" />
+            <delete file="../test.log"/>
+            
+            <mkdir dir="${tmp.dir}"/>
+            
+            <xslt out="${tmp.dir}/json-dump.xml" in="test-xslt/dump-json.xsl" style="test-xslt/dump-json.xsl" force="true" useimplicitfileset="false" classpath="saxon/saxon-he-10.2.jar" reloadstylesheet="true">
+                <fileset refid="original_xml"/>
+                <factory name="net.sf.saxon.TransformerFactoryImpl">
+                    <attribute name="http://saxon.sf.net/feature/xinclude-aware"
+                        value="true"/>
+                </factory>
+            </xslt>
+            
+            <xslt out="${tmp.dir}/html-dump.xml" in="test-xslt/dump-html.xsl" style="test-xslt/dump-html.xsl" force="true" useimplicitfileset="false" classpath="saxon/saxon-he-10.2.jar" reloadstylesheet="true">
+                <fileset refid="original_xml"/>
+                <factory name="net.sf.saxon.TransformerFactoryImpl">
+                    <attribute name="http://saxon.sf.net/feature/xinclude-aware"
+                        value="true"/>
+                </factory>
+            </xslt>
+            
+            <xslt out="../test.log" in="test-xslt/main.xsl" style="test-xslt/main.xsl" force="true" useimplicitfileset="false" classpath="saxon/saxon-he-10.2.jar" reloadstylesheet="true">
+                <fileset refid="original_xml"/>
+                <factory name="net.sf.saxon.TransformerFactoryImpl">
+                    <attribute name="http://saxon.sf.net/feature/xinclude-aware"
+                        value="true"/>
+                </factory>
+            </xslt>
+            
+            <delete dir="${tmp.dir}" />
+        </target>
+
+    </project>
