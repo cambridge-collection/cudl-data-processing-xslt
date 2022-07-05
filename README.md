@@ -47,14 +47,18 @@ To only build json use:
     
 ### Tests
 
-To test that all links to transcripts resolve to an existing html page transcription and that all html page transcriptions are pointed to by links in the json use:
+The test suite checks that:
+
+- each JSON file is syntactically valid
+- links to transcripts within the JSON resolve to an existing html file 
+- each html file is pointed to by links within the JSON
+
+Run the tests locally using:
 
     ant -noclasspath -buildfile bin/test.xml
     
-This command will initiate a full build of both the transcripts and json. If you have already built the transcripts and json and wish to run the tests, use:
+This command initiates a full build of the transcripts and json before running the tests. If you have already built the transcripts and json and wish only to run the tests, use:
 
-    ant -noclasspath -buildfile bin/build.xml "json"
+    ant -noclasspath -buildfile bin/build.xml "tests-only"
     
 The results of the test are written to ./test.log
-    
-**NB:** The test will currently crash in the presence of a syntactically invalid json file. This will be rectified shortly.
