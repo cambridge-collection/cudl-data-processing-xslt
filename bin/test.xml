@@ -38,7 +38,7 @@
                 </factory>
             </xslt>
             
-            <delete dir="${tmp.dir}" />
+            <delete dir="${tmp.dir}" failonerror="no" />
         </target>
 
     </project>

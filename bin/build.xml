@@ -120,6 +120,8 @@
                         value="true"/>
                 </factory>
             </xslt>
+            
+            <delete dir="${xtf.dir}" failonerror="no" />
         </target>
 
         <target name="all" depends="transcripts,json" />
