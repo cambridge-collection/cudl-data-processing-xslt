@@ -1,13 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
-    <project name="TranformXml" default="TransformAll">
+    <project name="TranformXml" default="transcripts">
+        <dirname property="buildfile.dir" file="${ant.file}"/>
+
+        <property name="data.dir"  value="../data"/><!-- Souce of the original data files -->
+
         <taskdef resource="net/sf/antcontrib/antlib.xml"/>
-        <target name="TransformFile">
-            <dirname property="buildfile.dir" file="${ant.file}"/>
+        
+        <target name="transcripts">
+            <echo message="Generating page transcriptions"/>
+
             <property name="tmp.dir"  value="../tmp"/><!-- Target directory for the TEI XML page extract files -->
-            <property name="dist.dir"  value="../dist"/><!-- Target directory for the final html rendered pages -->
             <property name="chunk.dir"  value="../chunk"/><!-- Chunk directory: target of the chunking process; source of data for the pagify process -->
-            <property name="data.dir"  value="../data"/><!-- Souce of the original data files -->
             <property name="junk.dir"  value="../delete-me"/><!-- Destination directory for empty junk files created by ant's xslt task when running pagify.xsl -->
+            <property name="dist.dir"  value="../dist"/><!-- Target directory for the final html rendered pages -->
             
             <delete dir="${chunk.dir}" />
             <delete dir="${dist.dir}" />
@@ -79,10 +84,45 @@
                 </fileset>
             </copy>
 
-            <delete dir="${chunk.dir}" />
-            <delete dir="${tmp.dir}" />
+            <delete dir="${chunk.dir}" failonerror="no" />
+            <delete dir="${tmp.dir}" failonerror="no" />
             
         </target>
+        
+        <target name="json">
+            <echo message="Generating json files"/>
 
-        <target name="TransformAll" depends="TransformFile" />
+            <property name="xtf.dir"  value="../tmp/xtf"/><!-- target of the xtf indexing results. Source for json xslt -->
+            <property name="json.dir"  value="../json"/><!-- Destination dir for json xslt -->
+            
+            <delete dir="${xtf.dir}" />
+            <delete dir="${json.dir}"/>
+            
+            <mkdir dir="${xtf.dir}"/>
+            <mkdir dir="${json.dir}"/>
+            
+            <fileset id="original_xml" dir="${data.dir}" includes="**/*.xml" />
+            
+            <xslt destdir="${xtf.dir}" style="../xslt/msTeiPreFilter.xsl" force="true" useimplicitfileset="false" extension=".xml"  classpath="saxon/saxon-he-10.2.jar" reloadstylesheet="true">
+                <fileset refid="original_xml"/>
+                <factory name="net.sf.saxon.TransformerFactoryImpl">
+                    <attribute name="http://saxon.sf.net/feature/xinclude-aware"
+                        value="true"/>
+                </factory>
+            </xslt>
+            
+            <fileset id="indexed_files" dir="${xtf.dir}" includes="**/*.xml" />
+            
+            <xslt destdir="${json.dir}" style="../xslt/jsonDocFormatter.xsl" force="true" useimplicitfileset="false" extension=".json"  classpath="saxon/saxon-he-10.2.jar" reloadstylesheet="true">
+                <fileset refid="indexed_files"/>
+                <factory name="net.sf.saxon.TransformerFactoryImpl">
+                    <attribute name="http://saxon.sf.net/feature/xinclude-aware"
+                        value="true"/>
+                </factory>
+            </xslt>
+            
+            <delete dir="${xtf.dir}" failonerror="no" />
+        </target>
+
+        <target name="all" depends="transcripts,json" />
     </project>
