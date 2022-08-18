@@ -1,6 +1,9 @@
 /delete-me/
 /chunk/
 /dist/
+/json/
 /tmp/
 /data/
 /venv/
+
+./test-log

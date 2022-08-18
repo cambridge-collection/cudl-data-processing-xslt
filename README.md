@@ -33,4 +33,32 @@ e.g.
 
 ### Building page extracts in dist
 
+Page transcripts and json can be built locally using:
+
     ant -noclasspath -buildfile ./bin/build.xml
+    
+To only build transcripts use:
+
+    ant -noclasspath -buildfile ./bin/build.xml "transcripts"
+
+To only build json use:
+
+    ant -noclasspath -buildfile ./bin/build.xml "json"
+    
+### Tests
+
+The test suite checks that:
+
+- each JSON file is syntactically valid
+- links to transcripts within the JSON resolve to an existing html file 
+- each html file is pointed to by links within the JSON
+
+Run the tests locally using:
+
+    ant -noclasspath -buildfile bin/test.xml
+    
+This command initiates a full build of the transcripts and json before running the tests. If you have already built the transcripts and json and wish only to run the tests, use:
+
+    ant -noclasspath -buildfile bin/build.xml "tests-only"
+    
+The results of the test are written to ./test.log
