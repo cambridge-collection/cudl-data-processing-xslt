@@ -22,6 +22,7 @@
    <xsl:include href="project-specific/newton.xsl"/>
    <xsl:include href="project-specific/casebooks.xsl"/>
    <xsl:include href="project-specific/darwinCorrespondence.xsl"/>
+   <xsl:include href="project-specific/bezae.xsl"/>
    
    <xsl:variable name="project_name" select="cudl:determine-project(/*)" as="xs:string"/>
    <xsl:variable name="project_className" select="cudl:get-project-abbreviation(/*)" as="xs:string"/>
@@ -64,6 +65,10 @@
                <xsl:when test="$project_name=('casebooks project')">
                   <link href="/cudl-resources/stylesheets/casebooksProject/casebooks-fonts.css" rel="stylesheet" type="text/css"/>
                </xsl:when>
+                <xsl:when test="$project_name=('igntp')">
+                    <link href="/cudl-resources/stylesheets/GFSDecker.css" rel="stylesheet" type="text/css"/>
+                    <link href="/cudl-resources/stylesheets/igntp/texts.css" rel="stylesheet" type="text/css"/>
+                </xsl:when>
             </xsl:choose>
          </head>
          
@@ -96,6 +101,10 @@
                   </a>
                </p>
             </xsl:when>
+             <xsl:when test="$project_name = 'igntp'">
+                 <div class="transcription-credit">Transcription by <a target="_blank"
+                     href="http://www.igntp.org/bezae.html">IGNTP</a></div>
+             </xsl:when>
             <xsl:otherwise>
                <p class="pagenum">
                   <xsl:text>&lt;</xsl:text>

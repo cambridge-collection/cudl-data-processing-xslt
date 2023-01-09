@@ -963,7 +963,7 @@
   </xsl:template>
   
   <xsl:template name="endnote">
-    <xsl:if test="exists(//tei:anchor[key('note-target', concat('#', @xml:id))] | //tei:text//tei:note[not(@target)])">
+      <xsl:if test="exists(//tei:anchor[key('note-target', concat('#', @xml:id))] | //tei:text//tei:note[not(@target)][not($project_name = 'igntp')])">
       <div class="footnotes">
         <h4><strong>Notes:</strong></h4>
         <xsl:apply-templates select="//tei:anchor[key('note-target', concat('#', @xml:id))] |
