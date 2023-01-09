@@ -461,7 +461,7 @@
         <xsl:when test="@reason = 'omitted'">
           <xsl:text>Text is illegible because it is omitted</xsl:text>
         </xsl:when>
-        <xsl:when test="@reason = ('illigble','illbgl')">
+        <xsl:when test="@reason = ('illegible','illbgl')">
           <xsl:text>Text is illegible</xsl:text>
         </xsl:when>
         <xsl:when test="@reason = 'bleedthrough'">
