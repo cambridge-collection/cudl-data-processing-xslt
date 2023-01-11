@@ -7,6 +7,12 @@ IT IS IMPORTANT THAT THE DIRECTORY STRUCTURE IS PRESERVED as this is referenced 
 
 ## Publishing the new XSLT 
 
+First ensure that you have committed and pushed any changed to git.
+
+Then install the required modules:
+
+    pip install -r requirements.txt
+
 To publish the version to s3 run the following script
 
 Required: Python3.8, AWS credentials configured for use.
