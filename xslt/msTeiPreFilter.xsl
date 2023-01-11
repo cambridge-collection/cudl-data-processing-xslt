@@ -765,7 +765,7 @@
       <startPageLabel>
 
          <xsl:choose>
-            <xsl:when test="normalize-space(//*:facsimile/*:surface[1]/@n)">
+            <xsl:when test="//*:facsimile/*:surface[1][normalize-space(@n)]">
                <xsl:value-of select="//*:facsimile/*:surface[1]/@n"/>
             </xsl:when>
             <xsl:otherwise>
@@ -800,12 +800,12 @@
       <xsl:variable name="startPageLabel">
          <!--should always be a locus attached to an msItem - but defaults to first page if none present-->
          <xsl:choose>
-            <xsl:when test="*:msContents/*:msItem[1]/*:locus/@from">
-               <xsl:value-of select="normalize-space(*:msContents/*:msItem[1]/*:locus/@from)"/>
+            <xsl:when test="*:msContents/*:msItem[1]/*:locus[1]/@from">
+               <xsl:value-of select="*:msContents/*:msItem[1]/*:locus[1]/normalize-space(@from)"/>
 
             </xsl:when>
             <xsl:when test="//*:facsimile/*:surface[1]/@n">
-               <xsl:value-of select="normalize-space(//*:facsimile/*:surface[1]/@n)"/>
+               <xsl:value-of select="//*:facsimile/*:surface[1]/normalize-space(@n)"/>
 
             </xsl:when>
             <xsl:otherwise>
@@ -4184,8 +4184,8 @@
 
          <xsl:variable name="startPageLabel">
             <xsl:choose>
-               <xsl:when test="*:msContents/*:msItem[1]/*:locus/@from">
-                  <xsl:value-of select="normalize-space(*:msContents/*:msItem[1]/*:locus/@from)"/>
+               <xsl:when test="*:msContents/*:msItem[1]/*:locus[1][normalize-space(@from)]">
+                  <xsl:value-of select="*:msContents/*:msItem[1]/*:locus[1]/normalize-space(@from)"/>
                </xsl:when>
                <xsl:otherwise>
 
@@ -4238,24 +4238,23 @@
 
 
          <xsl:variable name="endPageLabel">
-            <xsl:choose>
-               <xsl:when test="*:msContents/*:msItem[last()]/*:locus/@to">
-                  <xsl:value-of select="normalize-space(*:msContents/*:msItem[last()]/*:locus/@to)"
-                  />
-               </xsl:when>
-               <xsl:otherwise>
-
-                  <xsl:choose>
-                     <xsl:when test="//*:facsimile/*:surface">
-                        <xsl:value-of select="//*:facsimile/*:surface[last()]/@n"/>
-                     </xsl:when>
-                     <xsl:otherwise>
-                        <xsl:text>cover</xsl:text>
-                     </xsl:otherwise>
-                  </xsl:choose>
-
-               </xsl:otherwise>
-            </xsl:choose>
+             <xsl:choose>
+                 <xsl:when test="*:msContents/*:msItem[last()]/*:locus[1][normalize-space(@to)]">
+                     <xsl:value-of select="*:msContents/*:msItem[last()]/*:locus[1]/normalize-space(@to)"/>
+                 </xsl:when>
+                 <xsl:otherwise>
+                     
+                     <xsl:choose>
+                         <xsl:when test="//*:facsimile/*:surface">
+                             <xsl:value-of select="//*:facsimile/*:surface[last()]/@n"/>
+                         </xsl:when>
+                         <xsl:otherwise>
+                             <xsl:text>cover</xsl:text>
+                         </xsl:otherwise>
+                     </xsl:choose>
+                     
+                 </xsl:otherwise>
+             </xsl:choose>
          </xsl:variable>
 
          <endPageLabel>
@@ -4367,8 +4366,8 @@
 
          <xsl:variable name="startPageLabel">
             <xsl:choose>
-               <xsl:when test="*:locus/@from">
-                  <xsl:value-of select="normalize-space(*:locus/@from)"/>
+               <xsl:when test="*:locus[normalize-space(@from)]">
+                  <xsl:value-of select="*:locus[1]/normalize-space(@from)"/>
                </xsl:when>
                <xsl:otherwise>
 
@@ -4423,7 +4422,7 @@
          <xsl:variable name="endPageLabel">
             <xsl:choose>
                <xsl:when test="*:locus/@to">
-                  <xsl:value-of select="normalize-space(*:locus/@to)"/>
+                  <xsl:value-of select="*:locus[1]/normalize-space(@to)"/>
                </xsl:when>
                <xsl:otherwise>
 
@@ -4898,11 +4897,15 @@
 
 
       <xsl:variable name="page">
-
+          <!-- NB: It's necessary to add the root function onto the following
+                   expressions otherwise it won't be able to find the document 
+                   root. This is due to have content running in mode="html"
+                   is used in other templates
+          -->
          <xsl:choose>
-            <xsl:when test="//*:facsimile/*:surface">
+            <xsl:when test="root(.)//*:facsimile/*:surface">
 
-               <xsl:for-each select="//*:facsimile/*:surface">
+                <xsl:for-each select="root(.)//*:facsimile/*:surface">
                   <xsl:if test="@n = $from">
                      <xsl:value-of select="position()"/>
                   </xsl:if>
