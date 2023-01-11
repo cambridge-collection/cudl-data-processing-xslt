@@ -21,6 +21,12 @@ Required: Python3.8, AWS credentials configured for use.
 
 This script will zip up the xslt and uploads to s3.
 
+Once done remember the commit the new version with
+
+    git add VERSION
+    git commit -m "Releasing new version"
+    git push
+
 Once complete you can deploy the new version by editing the configuration in
 https://github.com/cambridge-collection/cudl-terraform
 
