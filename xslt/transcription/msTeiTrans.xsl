@@ -49,7 +49,7 @@
                 <xsl:value-of select="concat('Folio ', $requested_pb/@n)"/>
             </title>
             <xsl:if test="$use_legacy_display eq true()">
-               <link href="/cudl-resources/legacy-cudl/charis-sil.css" rel="stylesheet" type="text/css"/>
+               <link href="/cudl-resources/stylesheets/legacy-cudl/charis-sil.css" rel="stylesheet" type="text/css"/>
             </xsl:if>
             <xsl:if test="$use_junicode eq true()">
                <link href="/cudl-resources/stylesheets/junicode.css" rel="stylesheet" type="text/css"/>
@@ -65,10 +65,10 @@
                <xsl:when test="$project_name=('casebooks project')">
                   <link href="/cudl-resources/stylesheets/casebooksProject/casebooks-fonts.css" rel="stylesheet" type="text/css"/>
                </xsl:when>
-                <xsl:when test="$project_name=('igntp')">
-                    <link href="/cudl-resources/stylesheets/GFSDecker.css" rel="stylesheet" type="text/css"/>
-                    <link href="/cudl-resources/stylesheets/igntp/texts.css" rel="stylesheet" type="text/css"/>
-                </xsl:when>
+               <xsl:when test="$project_name=('igntp')">
+                  <link href="/cudl-resources/stylesheets/GFSDecker.css" rel="stylesheet" type="text/css"/>
+                  <link href="/cudl-resources/stylesheets/igntp/texts.css" rel="stylesheet" type="text/css"/>
+               </xsl:when>
             </xsl:choose>
          </head>
          
