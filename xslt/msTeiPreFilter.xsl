@@ -3761,7 +3761,7 @@
       <xsl:param name="label"/>
       <xsl:param name="type" as="xsd:string*"/>
       <xsl:choose>
-         <xsl:when test="$isLast = 'true' and count(following-sibling::*) = 0"/>
+         <xsl:when test="$isLast = 'true' and count(following::*) = 0"/>
          <!--when there's no content between here and the next pb element do nothing-->
           <xsl:when test="not(key('surfaceIDs', $current_pb/@facs))">
               <xsl:message select="concat('ERROR: ', $current_filename, ' has invalid pb/@facs or surface/@xml:id: ''', $current_pb/@facs, '''')"/>
