@@ -14,10 +14,18 @@
             <property name="junk.dir"  value="../delete-me"/><!-- Destination directory for empty junk files created by ant's xslt task when running pagify.xsl -->
             <property name="dist.dir"  value="../dist"/><!-- Target directory for the final html rendered pages -->
             
-            <delete dir="${chunk.dir}" />
-            <delete dir="${dist.dir}" />
-            <delete dir="${junk.dir}" />
-            <delete dir="${tmp.dir}" />
+            <retry retrycount="6">
+                <delete dir="${chunk.dir}" />
+            </retry>
+            <retry retrycount="6">
+                <delete dir="${dist.dir}" />
+            </retry>
+            <retry retrycount="6">
+                <delete dir="${junk.dir}" />
+            </retry>
+            <retry retrycount="6">
+                <delete dir="${tmp.dir}" />
+            </retry>
 
             <mkdir dir="${chunk.dir}"/>
             <mkdir dir="${dist.dir}"/>
@@ -51,7 +59,9 @@
                 <param name="num_chunks" expression="8"/>
             </xslt>
 
-            <delete dir="${junk.dir}" />
+            <retry retrycount="6">
+                <delete dir="${junk.dir}" />
+            </retry>
             
             <fileset id="chunk_xml" dir="${chunk.dir}" includes="**/*.xml" />
 
@@ -67,7 +77,9 @@
                 <param name="num_chunks" expression="1"/>
             </xslt>
 
-            <delete dir="${junk.dir}" />
+            <retry retrycount="6">
+                <delete dir="${junk.dir}" />
+            </retry>
 
             <fileset id="page_files" dir="${tmp.dir}" includes="**/*.xml" />
 
@@ -84,8 +96,12 @@
                 </fileset>
             </copy>
 
-            <delete dir="${chunk.dir}" failonerror="no" />
-            <delete dir="${tmp.dir}" failonerror="no" />
+            <retry retrycount="6">
+                <delete dir="${chunk.dir}" failonerror="no" />
+            </retry>
+            <retry retrycount="6">
+                <delete dir="${tmp.dir}" failonerror="no" />
+            </retry>
             
         </target>
         
@@ -95,8 +111,12 @@
             <property name="xtf.dir"  value="../tmp/xtf"/><!-- target of the xtf indexing results. Source for json xslt -->
             <property name="json.dir"  value="../json"/><!-- Destination dir for json xslt -->
             
-            <delete dir="${xtf.dir}" />
-            <delete dir="${json.dir}"/>
+            <retry retrycount="6">
+                <delete dir="${xtf.dir}" failonerror="no" />
+            </retry>
+            <retry retrycount="6">
+                <delete dir="${json.dir}" failonerror="no" />
+            </retry>
             
             <mkdir dir="${xtf.dir}"/>
             <mkdir dir="${json.dir}"/>
@@ -121,7 +141,9 @@
                 </factory>
             </xslt>
             
-            <delete dir="${xtf.dir}" failonerror="no" />
+            <retry retrycount="6">
+                <delete dir="${xtf.dir}" failonerror="no" />
+            </retry>
         </target>
 
         <target name="all" depends="transcripts,json" />
