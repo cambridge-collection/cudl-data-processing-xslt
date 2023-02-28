@@ -89,6 +89,7 @@
       
    </xsl:variable>
    
+    <xsl:variable name="current_filename" select="replace(normalize-space(tokenize(document-uri(root(/)), '/')[last()]),'\..*$','')"/>
    
    <!-- ====================================================================== -->
    <!-- Root Template                                                          -->
@@ -290,6 +291,7 @@
    <xsl:strip-space elements="*"/>
 
    <xsl:key name="surfaceIDs" match="//tei:surface" use="(@xml:id, concat('#',@xml:id))"/>
+   <xsl:key name="surfaceNs" match="//tei:surface" use="normalize-space(@n)"/>
 
    <!-- ====================================================================== -->
    <!-- Metadata Indexing                                                      -->
@@ -824,13 +826,8 @@
       <xsl:variable name="startPage">
 
          <xsl:choose>
-            <xsl:when test="//*:facsimile/*:surface[@n=$startPageLabel]">
-               <xsl:for-each select="//*:facsimile/*:surface">
-                  <xsl:if test="@n = $startPageLabel">
-                     <xsl:value-of select="position()"/>
-                  </xsl:if>
-               </xsl:for-each>
-
+             <xsl:when test="key('surfaceNs', $startPageLabel)">
+                <xsl:apply-templates select="key('surfaceNs', $startPageLabel)" mode="count"/>
             </xsl:when>
             <xsl:otherwise>
                <xsl:text>cover</xsl:text>
@@ -891,13 +888,8 @@
       <xsl:variable name="startPage">
 
          <xsl:choose>
-            <xsl:when test="//*:facsimile/*:surface[@n=$startPageLabel]">
-               <xsl:for-each select="//*:facsimile/*:surface">
-                  <xsl:if test="@n = $startPageLabel">
-                     <xsl:value-of select="position()"/>
-                  </xsl:if>
-               </xsl:for-each>
-
+             <xsl:when test="key('surfaceNs', $startPageLabel)">
+                <xsl:apply-templates select="key('surfaceNs', $startPageLabel)" mode="count"/>
             </xsl:when>
             <xsl:otherwise>
                <xsl:text>cover</xsl:text>
@@ -3771,6 +3763,9 @@
       <xsl:choose>
          <xsl:when test="$isLast = 'true' and count(following-sibling::*) = 0"/>
          <!--when there's no content between here and the next pb element do nothing-->
+          <xsl:when test="not(key('surfaceIDs', $current_pb/@facs))">
+              <xsl:message select="concat('ERROR: ', $current_filename, ' has invalid pb/@facs or surface/@xml:id: ''', $current_pb/@facs, '''')"/>
+          </xsl:when>
          <xsl:when
             test="local-name(following-sibling::*[1]) = 'pb' and not(ancestor::tei:div[tokenize(normalize-space(@decls), '\s+')[. = '#unpaginated']])"/>
          <xsl:otherwise>
@@ -3834,12 +3829,8 @@
                <xsl:variable name="startPagePosition">
 
                   <xsl:choose>
-                     <xsl:when test="//*:facsimile/*:surface">
-                        <xsl:for-each select="//*:facsimile/*:surface">
-                           <xsl:if test="@n = $startPageLabel">
-                              <xsl:value-of select="position()"/>
-                           </xsl:if>
-                        </xsl:for-each>
+                      <xsl:when test="key('surfaceNs', $startPageLabel)">
+                         <xsl:apply-templates select="key('surfaceNs', $startPageLabel)" mode="count"/>
                         <!--<xsl:variable name="xmlid" select="//*:facsimile/*:surface[@n=$startPageLabel]/@xml:id"/>
                         <xsl:value-of select="substring-after($xmlid, 'i')"></xsl:value-of>-->
                      </xsl:when>
@@ -4212,12 +4203,8 @@
 
 
             <xsl:choose>
-               <xsl:when test="//*:facsimile/*:surface">
-                  <xsl:for-each select="//*:facsimile/*:surface">
-                     <xsl:if test="@n = $startPageLabel">
-                        <xsl:value-of select="position()"/>
-                     </xsl:if>
-                  </xsl:for-each>
+                <xsl:when test="key('surfaceNs', $startPageLabel)">
+                   <xsl:apply-templates select="key('surfaceNs', $startPageLabel)" mode="count"/>
                </xsl:when>
                <xsl:otherwise>
                   <xsl:text>1</xsl:text>
@@ -4264,13 +4251,8 @@
          <endPagePosition>
 
             <xsl:choose>
-               <xsl:when test="//*:facsimile/*:surface">
-                  <xsl:for-each select="//*:facsimile/*:surface">
-                     <xsl:if test="@n = $endPageLabel">
-                        <xsl:value-of select="position()"/>
-                     </xsl:if>
-                  </xsl:for-each>
-
+                <xsl:when test="key('surfaceNs', $endPageLabel)">
+                   <xsl:apply-templates select="key('surfaceNs', $endPageLabel)" mode="count"/>
                </xsl:when>
                <xsl:otherwise>
                   <xsl:text>1</xsl:text>
@@ -4394,14 +4376,11 @@
 
 
             <xsl:choose>
-               <xsl:when test="//*:facsimile/*:surface">
-                  <xsl:for-each select="//*:facsimile/*:surface">
-                     <xsl:if test="@n = $startPageLabel">
-                        <xsl:value-of select="position()"/>
-                     </xsl:if>
-                  </xsl:for-each>
+               <xsl:when test="key('surfaceNs', $startPageLabel)">
+                   <xsl:apply-templates select="key('surfaceNs', $startPageLabel)" mode="count"/>
                </xsl:when>
                <xsl:otherwise>
+                   <xsl:message select="concat('ERROR: ', $current_filename, ' has invalid locus/@from or surface/@n value: ''', $startPageLabel, '''')"/>
                   <xsl:text>1</xsl:text>
                </xsl:otherwise>
             </xsl:choose>
@@ -4446,15 +4425,11 @@
          <endPagePosition>
 
             <xsl:choose>
-               <xsl:when test="//*:facsimile/*:surface">
-                  <xsl:for-each select="//*:facsimile/*:surface">
-                     <xsl:if test="@n = $endPageLabel">
-                        <xsl:value-of select="position()"/>
-                     </xsl:if>
-                  </xsl:for-each>
-
-               </xsl:when>
+                <xsl:when test="key('surfaceNs', $endPageLabel)">
+                    <xsl:apply-templates select="key('surfaceNs', $endPageLabel)" mode="count"/>
+                </xsl:when>
                <xsl:otherwise>
+                   <xsl:message select="concat('ERROR: ', $current_filename, ' has invalid locus/@to or surface/@n value: ''', $endPageLabel, '''')"/>
                   <xsl:text>1</xsl:text>
                </xsl:otherwise>
             </xsl:choose>
@@ -4903,15 +4878,8 @@
                    is used in other templates
           -->
          <xsl:choose>
-            <xsl:when test="root(.)//*:facsimile/*:surface">
-
-                <xsl:for-each select="root(.)//*:facsimile/*:surface">
-                  <xsl:if test="@n = $from">
-                     <xsl:value-of select="position()"/>
-                  </xsl:if>
-               </xsl:for-each>
-
-
+            <xsl:when test="key('surfaceNs', $from, root(.))">
+                <xsl:apply-templates select="key('surfaceNs', $from, root(.))" mode="count"/>
             </xsl:when>
             <xsl:otherwise>
                <xsl:text>1</xsl:text>
@@ -6384,6 +6352,10 @@
       <xsl:sequence select="exists($node[normalize-space(.) or self::tei:graphic or self::tei:gap])"
       />
    </xsl:function>
+
+    <xsl:template match="tei:surface" mode="count">
+        <xsl:number count="//tei:facsimile/tei:surface" level="any"/>
+    </xsl:template>
 
 
    <!--SIMILARITY STUFF - DITCH?-->
