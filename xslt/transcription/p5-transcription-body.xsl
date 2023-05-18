@@ -99,7 +99,7 @@
   <!-- This template is explicitly only numbering paragraphs that occur within tei:text
        and which are NOT contained within notes
   -->
-  <xsl:template match="tei:text//tei:p|tei:text//tei:ab[@type='p']|tei:text//tei:ab[not(@type)][not(cudl:is-in-block(.))]" mode="#all">
+  <xsl:template match="tei:text//tei:p|tei:text//tei:ab[@type='p']|tei:text//tei:ab[not(@type) or not(normalize-space(@type))][not(cudl:is-in-block(.))]" mode="#all">
     <xsl:variable name="elem_name" as="xs:string">
       <xsl:choose>
         <xsl:when test="descendant::tei:cell[@rows|@cols]">
@@ -111,8 +111,15 @@
       </xsl:choose>
     </xsl:variable>
     <xsl:variable name="paraAnchor">
-      <xsl:text>para</xsl:text>
+      <xsl:choose>
+        <xsl:when test="normalize-space(@facs) != ''">
+          <xsl:value-of select="replace(normalize-space(@facs),'^#', '')"/>
+        </xsl:when>
+        <xsl:otherwise>
+        <xsl:text>para</xsl:text>
       <xsl:number format="1" level="any" count="tei:text//tei:p[not(ancestor::tei:note)]|tei:text//tei:ab[@type='p'][not(ancestor::tei:note)]|tei:text//tei:ab[not(@type)][not(cudl:is-in-block(.))][not(ancestor::tei:note)]"/>
+        </xsl:otherwise>
+      </xsl:choose>
     </xsl:variable>
     <xsl:choose>
       <xsl:when test="cudl:elem-empty-in-normalised-view(current())"/>
@@ -125,6 +132,7 @@
             </xsl:call-template>
           </xsl:if>
           <xsl:attribute name="class" select="string-join(('paragraph', cudl:rendPara(normalize-space(@rend)[normalize-space(.)]),' '))" />
+          <xsl:apply-templates select="@facs" mode="data-points"/>
           <xsl:apply-templates mode="#current"/>
         </xsl:element>
       </xsl:otherwise>
@@ -493,9 +501,13 @@
   
   <xsl:template match="tei:fw" mode="#all"/>
   
-  <xsl:template match="tei:ab[not(@type)][cudl:is-in-block(.)]" mode="#default diplomatic normalised">
+  <xsl:template match="tei:ab[not(@type) or not(normalize-space(@type))][cudl:is-in-block(.)]" mode="#default diplomatic normalised">
     <span>
+      <xsl:if test="@facs != ''">
+        <xsl:attribute name="xml:id" select="replace(normalize-space(@facs),'^#', '')"/>
+      </xsl:if>
       <xsl:attribute name="class" select="normalize-space(string-join(('p',@rend),''))"/>
+      <xsl:apply-templates select="@facs" mode="data-points"/>
       <xsl:apply-templates mode="#current"/>
     </span>
   </xsl:template>
@@ -566,13 +578,25 @@
     <xsl:apply-templates mode="#current"/>
   </xsl:template>
 
-  <xsl:template match="tei:lb[@type='hyphenated'][not(cudl:is_first_significant_child(.))]" mode="#all">
+  <xsl:template match="tei:lb[@type='hyphenated'][not(cudl:is_first_significant_child(.))]" priority="2" mode="#all">
     <xsl:text>-</xsl:text>
-    <br/>
+    <xsl:next-match/>
   </xsl:template>
   
-  <xsl:template match="tei:lb[not(@type='hyphenated')][not(cudl:is_first_significant_child(.))]" mode="#all">
-    <br/>
+  <xsl:template match="tei:lb[not(@type='hyphenated')][not(cudl:is_first_significant_child(.))]" priority="2" mode="#all">
+    <xsl:next-match/>
+  </xsl:template>
+  
+  <xsl:template match="tei:lb[not(cudl:is_first_significant_child(.))]" priority="1" mode="#all">
+    <br>
+      <xsl:attribute name="xml:id" select="replace(normalize-space(@facs),'^#', '')"/>
+      <xsl:apply-templates select="@facs" mode="data-points"/>
+    </br>
+  </xsl:template>
+  
+  <!-- Add data-points for polygons created by Transkribus -->
+  <xsl:template match="@facs" mode="data-points">
+    <xsl:attribute name="data-points" select="id(replace(.,'#',''))/@points"/>
   </xsl:template>
   
   <!-- According to TEI, lb specifies the beginning of the line. That means
