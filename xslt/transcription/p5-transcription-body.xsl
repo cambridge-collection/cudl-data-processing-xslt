@@ -587,7 +587,7 @@
     <xsl:next-match/>
   </xsl:template>
   
-  <xsl:template match="tei:lb[not(cudl:is_first_significant_child(.))]" priority="1" mode="#all">
+  <xsl:template match="tei:lb[not(cudl:is_first_significant_child(.))]|tei:lb[@facs]" priority="1" mode="#all">
     <br>
       <xsl:attribute name="xml:id" select="replace(normalize-space(@facs),'^#', '')"/>
       <xsl:apply-templates select="@facs" mode="data-points"/>
@@ -608,7 +608,7 @@
        since a terminal br at the end of a block doesn't cause an extra line break
        on the screen
   -->
-  <xsl:template match="tei:lb[cudl:is_first_significant_child(.)]" mode="#all"/>
+  <xsl:template match="tei:lb[not(@facs)][cudl:is_first_significant_child(.)]" mode="#all"/>
   
   <!-- list and item are just being output in generic containers. 
        switch to semantic html elements?
