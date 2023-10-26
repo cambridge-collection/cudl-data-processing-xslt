@@ -43,7 +43,7 @@
         </div>
     </xsl:template>
   
-    <xsl:template match="tei:lb[$project_name = 'igntp']" mode="#all" priority="1">
+    <xsl:template match="tei:lb[$project_name = 'igntp']" mode="#all" priority="9">
         <br/>
         <span class="line_number" title="Line number">
             <xsl:if test="(@n mod 3) = 0">
