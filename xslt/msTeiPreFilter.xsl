@@ -4866,20 +4866,19 @@
 
 
    <xsl:template match="*:locus" mode="html">
-
+      
 
       <xsl:variable name="from" select="normalize-space(@from)"/>
 
 
       <xsl:variable name="page">
-          <!-- NB: It's necessary to add the root function onto the following
-                   expressions otherwise it won't be able to find the document 
-                   root. This is due to have content running in mode="html"
-                   is used in other templates
-          -->
+         <xsl:variable name="context-root" select="ancestor::*[last()]"/>
          <xsl:choose>
-            <xsl:when test="key('surfaceNs', $from, root(.))">
-                <xsl:apply-templates select="key('surfaceNs', $from, root(.))" mode="count"/>
+            <xsl:when test="$context-root[not(self::*:TEI|self::*:teiCorpus)]">
+               <xsl:text>1</xsl:text>
+            </xsl:when>
+            <xsl:when test="key('surfaceNs', $from, $context-root)">
+                <xsl:apply-templates select="key('surfaceNs', $from, $context-root)" mode="count"/>
             </xsl:when>
             <xsl:otherwise>
                <xsl:text>1</xsl:text>
