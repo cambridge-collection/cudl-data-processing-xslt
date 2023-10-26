@@ -28,18 +28,21 @@ Once done remember the commit the new version with
     git push
 
 Once complete you can deploy the new version by editing the configuration in
-https://github.com/cambridge-collection/cudl-terraform
+<https://github.com/cambridge-collection/cudl-terraform>
 
-## Building locally using ant:
+## Building locally using Apache ant:
 
-### Prereqs
+### Prerequisites
 
-Install Ant
+#### Download and install
+- Java JDK
+- Saxon JAR (<https://www.saxonica.com/download/download_page.xml>)
+- Apache Ant (<https://ant.apache.org/>)
 
-### Link the data 
+#### Link the data 
 
-Link a local checkout of the TEI data into the 'data' folder under the root level
-e.g.
+Link a local checkout of the TEI data into the 'data' folder under the root level,
+*e.g.*
 
     ln -s ~/projects/cudl-data-source/data/items data
 
@@ -47,15 +50,15 @@ e.g.
 
 Page transcripts and json can be built locally using:
 
-    ant -noclasspath -buildfile ./bin/build.xml
+    ant -buildfile ./bin/build.xml
     
 To only build transcripts use:
 
-    ant -noclasspath -buildfile ./bin/build.xml "transcripts"
+    ant -buildfile ./bin/build.xml "transcripts"
 
 To only build json use:
 
-    ant -noclasspath -buildfile ./bin/build.xml "json"
+    ant -buildfile ./bin/build.xml "json"
     
 ### Tests
 
@@ -67,10 +70,10 @@ The test suite checks that:
 
 Run the tests locally using:
 
-    ant -noclasspath -buildfile bin/test.xml
+    ant -buildfile bin/test.xml
     
 This command initiates a full build of the transcripts and json before running the tests. If you have already built the transcripts and json and wish only to run the tests, use:
 
-    ant -noclasspath -buildfile bin/build.xml "tests-only"
+    ant -buildfile bin/build.xml "tests-only"
     
 The results of the test are written to ./test.log

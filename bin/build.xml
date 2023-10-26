@@ -47,7 +47,7 @@
                  
                  None of this is new. It's how the transformation has always run. It's just that I felt the need to document it better now.
             -->
-            <xslt destdir="${junk.dir}" style="../xslt/transcription/pagify.xsl" force="true" useimplicitfileset="false"  classpath="saxon/saxon-he-10.2.jar" reloadstylesheet="true">
+            <xslt destdir="${junk.dir}" style="../xslt/transcription/pagify.xsl" force="true" useimplicitfileset="false" reloadstylesheet="true">
                 <fileset refid="original_xml"/>
                 <factory name="net.sf.saxon.TransformerFactoryImpl">
                     <attribute name="http://saxon.sf.net/feature/xinclude-aware"
@@ -65,7 +65,7 @@
             
             <fileset id="chunk_xml" dir="${chunk.dir}" includes="**/*.xml" />
 
-            <xslt destdir="${junk.dir}" style="../xslt/transcription/pagify.xsl" force="true" useimplicitfileset="false"  classpath="saxon/saxon-he-10.2.jar" reloadstylesheet="true">
+            <xslt destdir="${junk.dir}" style="../xslt/transcription/pagify.xsl" force="true" useimplicitfileset="false" reloadstylesheet="true">
                 <fileset refid="chunk_xml"/>
                 <factory name="net.sf.saxon.TransformerFactoryImpl">
                     <attribute name="http://saxon.sf.net/feature/xinclude-aware"
@@ -83,7 +83,7 @@
 
             <fileset id="page_files" dir="${tmp.dir}" includes="**/*.xml" />
 
-            <xslt destdir="${dist.dir}" style="../xslt/transcription/msTeiTrans.xsl" force="true" useimplicitfileset="false" extension=".html" classpath="saxon/saxon-he-10.2.jar" reloadstylesheet="true">
+            <xslt destdir="${dist.dir}" style="../xslt/transcription/msTeiTrans.xsl" force="true" useimplicitfileset="false" extension=".html" reloadstylesheet="true">
                 <fileset refid="page_files"/>
                 <factory name="net.sf.saxon.TransformerFactoryImpl">
                     <attribute name="http://saxon.sf.net/feature/xinclude-aware"
@@ -123,7 +123,7 @@
             
             <fileset id="original_xml" dir="${data.dir}" includes="**/*.xml" />
             
-            <xslt destdir="${xtf.dir}" style="../xslt/msTeiPreFilter.xsl" force="true" useimplicitfileset="false" extension=".xml"  classpath="saxon/saxon-he-10.2.jar" reloadstylesheet="true">
+            <xslt destdir="${xtf.dir}" style="../xslt/msTeiPreFilter.xsl" force="true" useimplicitfileset="false" extension=".xml" reloadstylesheet="true">
                 <fileset refid="original_xml"/>
                 <factory name="net.sf.saxon.TransformerFactoryImpl">
                     <attribute name="http://saxon.sf.net/feature/xinclude-aware"
@@ -133,7 +133,7 @@
             
             <fileset id="indexed_files" dir="${xtf.dir}" includes="**/*.xml" />
             
-            <xslt destdir="${json.dir}" style="../xslt/jsonDocFormatter.xsl" force="true" useimplicitfileset="false" extension=".json"  classpath="saxon/saxon-he-10.2.jar" reloadstylesheet="true">
+            <xslt destdir="${json.dir}" style="../xslt/jsonDocFormatter.xsl" force="true" useimplicitfileset="false" extension=".json" reloadstylesheet="true">
                 <fileset refid="indexed_files"/>
                 <factory name="net.sf.saxon.TransformerFactoryImpl">
                     <attribute name="http://saxon.sf.net/feature/xinclude-aware"
