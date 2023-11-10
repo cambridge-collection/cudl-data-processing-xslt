@@ -12,7 +12,7 @@
     
     <xsl:template match="tei:cb[not(@n='2')][$project_name = 'igntp']" priority="3" mode="#all"/>
     
-    <xsl:template match="tei:pb[$project_name = 'igntp']" mode="#all" priority="1">
+    <xsl:template match="tei:pb[$project_name = 'igntp']" mode="#all" priority="9">
         <div class="pageheader">
             <p>
                 <xsl:text>Folio </xsl:text>

@@ -1,335 +1,74 @@
-<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0"
-   xmlns:date="http://exslt.org/dates-and-times" xmlns:parse="http://cdlib.org/xtf/parse"
-   xmlns:xtf="http://cdlib.org/xtf" xmlns:tei="http://www.tei-c.org/ns/1.0"
-   xmlns:cudl="http://cudl.lib.cam.ac.uk/xtf/" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-   xmlns:sim="http://cudl.lib.cam.ac.uk/xtf/ns/similarity"
-   extension-element-prefixes="date" exclude-result-prefixes="#all"
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="3.1" 
+   xmlns:tei="http://www.tei-c.org/ns/1.0"
+   xmlns:cudl="http://cudl.lib.cam.ac.uk/xtf/" 
+   xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+   xmlns:json="http://www.w3.org/2005/xpath-functions"
+   xmlns="http://www.w3.org/1999/xhtml"
+   exclude-result-prefixes="#all"
    xmlns:lambda="http://cudl.lib.cam.ac.uk/lambda/">
-
-
-
-   <!--
-      Copyright (c) 2008, Regents of the University of California
-      All rights reserved.
-      
-      Redistribution and use in source and binary forms, with or without 
-      modification, are permitted provided that the following conditions are 
-      met:
-      
-      - Redistributions of source code must retain the above copyright notice, 
-      this list of conditions and the following disclaimer.
-      - Redistributions in binary form must reproduce the above copyright 
-      notice, this list of conditions and the following disclaimer in the 
-      documentation and/or other materials provided with the distribution.
-      - Neither the name of the University of California nor the names of its
-      contributors may be used to endorse or promote products derived from 
-      this software without specific prior written permission.
-      
-      THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" 
-      AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
-      IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
-      ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE 
-      LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
-      CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
-      SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
-      INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN 
-      CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
-      ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
-      POSSIBILITY OF SUCH DAMAGE.
-   -->
-
-   <!--All TEI gets sent here from docSelector.xsl. Transforms TEI into local xml format and passes it on to docFormatter for conversion into json-->
-
    
-   <!-- ====================================================================== -->
-   <!-- Variables                                                              -->
-   <!-- ====================================================================== -->
-   
-   <xsl:variable name="pathToConf" select="'../../../conf/local.conf'"/>
-   
-   
-   <!-- ====================================================================== -->
-   <!-- Services URI and api key                                    -->
-   <!-- ====================================================================== -->
-   
-   <xsl:variable name="servicesURI" select="document($pathToConf)//services/@path"/>
-   
-   <xsl:variable name="apiKey" select="document($pathToConf)//services/@key"/>
-   
-   
-   <!-- ====================================================================== -->
-   <!-- File ID                                       -->
-   <!-- ====================================================================== -->
-   
-   <xsl:variable name="fileID"
-      select="substring-before(tokenize(document-uri(/), '/')[last()], '.xml')"/>
-   
-   <!-- ====================================================================== -->
-   <!-- Languages and writing direction                                       -->
-   <!-- ====================================================================== -->
-   
-   <!--default is left to right, so only list those which are not-->
-   
-   <xsl:variable name="languages-direction">
-      
-      <languages>
-         <!--<language>
-            <code>heb</code><direction>R</direction>
-         </language>
-         <language>
-            <code>ara</code><direction>R</direction>
-         </language>
-         <language>
-            <code>arc</code><direction>R</direction>
-         </language>
-         <language>
-            <code>per</code><direction>R</direction>
-         </language>-->
-      </languages>
-      
-   </xsl:variable>
-   
-    <xsl:variable name="current_filename" select="replace(normalize-space(tokenize(document-uri(root(/)), '/')[last()]),'\..*$','')"/>
-   
-   <!-- ====================================================================== -->
-   <!-- Root Template                                                          -->
-   <!-- ====================================================================== -->
-   
-   <!-- Root template: This is the entry point of the preFilter transforms.
-     It calls the get-meta template which is defined in each of our prefilter
-     types (ead, msTei etc) -->
-   <xsl:template match="/">
-      <xsl:variable name="tree">
-         <!--the whole output document is always wrapped up in xtf-converted-->
-         <xtf-converted>
-            <xsl:namespace name="xtf" select="'http://cdlib.org/xtf'"/>
-            <!--and then we get all the fields!-->
-            <xsl:call-template name="get-meta"/>
-         </xtf-converted>
-      </xsl:variable>
-      
-      <!-- Post-process the built metadata/index tree to add fields for
-        similarity search. -->
-      <!--<xsl:variable name="tree-with-similarity">
-         <xsl:apply-templates select="$tree" mode="similarity"/>
-      </xsl:variable>-->
-      
-      <xsl:variable name="tree-with-deduplication">
-         <xsl:apply-templates select="$tree" mode="deduplication"/>
-      </xsl:variable>
-      
-      <!-- Return the post-processed tree. -->
-      <xsl:copy-of select="$tree-with-deduplication"/>
-   </xsl:template>
-   
-   <!-- De-duplication -->
-   <xsl:template match="/xtf-converted/xtf:meta/descriptiveMetadata/part/associated" mode="deduplication">
-      <associated display="true">
-         <xsl:for-each-group select="name" group-by="@displayForm">
-            <xsl:apply-templates select="current-group()[1]" mode="deduplication"/>
-         </xsl:for-each-group>
-      </associated>
-   </xsl:template>
-   
-   <xsl:template match="/xtf-converted/xtf:meta/descriptiveMetadata/part/formerOwners" mode="deduplication">
-      <formerOwners display="true">
-         <xsl:for-each-group select="name" group-by="@displayForm">
-            <xsl:apply-templates select="current-group()[1]" mode="deduplication"/>
-         </xsl:for-each-group>
-      </formerOwners>
-   </xsl:template>
-   
-   <xsl:template match="@*|node()" mode="deduplication">
-      <xsl:copy>
-         <xsl:apply-templates select="@*|node()" mode="deduplication"/>
-      </xsl:copy>
-   </xsl:template>
-   
-   
-   
-   <!-- ====================================================================== -->
-   <!-- Templates                                                              -->
-   <!-- ====================================================================== -->
-   
-   <!--called by document-specific preFilters-->
-   <xsl:template name="add-fields">
-      <xsl:param name="meta"/>
-      <xsl:param name="display"/>
-      
-      <xtf:meta>
-         
-         
-         <!-- Add a field to record the document kind -->
-         <display xtf:meta="true" xtf:tokenize="no">
-            <xsl:value-of select="$display"/>
-         </display>
-         
-         <xsl:apply-templates select="$meta/*" mode="meta"/>
-         
-      </xtf:meta>
-   </xsl:template>
-   
-   <!--default to copy everything-->
-   <xsl:template match="@*|node()" mode="meta">
-      <xsl:copy>
-         <xsl:apply-templates select="@*|node()" mode="meta"/>
-      </xsl:copy>
-   </xsl:template>
-   
-   
-   
-   <!-- ====================================================================== -->
-   <!-- Functions                                                              -->
-   <!-- ====================================================================== -->
-   
-   <!--used in document-specific prefilters-->
-   
-   <!--processes transcription uri for indexing-->
-   <xsl:function name="cudl:transcription-uri">
-      
-      <xsl:param name="uri"/>
-      
-      <xsl:variable name="uriReplaced"
-         select="replace($uri, 'http://services.cudl.lib.cam.ac.uk/', $servicesURI)"/>
-      <xsl:value-of select="concat($uriReplaced, '?apikey=', $apiKey)"/>
-      
-   </xsl:function>
-   
-   
-   
-   <!-- Provide page for reproduction requests, based on repository. Temporary hack: this really neeeds to come from data -->
-   
-   <xsl:function name="cudl:get-imageReproPageURL">
-      <xsl:param name="repository"/>
-      <xsl:param name="shelflocator"/>
-      
-      <xsl:choose>
-         <xsl:when test="$repository='National Maritime Museum'">
-            <xsl:text>http://images.rmg.co.uk/en/page/show_home_page.html</xsl:text>
-         </xsl:when>
-         <xsl:when test="$repository='Cambridge University Collection of Aerial Photography'">
-            <xsl:text>https://www.cambridgeairphotos.com/</xsl:text>
-         </xsl:when>
-         <xsl:when test="$repository='Bodleian Library'">
-            <xsl:text>https://www.bodleian.ox.ac.uk/using/imaging_services</xsl:text>
-         </xsl:when>
-         <xsl:when test="$repository='British School at Athens'">
-            <xsl:text>https://digital.bsa.ac.uk/permissions.php</xsl:text>
-         </xsl:when>
-         <xsl:when test="$repository='British Library'">
-            <xsl:text>https://forms.bl.uk/permissions/</xsl:text>
-         </xsl:when>
-         
-         <xsl:when test="$repository='The John Rylands Library'">
-            <xsl:text>https://www.library.manchester.ac.uk/search-resources/manchester-digital-collections/digitisation-services/copyright-and-licensing/</xsl:text>
-         </xsl:when>
-         
-         <xsl:when test="$repository='Cavendish Laboratory'">
-            
-            <xsl:variable name="shelflocator_short">
-               
-               <xsl:choose>
-                  <xsl:when test="contains($shelflocator, ' ')">
-                     <xsl:value-of select="substring-before($shelflocator, ' ')"/>
-                     
-                  </xsl:when>
-                  <xsl:otherwise>
-                     <xsl:value-of select="$shelflocator"/>
-                  </xsl:otherwise>
-                  
-                  
-               </xsl:choose>
-               
-               
-               
-            </xsl:variable>
-            
-            <xsl:variable name="urltext" select="concat('https://www.phy.cam.ac.uk/about/image-licensing-form?id=',$shelflocator_short)"/>
-            <xsl:value-of select="$urltext"></xsl:value-of>
-            <!--<xsl:text>https://www.phy.cam.ac.uk/about/image-licensing-form</xsl:text>-->
-         </xsl:when>
-         
-         <!--default is Cambridge-->
-         <xsl:otherwise>
-            <xsl:text>https://imagingservices.lib.cam.ac.uk/</xsl:text>
-         </xsl:otherwise>
-      </xsl:choose>
-      
-   </xsl:function>
-   
-   <!--Capitalises first letter of text-->
-   <xsl:function name="cudl:first-upper-case">
-      <xsl:param name="text" />
-      
-      <xsl:value-of select="concat(upper-case(substring($text,1,1)),substring($text, 2))" />
-   </xsl:function>
-   
-   
-   <!--Gets text direction from language-->
-   <xsl:function name="cudl:get-language-direction">
-      <xsl:param name="languageCode" />
-      
-      <xsl:choose>
-         <xsl:when test="normalize-space($languages-direction/languages/language[code=$languageCode]/direction)">
-            <xsl:value-of select="normalize-space($languages-direction/languages/language[code=$languageCode]/direction)"/>
-         </xsl:when>
-         <xsl:otherwise>
-            <xsl:text>L</xsl:text>
-         </xsl:otherwise>
-      </xsl:choose>
-      
-   </xsl:function>
-
-
-
-
-   <!-- ====================================================================== -->
-   <!-- Output parameters                                                      -->
-   <!-- ====================================================================== -->
-
-   <xsl:output method="xml" indent="yes" encoding="UTF-8"/>
+   <xsl:output method="xml" indent="no" encoding="UTF-8"/>
    <xsl:strip-space elements="*"/>
+   
+   <xsl:include href="common-util.xsl"/>
+   
+   <xsl:param name="dest_dir" as="xsd:string*" required="yes" /><!-- Point to the output directory -->
+   <xsl:param name="data_dir" as="xsd:string*" required="no" />
+   <xsl:param name="collection_xml_dir" as="xsd:string*" />
+   
+   <xsl:param name="path_to_buildfile" as="xsd:string*" required="no"/>
+   
+   <xsl:variable name="clean_dest_dir" select="cudl:path-to-directory($dest_dir, $path_to_buildfile)"/>
+   <xsl:variable name="clean_data_dir" select="cudl:path-to-directory($data_dir, $path_to_buildfile)"/>
+   <xsl:variable name="clean_collection_xml_dir" select="cudl:path-to-directory($collection_xml_dir, $path_to_buildfile)"/>
+   
+   <!--<xsl:variable name="pathToConf" select="'../../../conf/local.conf'"/>
+   <xsl:variable name="conf_file" select="document($pathToConf)"/>
+   <xsl:variable name="servicesURI" select="$conf_file//services/@path"/>
+   <xsl:variable name="apiKey" select="$conf_file)//services/@key"/>-->
 
+   <xsl:variable name="fileID" select="substring-before(tokenize(document-uri(/), '/')[last()], '.xml')"/>
+   
    <xsl:key name="surfaceIDs" match="//tei:surface" use="(@xml:id, concat('#',@xml:id))"/>
    <xsl:key name="surfaceNs" match="//tei:surface" use="normalize-space(@n)"/>
-
-   <!-- ====================================================================== -->
-   <!-- Metadata Indexing                                                      -->
-   <!-- ====================================================================== -->
-
+   <xsl:key name="pbNs" match="//tei:pb[normalize-space(@n)]" use="@n"/>
+   
+   <xsl:template match="/">
+      <xsl:call-template name="get-meta"/>
+   </xsl:template>
+   
+   <xsl:template match="@*|node()" mode="meta">
+      <xsl:copy>
+         <xsl:apply-templates select="@*|node()" mode="#current"/>
+      </xsl:copy>
+   </xsl:template>
+  
+  <xsl:template name="get-collection">
+     <xsl:message select="concat($clean_collection_xml_dir,'/', $fileID, '.xml')"/>
+     
+     <xsl:if test="doc-available(concat($clean_collection_xml_dir,'/', $fileID, '.xml'))">
+        <xsl:copy-of select="doc(concat($clean_collection_xml_dir,'/', $fileID, '.xml'))/*"/>
+     </xsl:if>
+  </xsl:template>
+   
    <xsl:template name="get-meta">
-
-      <!-- extract metadata from the TEI and put it in a variable -->
       <xsl:variable name="meta">
-
-         <!--descriptive information about the item-->
-         <descriptiveMetadata>
-
-
-            <xsl:apply-templates select="*:TEI/*:teiHeader/*:fileDesc/*:sourceDesc/*:msDesc"/>
-
-
-         </descriptiveMetadata>
+         <array key="descriptiveMetadata" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:apply-templates select="tei:TEI/tei:teiHeader/tei:fileDesc/tei:sourceDesc/tei:msDesc"/>
+         </array>
 
          <!--top level fields concerning the document as a whole-->
-         <!--how many pages does it have-->
+         <xsl:call-template name="get-collection"/>
          <xsl:call-template name="get-numberOfPages"/>
-         <!--is it embeddable-->
          <xsl:call-template name="get-embeddable"/>
-         <!--text direction-->
          <xsl:call-template name="get-text-direction"/>
-
-
-         <!--flags to govern whether transcription/translation exist - used to create tabs-->
          <xsl:call-template name="get-transcription-flags"/>
-
-         <!--where is the source metadata available-->
          <xsl:call-template name="get-sourceData"/>
 
          <!--is this a complete representation of the item-->
-         <!--QUERY - deprecate?-->
-         <xsl:if test=".//*:note[@type='completeness']">
-            <xsl:apply-templates select=".//*:note[@type='completeness']"/>
+         <!--QUERY - deprecate?--><!-- TODO IS IT USED -->
+         <xsl:if test=".//tei:note[@type='completeness']">
+            <xsl:apply-templates select=".//tei:note[@type='completeness']"/>
          </xsl:if>
 
          <!--structural information about the item-->
@@ -338,197 +77,117 @@
 
          <!--a special case where items in a list with a locus are indexed against that locus-->
          <!--QUERY - can we index straight from the content?-->
-         <xsl:if test="//*:list/*:item[*:locus]">
+         <xsl:if test="//tei:list/tei:item[tei:locus]">
             <xsl:call-template name="make-list-item-pages"/>
          </xsl:if>
 
       </xsl:variable>
 
       <!-- Add doc kind and sort fields to the data, and output the result. -->
-      <xsl:call-template name="add-fields">
-         <xsl:with-param name="display" select="'dynaxml'"/>
-         <xsl:with-param name="meta" select="$meta"/>
-      </xsl:call-template>
+      <xsl:variable name="result" as="item()*">
+         <map xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:apply-templates select="$meta/*" mode="meta"/>
+         </map>
+      </xsl:variable>
+      
+      <xsl:variable name="t" as="item()*">
+         <xsl:apply-templates select="$result" mode="updateSeq"/>
+      </xsl:variable>
+      <xsl:copy-of select="$t"/>
    </xsl:template>
 
-   <!--*************************************FLAGS*****************************************-->
-   <!--These are all set at the top level, before we go into descriptive metadata-->
-
-
-   <!--*********************************** number of pages -->
    <xsl:template name="get-numberOfPages">
-      <numberOfPages>
+      <number key="numberOfPages" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:choose>
-            <xsl:when test="//*:facsimile/*:surface">
-
-               <xsl:value-of select="count(//*:facsimile/*:surface)"/>
-
+            <xsl:when test="//tei:facsimile/tei:surface">
+               <xsl:value-of select="count(//tei:facsimile/tei:surface)"/>
             </xsl:when>
-
             <xsl:otherwise>
                <xsl:text>1</xsl:text>
             </xsl:otherwise>
          </xsl:choose>
-      </numberOfPages>
+      </number>
    </xsl:template>
-
-
-   <!-- ********************************* embeddable -->
+   
    <xsl:template name="get-embeddable">
-
-      <xsl:variable name="downloadImageRights"
-         select="normalize-space(//*:publicationStmt/*:availability[@xml:id='downloadImageRights'])"/>
-      <xsl:variable name="images"
-         select="normalize-space(//*:facsimile/*:surface[1]/*:graphic[1]/@url)"/>
-
-
-
-      <embeddable>
-         <xsl:choose>
-
-            <xsl:when test="normalize-space($images)">
-
-               <xsl:text>true</xsl:text>
-
-
-            </xsl:when>
-
-            <xsl:otherwise>false</xsl:otherwise>
-         </xsl:choose>
-      </embeddable>
-
+      <xsl:variable name="images" select="//tei:facsimile/tei:surface[1]/tei:graphic[1][normalize-space(@url)]"/>
+      <boolean key="embeddable" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:value-of select="exists($images)"/>
+      </boolean>
    </xsl:template>
-
-
-   <!-- ********************************* text direction -->
+   
    <xsl:template name="get-text-direction">
-
-
       <xsl:variable name="languageCode">
-
          <xsl:choose>
-            <xsl:when test="//*:sourceDesc/*:msDesc/*:msContents/*:textLang/@mainLang">
-
-               <xsl:value-of select="//*:sourceDesc/*:msDesc/*:msContents/*:textLang/@mainLang"/>
-
+            <xsl:when test="//tei:sourceDesc/tei:msDesc/tei:msContents/tei:textLang/@mainLang">
+               <xsl:value-of select="//tei:sourceDesc/tei:msDesc/tei:msContents/tei:textLang/@mainLang"/>
             </xsl:when>
-
-
-            <xsl:when
-               test="count(//*:sourceDesc/*:msDesc/*:msContents/*:msItem) = 1 and //*:sourceDesc/*:msDesc/*:msContents/*:msItem[1]/*:textLang/@mainLang">
-
-               <xsl:value-of
-                  select="//*:sourceDesc/*:msDesc/*:msContents/*:msItem[1]/*:textLang/@mainLang"/>
-
+            <xsl:when test="count(//tei:sourceDesc/tei:msDesc/tei:msContents/tei:msItem) = 1 and //tei:sourceDesc/tei:msDesc/tei:msContents/tei:msItem[1]/tei:textLang/@mainLang">
+               <xsl:value-of select="//tei:sourceDesc/tei:msDesc/tei:msContents/tei:msItem[1]/tei:textLang/@mainLang"/>
             </xsl:when>
-            <xsl:when
-               test="(/tei:*/tei:teiHeader//tei:langUsage/tei:language/@ident)[normalize-space(.)][1]">
-               <xsl:value-of
-                  select="(/tei:*/tei:teiHeader//tei:langUsage/tei:language/@ident)[normalize-space(.)][1]"
-               />
+            <xsl:when test="(/tei:*/tei:teiHeader//tei:langUsage/tei:language/@ident)[normalize-space(.)][1]">
+               <xsl:value-of select="(/tei:*/tei:teiHeader//tei:langUsage/tei:language/@ident)[normalize-space(.)][1]" />
             </xsl:when>
-
             <xsl:otherwise>
-
                <xsl:text>none</xsl:text>
-
             </xsl:otherwise>
-
-
          </xsl:choose>
-
-
       </xsl:variable>
-
-
-      <xsl:variable name="textDirection">
+      
+      <string key="textDirection" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:value-of select="cudl:get-language-direction($languageCode)"/>
-      </xsl:variable>
-
-
-
-      <textDirection>
-         <xsl:value-of select="$textDirection"/>
-      </textDirection>
-
-
+      </string>
    </xsl:template>
-
-
-   <!-- ****************************sourceData -->
-   <!--path to source data for download - mainly hard coded-->
+   
    <xsl:template name="get-sourceData">
-
-      <sourceData>
+      <string key="sourceData" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:value-of select="lambda:write-tei-services-link(root(.)/*,'metadata')"/>
-      </sourceData>
-
+      </string>
    </xsl:template>
 
-   <!--transcription flags-->
    <xsl:template name="get-transcription-flags">
-
-
-      <!--rework this system of flags in favour of automatic tab creation at page level?-->
       <xsl:choose>
-         <xsl:when test="//*:surface/*:media[contains(@mimeType,'transcription')]">
-            <useTranscriptions>true</useTranscriptions>
-
-            <xsl:if test="//*:surface/*:media[@mimeType='transcription_diplomatic']">
-
-               <useDiplomaticTranscriptions>true</useDiplomaticTranscriptions>
-
+         <xsl:when test="//tei:surface/tei:media[contains(@mimeType,'transcription')]">
+            <boolean key="useTranscriptions" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:text>true</xsl:text>
+            </boolean>
+            <xsl:if test="//tei:surface/tei:media[@mimeType='transcription_diplomatic']">
+               <boolean key="useDiplomaticTranscriptions" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:text>true</xsl:text>
+               </boolean>
             </xsl:if>
-
-            <xsl:if test="//*:surface/*:media[@mimeType='transcription_normalised']">
-
-               <useNormalisedTranscriptions>true</useNormalisedTranscriptions>
-
+            <xsl:if test="//tei:surface/tei:media[@mimeType='transcription_normalised']">
+               <boolean key="useNormalisedTranscriptions" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:text>true</xsl:text>
+               </boolean>
             </xsl:if>
-
-
          </xsl:when>
-
-         <xsl:when test="//*:text/*:body/*:div[not(@type)]/*[not(local-name()='pb')]">
-
-            <useTranscriptions>true</useTranscriptions>
-            <useDiplomaticTranscriptions>true</useDiplomaticTranscriptions>
-
+         <xsl:when test="//tei:text/tei:body/tei:div[not(@type)]/*[not(self::tei:pb)]">
+            <boolean key="useTranscriptions" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:text>true</xsl:text>
+            </boolean>
+            <boolean key="useDiplomaticTranscriptions" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:text>true</xsl:text>
+            </boolean>
          </xsl:when>
-
-
       </xsl:choose>
 
-      <xsl:if test="//*:surface/*:media[@mimeType='translation']">
-
-         <useTranslations>true</useTranslations>
-
+      <xsl:if test="//tei:surface/tei:media[@mimeType='translation']">
+         <boolean key="useTranslations" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:text>true</xsl:text>
+         </boolean>
       </xsl:if>
-
-
-      <xsl:if test="//*:text/*:body/*:div[@type='translation']/*[not(local-name()='pb')]">
-
-         <useTranslations>true</useTranslations>
-
+      
+      <xsl:if test="//tei:text/tei:body/tei:div[@type='translation']/*[not(self::tei:pb)]">
+         <boolean key="useTranslations" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:text>true</xsl:text>
+         </boolean>
       </xsl:if>
-
    </xsl:template>
-
-
-   <!--*******************Descriptive metadata************************************************************************************-->
-
-   <!--This lays out descriptive metadata parts in the right hierarchy-->
-
-   <!--Descriptive metadata is organised into 'parts' - these are not nesting - hierarchy is organised by ids (like METS)-->
-
-
-   <xsl:template match="*:msDesc">
-
-      <part>
-
-         <!--if this is the top level, we need to pick up some general information-->
-         <!--TODO - these should all really be moved to the top level-->
-
+   
+   
+   <xsl:template match="tei:msDesc">
+      <map xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:call-template name="get-doc-thumbnail"/>
          <xsl:call-template name="get-doc-image-rights"/>
          <xsl:call-template name="get-doc-metadata-rights"/>
@@ -536,1300 +195,894 @@
          <xsl:call-template name="get-doc-watermark-statement"/>
          <xsl:call-template name="get-doc-authority"/>
          <xsl:call-template name="get-doc-funding"/>
-         <xsl:call-template name="get-doc-subjects"/>
-         <xsl:call-template name="get-doc-places"/>
+         <xsl:call-template name="get-subjects">
+            <xsl:with-param name="level" select="'doc'"/>
+         </xsl:call-template>
+         <xsl:call-template name="get-places">
+            <xsl:with-param name="level" select="'doc'"/>
+         </xsl:call-template>
          <xsl:call-template name="get-doc-metadata"/>
-
-
-         <xsl:call-template name="get-doc-dmdID"/>
+         <xsl:call-template name="get-dmdID">
+            <xsl:with-param name="level" select="'doc'"/>
+         </xsl:call-template>
          <xsl:call-template name="get-calendarnum"/>
-
-
+         
          <xsl:choose>
-            <!-- if there is just one top-level msItem, merge into the document level -->
-            <xsl:when test="count(*:msContents/*:msItem) = 1">
-
-               <xsl:call-template name="get-doc-abstract"/>
+            <xsl:when test="count(tei:msContents/tei:msItem) = 1">
+               <xsl:call-template name="get-abstract">
+                     <xsl:with-param name="level" select="'doc'"/>
+                  </xsl:call-template>
                <xsl:call-template name="get-doc-and-item-names"/>
                <xsl:call-template name="get-doc-events"/>
                <xsl:call-template name="get-doc-physloc"/>
                <xsl:call-template name="get-doc-alt-ids"/>
                <xsl:call-template name="get-doc-physdesc"/>
                <xsl:call-template name="get-doc-history"/>
-               <xsl:call-template name="get-doc-and-item-biblio"/>
-
-               <!--not sure why this is called with a for-each - the above means that there will only ever be one msItem here-->
-               <xsl:for-each select="*:msContents/*:msItem[1]">
-                  <!--<xsl:call-template name="get-item-dmdID"/>-->
-                  <xsl:call-template name="get-item-title">
-                     <xsl:with-param name="display" select="'false'"/>
+               <xsl:call-template name="get-biblio">
+                     <xsl:with-param name="level" select="'doc-and-item'"/>
                   </xsl:call-template>
-                  <xsl:call-template name="get-item-alt-titles"/>
-                  <xsl:call-template name="get-item-desc-titles"/>
-                  <xsl:call-template name="get-item-uniform-title"/>
-                  <xsl:call-template name="get-item-languages"/>
+               
+               <xsl:for-each select="tei:msContents/tei:msItem[1]">
+                  <xsl:call-template name="get-item-title">
+                     <xsl:with-param name="display" select="false()"/>
+                  </xsl:call-template>
+                  <xsl:call-template name="get-alt-titles">
+                     <xsl:with-param name="level" select="'item'"/>
+                  </xsl:call-template>
+                  <xsl:call-template name="get-desc-titles">
+                     <xsl:with-param name="level" select="'item'"/>
+                  </xsl:call-template>
+                  <xsl:call-template name="get-uniform-title">
+                     <xsl:with-param name="level" select="'item'"/>
+                  </xsl:call-template>
+                  <xsl:call-template name="get-languages">
+                     <xsl:with-param name="level" select="'item'"/>
+                  </xsl:call-template>
                   <xsl:call-template name="get-item-excerpts"/>
                   <xsl:call-template name="get-item-notes"/>
                   <xsl:call-template name="get-item-filiation"/>
                </xsl:for-each>
-
-
-
-
-
             </xsl:when>
             <xsl:otherwise>
-
-               <!-- Sequence of top-level msItems, so need to introduce additional top-level to represent item as a whole-->
-
-               <!--<xsl:call-template name="get-doc-dmdID"/>-->
                <xsl:call-template name="get-doc-title"/>
-               <xsl:call-template name="get-doc-alt-titles"/>
-               <xsl:call-template name="get-doc-desc-titles"/>
-               <xsl:call-template name="get-doc-uniform-title"/>
-               <xsl:call-template name="get-doc-abstract"/>
-               <xsl:call-template name="get-doc-languages"/>
-               <!--<xsl:call-template name="get-doc-notes"/>-->
+               <xsl:call-template name="get-alt-titles">
+                     <xsl:with-param name="level" select="'doc'"/>
+                  </xsl:call-template>
+               <xsl:call-template name="get-desc-titles">
+                     <xsl:with-param name="level" select="'doc'"/>
+                  </xsl:call-template>
+               <xsl:call-template name="get-uniform-title">
+                     <xsl:with-param name="level" select="'doc'"/>
+                  </xsl:call-template>
+               <xsl:call-template name="get-abstract">
+                     <xsl:with-param name="level" select="'doc'"/>
+                  </xsl:call-template>
+               <xsl:call-template name="get-languages">
+                     <xsl:with-param name="level" select="'doc'"/>
+                  </xsl:call-template>
                <xsl:call-template name="get-doc-names"/>
                <xsl:call-template name="get-doc-events"/>
                <xsl:call-template name="get-doc-physloc"/>
                <xsl:call-template name="get-doc-alt-ids"/>
                <xsl:call-template name="get-doc-physdesc"/>
                <xsl:call-template name="get-doc-history"/>
-               <xsl:call-template name="get-doc-biblio"/>
-
-               <!-- Now process top-level msItems -->
-               <!--<xsl:apply-templates select="*:msContents/*:msItem"/>-->
-
+               <xsl:call-template name="get-biblio">
+                     <xsl:with-param name="level" select="'doc'"/>
+                  </xsl:call-template>
             </xsl:otherwise>
          </xsl:choose>
-
-
-
-
-      </part>
+      </map>
 
       <!--process the rest of the msItems in this part-->
       <xsl:choose>
-         <xsl:when test="count(*:msContents/*:msItem) = 1">
-            <xsl:apply-templates select="*:msContents/*:msItem/*:msItem"/>
+         <xsl:when test="count(tei:msContents/tei:msItem) = 1">
+            <xsl:apply-templates select="tei:msContents/tei:msItem/tei:msItem"/>
          </xsl:when>
          <xsl:otherwise>
-            <xsl:apply-templates select="*:msContents/*:msItem"/>
+            <xsl:apply-templates select="tei:msContents/tei:msItem"/>
          </xsl:otherwise>
       </xsl:choose>
+      
       <!--and then process the msParts-->
-      <xsl:apply-templates select="*:msPart"/>
-
+      <xsl:apply-templates select="tei:msPart"/>
    </xsl:template>
-
-
-   <xsl:template match="*:msPart">
-
-      <part>
-
-
-
-         <xsl:call-template name="get-msPart-dmdID"/>
+   
+   <xsl:template match="tei:msPart">
+      <map xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:call-template name="get-dmdID">
+                     <xsl:with-param name="level" select="'msPart'"/>
+                  </xsl:call-template>
          <xsl:call-template name="get-calendarnum"/>
-
-
+         
          <xsl:choose>
             <!-- if there is just one top-level msItem, merge into the document level -->
-            <xsl:when test="count(*:msContents/*:msItem) = 1">
-
-
-
-               <xsl:call-template name="get-part-abstract"/>
+            <xsl:when test="count(tei:msContents/tei:msItem) = 1">
+               <xsl:call-template name="get-abstract">
+                  <xsl:with-param name="level" select="'part'"/>
+               </xsl:call-template>
                <xsl:call-template name="get-doc-and-item-names"/>
                <xsl:call-template name="get-doc-events"/>
                <xsl:call-template name="get-doc-physloc"/>
                <xsl:call-template name="get-doc-alt-ids"/>
                <xsl:call-template name="get-doc-physdesc"/>
                <xsl:call-template name="get-doc-history"/>
-               <xsl:call-template name="get-doc-and-item-biblio"/>
-               <xsl:call-template name="get-part-subjects"/>
-               <xsl:call-template name="get-part-places"/>
-
-               <!--not sure why this is called with a for-each - the above means that there will only ever be one msItem here-->
-               <xsl:for-each select="*:msContents/*:msItem[1]">
-                  <!--<xsl:call-template name="get-item-dmdID"/>-->
+               <xsl:call-template name="get-biblio">
+                  <xsl:with-param name="level" select="'doc-and-item'"/>
+               </xsl:call-template>
+               <xsl:call-template name="get-subjects">
+                  <xsl:with-param name="level" select="'part'"/>
+               </xsl:call-template>
+               <xsl:call-template name="get-places">
+                  <xsl:with-param name="level" select="'part'"/>
+               </xsl:call-template>
+               
+               <xsl:for-each select="tei:msContents/tei:msItem[1]">
                   <xsl:call-template name="get-item-title">
-                     <xsl:with-param name="display" select="'true'"/>
+                     <xsl:with-param name="display" select="true()"/>
                   </xsl:call-template>
-                  <xsl:call-template name="get-item-alt-titles"/>
-                  <xsl:call-template name="get-item-desc-titles"/>
-                  <xsl:call-template name="get-item-uniform-title"/>
-                  <xsl:call-template name="get-item-languages"/>
+                  <xsl:call-template name="get-alt-titles">
+                     <xsl:with-param name="level" select="'item'"/>
+                  </xsl:call-template>
+                  <xsl:call-template name="get-desc-titles">
+                     <xsl:with-param name="level" select="'item'"/>
+                  </xsl:call-template>
+                  <xsl:call-template name="get-uniform-title">
+                     <xsl:with-param name="level" select="'item'"/>
+                  </xsl:call-template>
+                  <xsl:call-template name="get-languages">
+                     <xsl:with-param name="level" select="'item'"/>
+                  </xsl:call-template>
                   <xsl:call-template name="get-item-excerpts"/>
                   <xsl:call-template name="get-item-notes"/>
                   <xsl:call-template name="get-item-filiation"/>
                </xsl:for-each>
-
             </xsl:when>
             <xsl:otherwise>
-
                <!-- Sequence of top-level msItems, so need to introduce additional top-level to represent item as a whole-->
-
-               <!--<xsl:call-template name="get-doc-dmdID"/>-->
                <xsl:call-template name="get-doc-title"/>
-               <xsl:call-template name="get-doc-alt-titles"/>
-               <xsl:call-template name="get-doc-desc-titles"/>
-               <xsl:call-template name="get-doc-uniform-title"/>
-               <xsl:call-template name="get-part-abstract"/>
-               <xsl:call-template name="get-doc-languages"/>
-               <!--<xsl:call-template name="get-doc-notes"/>-->
+               <xsl:call-template name="get-alt-titles">
+                  <xsl:with-param name="level" select="'doc'"/>
+               </xsl:call-template>
+               <xsl:call-template name="get-desc-titles">
+                  <xsl:with-param name="level" select="'doc'"/>
+               </xsl:call-template>
+               <xsl:call-template name="get-uniform-title">
+                  <xsl:with-param name="level" select="'doc'"/>
+               </xsl:call-template>
+               <xsl:call-template name="get-abstract">
+                  <xsl:with-param name="level" select="'part'"/>
+               </xsl:call-template>
+               <xsl:call-template name="get-languages">
+                  <xsl:with-param name="level" select="'doc'"/>
+               </xsl:call-template>
                <xsl:call-template name="get-doc-names"/>
                <xsl:call-template name="get-doc-events"/>
-               <!--<xsl:call-template name="get-doc-physloc"/>-->
                <xsl:call-template name="get-doc-alt-ids"/>
                <xsl:call-template name="get-doc-physdesc"/>
                <xsl:call-template name="get-doc-history"/>
-               <xsl:call-template name="get-doc-biblio"/>
-               <xsl:call-template name="get-part-subjects"/>
-               <xsl:call-template name="get-part-places"/>
-               <!-- Now process top-level msItems -->
-               <!--<xsl:apply-templates select="*:msContents/*:msItem"/>-->
-
+               <xsl:call-template name="get-biblio">
+                  <xsl:with-param name="level" select="'doc'"/>
+               </xsl:call-template>
+               <xsl:call-template name="get-subjects">
+                  <xsl:with-param name="level" select="'part'"/>
+               </xsl:call-template>
+               <xsl:call-template name="get-places">
+                  <xsl:with-param name="level" select="'part'"/>
+               </xsl:call-template>
             </xsl:otherwise>
          </xsl:choose>
-
-
-      </part>
-
+      </map>
       <!--process the rest of the msItems in this part-->
       <xsl:choose>
-         <xsl:when test="count(*:msContents/*:msItem) = 1">
-            <xsl:apply-templates select="*:msContents/*:msItem/*:msItem"/>
+         <xsl:when test="count(tei:msContents/tei:msItem) = 1">
+            <xsl:apply-templates select="tei:msContents/tei:msItem/tei:msItem"/>
          </xsl:when>
          <xsl:otherwise>
-            <xsl:apply-templates select="*:msContents/*:msItem"/>
+            <xsl:apply-templates select="tei:msContents/tei:msItem"/>
          </xsl:otherwise>
       </xsl:choose>
 
       <!--process the msParts in this part-->
-      <xsl:apply-templates select="*:msPart"/>
-
+      <xsl:apply-templates select="tei:msPart"/>
    </xsl:template>
-
-
-
+   
    <!--each msItem is also a part-->
-   <xsl:template match="*:msItem">
-
-      <part>
-
-         <xsl:call-template name="get-item-dmdID"/>
+   <xsl:template match="tei:msItem">
+      <map xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:call-template name="get-dmdID">
+            <xsl:with-param name="level" select="'item'"/>
+         </xsl:call-template>
          <xsl:call-template name="get-calendarnum"/>
          <xsl:call-template name="get-item-title">
-            <xsl:with-param name="display" select="'true'"/>
+            <xsl:with-param name="display" select="true()"/>
          </xsl:call-template>
-
-         <xsl:call-template name="get-item-alt-titles"/>
-         <xsl:call-template name="get-item-desc-titles"/>
-         <xsl:call-template name="get-item-uniform-title"/>
+         <xsl:call-template name="get-alt-titles">
+            <xsl:with-param name="level" select="'item'"/>
+         </xsl:call-template>
+         <xsl:call-template name="get-desc-titles">
+            <xsl:with-param name="level" select="'item'"/>
+         </xsl:call-template>
+         <xsl:call-template name="get-uniform-title">
+            <xsl:with-param name="level" select="'item'"/>
+         </xsl:call-template>
          <xsl:call-template name="get-item-names"/>
-         <xsl:call-template name="get-item-languages"/>
-
+         <xsl:call-template name="get-languages">
+            <xsl:with-param name="level" select="'item'"/>
+         </xsl:call-template>
          <xsl:call-template name="get-item-excerpts"/>
          <xsl:call-template name="get-item-notes"/>
-
          <xsl:call-template name="get-item-filiation"/>
-
-         <xsl:call-template name="get-item-biblio"/>
-
-      </part>
-
-      <!-- Any child items of this item -->
-      <xsl:apply-templates select="*:msContents/*:msItem|*:msItem"/>
-
+         <xsl:call-template name="get-biblio">
+            <xsl:with-param name="level" select="'item'"/>
+         </xsl:call-template>
+      </map>
+         <!-- Any child items of this item -->
+         <xsl:apply-templates select="tei:msContents/tei:msItem|tei:msItem"/>
    </xsl:template>
-
-
-
-   <!--*************************and these are the templates which fill in descriptive metadata fields-->
-
-   <!--DMDIDs-->
-
-   <!--for the whole document-->
-   <xsl:template name="get-doc-dmdID">
-
-      <ID>
-         <xsl:value-of select="'DOCUMENT'"/>
-      </ID>
-
-      <fileID>
-         <xsl:value-of select="$fileID"/>
-      </fileID>
-
-      <startPage>1</startPage>
-      <!--documents always start on page 1!-->
-      <startPageLabel>
-
+   
+   <xsl:template name="get-dmdID">
+      <xsl:param name="level" select="'doc'"/>
+      
+      <xsl:variable name="id">
          <xsl:choose>
-            <xsl:when test="//*:facsimile/*:surface[1][normalize-space(@n)]">
-               <xsl:value-of select="//*:facsimile/*:surface[1]/@n"/>
+            <xsl:when test="$level eq 'item'">
+               <xsl:variable name="n-tree" select="sum((count(ancestor-or-self::*[self::tei:msItem]), count(preceding::*[self::tei:msItem])))" />
+               <xsl:value-of select="concat('ITEM-', normalize-space(string($n-tree)))"/>
+            </xsl:when>
+            <xsl:when test="$level eq 'msPart'">
+               <xsl:variable name="n-tree" select="sum((count(ancestor-or-self::*[self::tei:msPart]), count(preceding::*[self::tei:msPart])))" />
+               <xsl:value-of select="concat('PART-', normalize-space(string($n-tree)))"/>
             </xsl:when>
             <xsl:otherwise>
-               <xsl:text>1</xsl:text>
+               <xsl:text>DOCUMENT</xsl:text>
             </xsl:otherwise>
          </xsl:choose>
-
-      </startPageLabel>
-
+      </xsl:variable>
+      
+      <string key="ID" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:value-of select="$id"/>
+      </string>
    </xsl:template>
-
-
-   <!--for msParts-->
-   <xsl:template name="get-msPart-dmdID">
-
-      <!--incrementing number to give a unique id-->
-      <xsl:variable name="n-tree">
-         <xsl:value-of
-            select="sum((count(ancestor-or-self::*[local-name()='msPart']), count(preceding::*[local-name()='msPart'])))"
-         />
-      </xsl:variable>
-
-
-      <ID>
-         <xsl:value-of select="concat('PART-', normalize-space($n-tree))"/>
-      </ID>
-
-      <fileID>
-         <xsl:value-of select="$fileID"/>
-      </fileID>
-
-      <xsl:variable name="startPageLabel">
-         <!--should always be a locus attached to an msItem - but defaults to first page if none present-->
-         <xsl:choose>
-            <xsl:when test="*:msContents/*:msItem[1]/*:locus[1]/@from">
-               <xsl:value-of select="*:msContents/*:msItem[1]/*:locus[1]/normalize-space(@from)"/>
-
-            </xsl:when>
-            <xsl:when test="//*:facsimile/*:surface[1]/@n">
-               <xsl:value-of select="//*:facsimile/*:surface[1]/normalize-space(@n)"/>
-
-            </xsl:when>
-            <xsl:otherwise>
-               <xsl:text>cover</xsl:text>
-            </xsl:otherwise>
-         </xsl:choose>
-      </xsl:variable>
-
-
-
-      <startPageLabel>
-         <xsl:value-of select="$startPageLabel"/>
-
-      </startPageLabel>
-
-      <xsl:variable name="startPage">
-
-         <xsl:choose>
-             <xsl:when test="key('surfaceNs', $startPageLabel)">
-                <xsl:apply-templates select="key('surfaceNs', $startPageLabel)" mode="count"/>
-            </xsl:when>
-            <xsl:otherwise>
-               <xsl:text>cover</xsl:text>
-            </xsl:otherwise>
-         </xsl:choose>
-
-      </xsl:variable>
-
-      <startPage>
-         <xsl:value-of select="$startPage"/>
-      </startPage>
-
-   </xsl:template>
-
-
-
-   <!--for individual items-->
-   <xsl:template name="get-item-dmdID">
-
-      <!--incrementing number to give a unique id-->
-      <xsl:variable name="n-tree">
-
-         <xsl:value-of
-            select="sum((count(ancestor-or-self::*[local-name()='msItem']), count(preceding::*[local-name()='msItem'])))"
-         />
-      </xsl:variable>
-
-      <ID>
-         <xsl:value-of select="concat('ITEM-', normalize-space($n-tree))"/>
-      </ID>
-
-      <fileID>
-         <xsl:value-of select="$fileID"/>
-      </fileID>
-
-      <xsl:variable name="startPageLabel">
-         <!--should always be a locus attached to an msItem - but defaults to first page if none present-->
-         <xsl:choose>
-            <xsl:when test="*:locus/@from">
-               <xsl:value-of select="normalize-space(*:locus/@from)"/>
-
-            </xsl:when>
-            <xsl:when test="//*:facsimile/*:surface[1]/@n">
-               <xsl:value-of select="normalize-space(//*:facsimile/*:surface[1]/@n)"/>
-
-            </xsl:when>
-            <xsl:otherwise>
-               <xsl:text>cover</xsl:text>
-            </xsl:otherwise>
-         </xsl:choose>
-      </xsl:variable>
-
-      <startPageLabel>
-         <xsl:value-of select="$startPageLabel"/>
-
-      </startPageLabel>
-
-      <xsl:variable name="startPage">
-
-         <xsl:choose>
-             <xsl:when test="key('surfaceNs', $startPageLabel)">
-                <xsl:apply-templates select="key('surfaceNs', $startPageLabel)" mode="count"/>
-            </xsl:when>
-            <xsl:otherwise>
-               <xsl:text>cover</xsl:text>
-            </xsl:otherwise>
-         </xsl:choose>
-
-      </xsl:variable>
-
-      <startPage>
-         <xsl:value-of select="$startPage"/>
-      </startPage>
-
-   </xsl:template>
-
-
-   <!--TITLES-->
-
-   <!--main titles-->
-   <!--whole document titles where there are multiple msItems are found in the summary - if not present, defaults to classmark-->
-
-
+   
    <xsl:template name="get-doc-title">
-      <title>
-         <xsl:variable name="title">
-
-            <xsl:choose>
-
-               <xsl:when test="*:head">
-                  <xsl:value-of select="normalize-space(*:head)"/>
-               </xsl:when>
-               <xsl:when test="*:msIdentifier/*:msName">
-                  <xsl:value-of select="normalize-space(*:msIdentifier/*:msName)"/>
-               </xsl:when>
-               <xsl:when test="*:msContents/*:summary//*:title[not(@type)]">
-                  <xsl:for-each-group select="*:msContents/*:summary//*:title[not(@type)]"
-                     group-by="normalize-space(.)">
-                     <xsl:value-of select="normalize-space(.)"/>
-                     <xsl:if test="not(position()=last())">
-                        <xsl:text>, </xsl:text>
-                     </xsl:if>
-                  </xsl:for-each-group>
-               </xsl:when>
-               <xsl:when test="*:msIdentifier/*:idno">
-                  <xsl:for-each-group select="*:msIdentifier/*:idno" group-by="normalize-space(.)">
-                     <xsl:value-of select="normalize-space(.)"/>
-                     <xsl:if test="not(position()=last())">
-                        <xsl:text>, </xsl:text>
-                     </xsl:if>
-                  </xsl:for-each-group>
-               </xsl:when>
-               <xsl:otherwise>
-                  <xsl:text>Untitled Document</xsl:text>
-               </xsl:otherwise>
-            </xsl:choose>
-         </xsl:variable>
-
-
-
-         <xsl:choose>
-            <xsl:when test="name() eq 'msDesc'">
-               <xsl:attribute name="display" select="'false'"/>
-            </xsl:when>
-            <xsl:otherwise>
-               <xsl:attribute name="display" select="'true'"/>
-            </xsl:otherwise>
-         </xsl:choose>
-
-
-
-         <xsl:attribute name="displayForm" select="$title"/>
-
-         <xsl:value-of select="$title"/>
-
-      </title>
+      <xsl:call-template name="write-container-lg">
+         <xsl:with-param name="type" select="'title'"/>
+         <xsl:with-param name="display" select="name() ne 'msDesc'"/>
+         <xsl:with-param name="displayForm">
+            <xsl:variable name="t">
+               <xsl:choose>
+                  <xsl:when test="tei:head">
+                     <xsl:value-of select="normalize-space(tei:head)"/>
+                  </xsl:when>
+                  <xsl:when test="tei:msIdentifier/tei:msName">
+                     <xsl:value-of select="normalize-space(tei:msIdentifier/tei:msName)"/>
+                  </xsl:when>
+                  <xsl:when test="tei:msContents/tei:summary//tei:title[not(@type)]">
+                     <xsl:for-each-group select="tei:msContents/tei:summary//tei:title[not(@type)]" group-by="normalize-space(.)">
+                        <xsl:value-of select="normalize-space(.)"/>
+                        <xsl:if test="not(position()=last())">
+                           <xsl:text>, </xsl:text>
+                        </xsl:if>
+                     </xsl:for-each-group>
+                  </xsl:when>
+                  <xsl:when test="tei:msIdentifier/tei:idno">
+                     <xsl:for-each-group select="tei:msIdentifier/tei:idno" group-by="normalize-space(.)">
+                        <xsl:value-of select="normalize-space(.)"/>
+                        <xsl:if test="not(position()=last())">
+                           <xsl:text>, </xsl:text>
+                        </xsl:if>
+                     </xsl:for-each-group>
+                  </xsl:when>
+                  <xsl:otherwise>
+                     <xsl:text>Untitled Document</xsl:text>
+                  </xsl:otherwise>
+               </xsl:choose>
+            </xsl:variable>
+            <xsl:value-of select="normalize-space($t)"/>
+         </xsl:with-param>
+         <xsl:with-param name="label" select="'Title'"/>
+         <xsl:with-param name="seq" select="1"/>
+      </xsl:call-template>
    </xsl:template>
-
-
+   
    <!--item titles-->
    <xsl:template name="get-item-title">
-      <xsl:param name="display" select="'true'"/>
-
-
-
-      <title>
-
-
-         <xsl:variable name="title">
+      <xsl:param name="display"/>
+      
+      <map key="title" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:copy-of select="cudl:display($display)"/>
+         <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
-               <xsl:when test="normalize-space(*:title[not(@type)][1])">
-                  <xsl:value-of select="normalize-space(*:title[not(@type)][1])"/>
+               <xsl:when test="normalize-space(tei:title[not(@type)][1])">
+                  <xsl:value-of select="normalize-space(tei:title[not(@type)][1])"/>
                </xsl:when>
-               <xsl:when test="normalize-space(*:title[@type='general'][1])">
-                  <xsl:value-of select="normalize-space(*:title[@type='general'][1])"/>
+               <xsl:when test="normalize-space(tei:title[@type='general'][1])">
+                  <xsl:value-of select="normalize-space(tei:title[@type='general'][1])"/>
                </xsl:when>
-               <xsl:when test="normalize-space(*:title[@type='desc'][1])">
-                  <xsl:value-of select="normalize-space(*:title[@type='desc'][1])"/>
+               <xsl:when test="normalize-space(tei:title[@type='desc'][1])">
+                  <xsl:value-of select="normalize-space(tei:title[@type='desc'][1])"/>
                </xsl:when>
-               <xsl:when test="normalize-space(*:title[@type='standard'][1])">
-                  <xsl:value-of select="normalize-space(*:title[@type='standard'][1])"/>
+               <xsl:when test="normalize-space(tei:title[@type='standard'][1])">
+                  <xsl:value-of select="normalize-space(tei:title[@type='standard'][1])"/>
                </xsl:when>
-               <xsl:when test="normalize-space(*:title[@type='supplied'][1])">
-                  <xsl:value-of select="normalize-space(*:title[@type='supplied'][1])"/>
+               <xsl:when test="normalize-space(tei:title[@type='supplied'][1])">
+                  <xsl:value-of select="normalize-space(tei:title[@type='supplied'][1])"/>
                </xsl:when>
-               <xsl:when test="normalize-space(*:rubric)">
+               <xsl:when test="normalize-space(tei:rubric[1])">
                   <xsl:variable name="rubric_title">
-
-                     <xsl:apply-templates select="*:rubric" mode="title"/>
-
+                     <xsl:apply-templates select="tei:rubric[1]" mode="title"/>
                   </xsl:variable>
-
                   <xsl:value-of select="normalize-space($rubric_title)"/>
                </xsl:when>
-
-               <xsl:when test="normalize-space(*:incipit[1])">
+               <xsl:when test="normalize-space(tei:incipit[1])">
                   <xsl:variable name="incipit_title">
-
-                     <xsl:apply-templates select="*:incipit[1]" mode="title"/>
-
+                     <xsl:apply-templates select="tei:incipit[1]" mode="title"/>
                   </xsl:variable>
-
                   <xsl:value-of select="normalize-space($incipit_title)"/>
                </xsl:when>
-
-
                <xsl:otherwise>
                   <xsl:text>Untitled Item</xsl:text>
                </xsl:otherwise>
             </xsl:choose>
-         </xsl:variable>
-
-         <xsl:attribute name="display" select="$display"/>
-
-         <xsl:attribute name="displayForm" select="$title"/>
-
-         <xsl:value-of select="$title"/>
-
-      </title>
+         </string>
+         <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:text>Title</xsl:text>
+         </string>
+         <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="1"/>
+         </number>
+      </map>
    </xsl:template>
-
-
-   <!--alternative titles-->
-   <xsl:template name="get-doc-alt-titles">
-
-      <xsl:if test="*:msContents/*:summary/*:title[@type='alt']">
-
-         <alternativeTitles>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:for-each select="*:msContents/*:summary/*:title[@type='alt']">
-
-               <!-- <xsl:if test="not(normalize-space(.) = '')"> -->
-
-               <xsl:if test="normalize-space(.)">
-
-                  <alternativeTitle>
-
-                     <xsl:attribute name="display" select="'true'"/>
-
-                     <xsl:attribute name="displayForm" select="normalize-space(.)"/>
-
-                     <xsl:value-of select="normalize-space(.)"/>
-                  </alternativeTitle>
-
+   
+   <xsl:template name="get-alt-titles">
+      <!-- level may be either 'doc' or 'item' -->
+      <xsl:param name="level" select="'doc'"/>
+      
+      <xsl:variable name="target" as="item()*">
+         <xsl:choose>
+            <xsl:when test="$level ='doc'">
+               <xsl:copy-of select="tei:msContents/tei:summary/tei:title[@type='alt']"/>
+            </xsl:when>
+            <xsl:otherwise>
+               <!-- item level -->
+               <xsl:copy-of select="tei:title[@type='alt']"/>
+            </xsl:otherwise>
+         </xsl:choose>
+      </xsl:variable>
+   
+      <xsl:if test="$target">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'alternativeTitles'"/>
+            <xsl:with-param name="displayFormIter" select="if ($level eq 'doc') then $target[normalize-space(.)] else $target"/>
+            <xsl:with-param name="label" select="'Alternative Title(s)'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="seq2" select="2"/>
+         </xsl:call-template>
+      </xsl:if>
+   </xsl:template>
+   
+   <xsl:template name="get-desc-titles">
+      <!-- level may be either 'doc' or 'item' -->
+      <xsl:param name="level" select="'doc'"/>
+      
+      <xsl:variable name="target" as="item()*">
+         <xsl:choose>
+            <xsl:when test="$level = 'doc'">
+               <xsl:if test="tei:msContents/tei:summary/tei:title[@type='desc']">
+                  <xsl:copy-of select="tei:msContents/tei:summary/tei:title[@type='desc'][normalize-space(.)]"/>
                </xsl:if>
-
-            </xsl:for-each>
-
-         </alternativeTitles>
-
+            </xsl:when>
+            <xsl:otherwise>
+               <xsl:copy-of select="tei:title[@type='desc']"/>
+            </xsl:otherwise>
+         </xsl:choose>
+      </xsl:variable>
+      
+      <xsl:if test="$target">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'descriptiveTitles'"/>
+            <xsl:with-param name="displayFormIter" select="if ($level eq 'doc') then $target[normalize-space(.)] else $target"/>
+            <xsl:with-param name="label" select="'Descriptive Title(s)'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="seq2" select="2"/>
+         </xsl:call-template>
       </xsl:if>
-
    </xsl:template>
-
-
-   <xsl:template name="get-item-alt-titles">
-
-      <xsl:if test="*:title[@type='alt']">
-
-         <alternativeTitles>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:for-each select="*:title[@type='alt']">
-
-               <xsl:if test="normalize-space(.)">
-
-                  <alternativeTitle>
-
-                     <xsl:attribute name="display" select="'true'"/>
-
-                     <xsl:attribute name="displayForm" select="normalize-space(.)"/>
-
-                     <xsl:value-of select="normalize-space(.)"/>
-                  </alternativeTitle>
-
-               </xsl:if>
-
-            </xsl:for-each>
-         </alternativeTitles>
-
-      </xsl:if>
-
-   </xsl:template>
-
-   <!--descriptive titles-->
-   <xsl:template name="get-doc-desc-titles">
-
-      <xsl:if test="*:msContents/*:summary/*:title[@type='desc']">
-
-         <descriptiveTitles>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:for-each select="*:msContents/*:summary/*:title[@type='desc']">
-
-               <!-- <xsl:if test="not(normalize-space(.) = '')"> -->
-
-               <xsl:if test="normalize-space(.)">
-
-                  <descriptiveTitle>
-
-                     <xsl:attribute name="display" select="'true'"/>
-
-                     <xsl:attribute name="displayForm" select="normalize-space(.)"/>
-
-                     <xsl:value-of select="normalize-space(.)"/>
-                  </descriptiveTitle>
-
-               </xsl:if>
-
-            </xsl:for-each>
-
-         </descriptiveTitles>
-
-      </xsl:if>
-
-   </xsl:template>
-
-   <xsl:template name="get-item-desc-titles">
-
-      <xsl:if test="*:title[@type='desc']">
-
-         <descriptiveTitles>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:for-each select="*:title[@type='desc']">
-
-               <xsl:if test="normalize-space(.)">
-
-                  <descriptiveTitle>
-
-                     <xsl:attribute name="display" select="'true'"/>
-
-                     <xsl:attribute name="displayForm" select="normalize-space(.)"/>
-
-                     <xsl:value-of select="normalize-space(.)"/>
-                  </descriptiveTitle>
-
-               </xsl:if>
-
-            </xsl:for-each>
-         </descriptiveTitles>
-
-      </xsl:if>
-
-   </xsl:template>
-
-
-   <!--uniform title-->
-   <xsl:template name="get-doc-uniform-title">
-
-      <xsl:variable name="uniformTitle" select="*:msContents/*:summary/*:title[@type='uniform'][1]"/>
-
-      <xsl:if test="normalize-space($uniformTitle)">
-
-         <uniformTitle>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:attribute name="displayForm" select="normalize-space($uniformTitle)"/>
-
-            <xsl:value-of select="normalize-space($uniformTitle)"/>
-
-         </uniformTitle>
-
-      </xsl:if>
-
-   </xsl:template>
-
-   <xsl:template name="get-item-uniform-title">
-
-      <xsl:variable name="uniformTitle" select="*:title[@type='uniform'][1]"/>
-
-      <xsl:if test="normalize-space($uniformTitle)">
-
-         <uniformTitle>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:attribute name="displayForm" select="normalize-space($uniformTitle)"/>
-
-            <xsl:value-of select="normalize-space($uniformTitle)"/>
-
-         </uniformTitle>
-
-      </xsl:if>
-
-   </xsl:template>
-
-
-   <!--ABSTRACTS-->
-
-   <xsl:template name="get-doc-abstract">
-
-      <xsl:if
-         test="(ancestor-or-self::tei:teiHeader[1]//tei:profileDesc/tei:abstract,*:msContents/*:summary)[normalize-space(.)][1]">
-
-         <abstract>
-
-            <xsl:variable name="abstract">
-               <xsl:apply-templates
-                  select="(ancestor-or-self::tei:teiHeader[1]//tei:profileDesc/tei:abstract,*:msContents/*:summary)[normalize-space(.)][1]"
-                  mode="html"/>
-            </xsl:variable>
-
-            <xsl:attribute name="display" select="'false'"/>
-
-            <xsl:attribute name="displayForm" select="normalize-space($abstract)"/>
-
-            <!-- <xsl:value-of select="normalize-space($abstract)" /> -->
-            <xsl:value-of select="normalize-space(replace($abstract, '&lt;[^&gt;]+&gt;', ''))"/>
-
-         </abstract>
-
-      </xsl:if>
-
-   </xsl:template>
-
-   <xsl:template name="get-part-abstract">
-
-      <xsl:if
-         test="(ancestor-or-self::tei:teiHeader[1]//tei:profileDesc/tei:abstract,*:msContents/*:summary)[normalize-space(.)][1]">
-
-         <abstract>
-
-            <xsl:variable name="abstract">
-               <xsl:apply-templates
-                  select="(ancestor-or-self::tei:teiHeader[1]//tei:profileDesc/tei:abstract,*:msContents/*:summary)[normalize-space(.)][1]"
-                  mode="html"/>
-            </xsl:variable>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:attribute name="displayForm" select="normalize-space($abstract)"/>
-
-            <!-- <xsl:value-of select="normalize-space($abstract)" /> -->
-            <xsl:value-of select="normalize-space(replace($abstract, '&lt;[^&gt;]+&gt;', ''))"/>
-
-         </abstract>
-
-      </xsl:if>
-
-   </xsl:template>
-
-   <xsl:template match="*:summary" mode="html">
-
-      <!--we need to put this in a paragraph if the summary itself contains no paragraphs-->
+   
+   <xsl:template name="get-uniform-title">
+      <!-- level may be either 'doc' or 'item' -->
+      <xsl:param name="level" select="'doc'"/>
+      
+      <!-- Cumbersome code needed at present since uniform title, which is always a context-level singleton,
+           has differing data structures. Doc-level has a values array; item level only provides a string.
+           Revisit these structures and update Viewer to support consistent structure?
+      -->
       <xsl:choose>
-         <xsl:when test=".//*:seg[@type='para']">
-
-
-            <xsl:apply-templates mode="html"/>
-
+         <xsl:when test="$level = 'doc'">
+            <xsl:variable name="target" select="tei:msContents/tei:summary/tei:title[@type='uniform'][1]"/>
+            <xsl:if test="normalize-space($target)">
+               <xsl:call-template name="write-container-lg">
+                  <xsl:with-param name="type" select="'uniformTitle'"/>
+                  <xsl:with-param name="displayFormIter" select="$target"/>
+                  <xsl:with-param name="label" select="'Uniform Title'"/>
+                  <xsl:with-param name="seq" select="1"/>
+               </xsl:call-template>
+            </xsl:if>
          </xsl:when>
          <xsl:otherwise>
-
-            <xsl:text>&lt;p style=&apos;text-align: justify;&apos;&gt;</xsl:text>
-            <xsl:apply-templates mode="html"/>
-            <xsl:text>&lt;/p&gt;</xsl:text>
-
-
+            <xsl:variable name="target" select="normalize-space(tei:title[@type='uniform'][1])"/>
+            <xsl:if test="$target">
+               <xsl:call-template name="write-container-lg">
+                  <xsl:with-param name="type" select="'uniformTitle'"/>
+                  <xsl:with-param name="displayForm" select="$target"/>
+                  <xsl:with-param name="label" select="'Uniform Title'"/>
+                  <xsl:with-param name="seq" select="1"/>
+               </xsl:call-template>
+            </xsl:if>
          </xsl:otherwise>
-
       </xsl:choose>
-
-
-   </xsl:template>
-
-   <xsl:template match="tei:abstract" mode="html">
-      <xsl:apply-templates mode="#current"/>
-   </xsl:template>
-
-   <!--SUBJECTS-->
-   <xsl:template name="get-doc-subjects">
-
-      <xsl:if test="//*:profileDesc/*:textClass/*:keywords/*:list/*:item/*:term[not(@ref)][not(@type='placename')]">
-
-         <subjects>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:for-each
-               select="//*:profileDesc/*:textClass/*:keywords/*:list/*:item/*:term[not(@ref)][not(@type='placename')]">
-
-               <xsl:if test="normalize-space(.)">
-
-                  <subject>
-
-                     <xsl:attribute name="display" select="'true'"/>
-
-                     <xsl:attribute name="displayForm" select="normalize-space(.)"/>
-
-                     <fullForm>
-                        <xsl:value-of select="normalize-space(.)"/>
-                     </fullForm>
-
-                     <xsl:if test="(starts-with(@key, 'subject_sh'))">
-                        <authority>
-                           <xsl:text>Library of Congress Subject Headings</xsl:text>
-                        </authority>
-                        <authorityURI>
-                           <xsl:text>http://id.loc.gov/authorities/about.html#lcsh</xsl:text>
-                        </authorityURI>
-                        <valueURI>
-                           <xsl:value-of select="@key"/>
-                        </valueURI>
-                     </xsl:if>
-
-                  </subject>
-
-               </xsl:if>
-
-            </xsl:for-each>
-
-
-         </subjects>
-      </xsl:if>
-
-   </xsl:template>
-
-
-   <xsl:template name="get-part-subjects">
-
-      <xsl:variable name="mspart_id" select="@xml:id"/>
-      <xsl:variable name="mspart_id_ref">
-         <xsl:if test="normalize-space($mspart_id)">
-            <xsl:value-of select="concat('#', $mspart_id)"/>
-         </xsl:if>
-
-      </xsl:variable>
-
-
-      <xsl:if
-         test="//*:profileDesc/*:textClass/*:keywords/*:list/*:item/*:term[@ref=$mspart_id_ref][not(@type='placename')]">
-
-         <subjects>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:for-each
-               select="//*:profileDesc/*:textClass/*:keywords/*:list/*:item/*:term[@ref=$mspart_id_ref][not(@type='placename')]">
-
-               <xsl:if test="normalize-space(.)">
-
-                  <subject>
-
-                     <xsl:attribute name="display" select="'true'"/>
-
-                     <xsl:attribute name="displayForm" select="normalize-space(.)"/>
-
-                     <fullForm>
-                        <xsl:value-of select="normalize-space(.)"/>
-                     </fullForm>
-
-                     <xsl:if test="(starts-with(@key, 'subject_sh'))">
-                        <authority>
-                           <xsl:text>Library of Congress Subject Headings</xsl:text>
-                        </authority>
-                        <authorityURI>
-                           <xsl:text>http://id.loc.gov/authorities/about.html#lcsh</xsl:text>
-                        </authorityURI>
-                        <valueURI>
-                           <xsl:value-of select="@key"/>
-                        </valueURI>
-                     </xsl:if>
-
-                  </subject>
-
-               </xsl:if>
-
-            </xsl:for-each>
-
-
-         </subjects>
-      </xsl:if>
-
    </xsl:template>
    
-   
-   <!--PLACES-->
-   
-   <xsl:template name="get-doc-places">
+   <xsl:template name="get-abstract">
+      <!-- level may be either 'doc' or 'part' -->
+      <xsl:param name="level" select="'doc'"/>
       
-      <xsl:if test="//*:profileDesc/*:textClass/*:keywords/*:list/*:item/*:term[not(@ref)][@type='placename']">
-         
-         <places>
-            
-            <xsl:attribute name="display" select="'true'"/>
-            
-            <xsl:for-each
-               select="//*:profileDesc/*:textClass/*:keywords/*:list/*:item/*:term[not(@ref)][@type='placename']">
-               
-               <xsl:if test="normalize-space(.)">
-                  
-                  <place>
-                     
-                     <xsl:attribute name="display" select="'true'"/>
-                     
-                     <xsl:attribute name="displayForm" select="normalize-space(.)"/>
-                     
-                     <fullForm>
-                        <xsl:value-of select="normalize-space(.)"/>
-                     </fullForm>
-                     
-                  </place>
-                  
-               </xsl:if>
-               
-            </xsl:for-each>
-            
-            
-         </places>
+      <xsl:if test="(ancestor-or-self::tei:teiHeader[1]//tei:profileDesc/tei:abstract,tei:msContents/tei:summary)[normalize-space(.)][1]">
+         <xsl:variable name="abstract">
+            <xsl:apply-templates select="(ancestor-or-self::tei:teiHeader[1]//tei:profileDesc/tei:abstract,tei:msContents/tei:summary)[normalize-space(.)][1]" mode="html"/>
+         </xsl:variable>
+         <map key="abstract" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:call-template name="write-data-obj-flat">
+               <xsl:with-param name="display" select="$level ne 'doc'"/>
+               <xsl:with-param name="displayForm" select="normalize-space($abstract)"/>
+               <xsl:with-param name="label" select="'Abstract'"/>
+               <xsl:with-param name="seq" select="1"/>
+            </xsl:call-template>
+         </map>
       </xsl:if>
-      
    </xsl:template>
    
-   
-   <xsl:template name="get-part-places">
+   <xsl:template name="get-subjects">
+      <!-- level may be either 'doc' or 'part' -->
+      <xsl:param name="level" select="'doc'"/>
       
-      <xsl:variable name="mspart_id" select="@xml:id"/>
-      <xsl:variable name="mspart_id_ref">
-         <xsl:if test="normalize-space($mspart_id)">
-            <xsl:value-of select="concat('#', $mspart_id)"/>
-         </xsl:if>
-         
+      <xsl:variable name="target" as="item()*">
+         <xsl:choose>
+            <xsl:when test="$level = 'doc'">
+               <xsl:copy-of select="//tei:profileDesc/tei:textClass/tei:keywords/tei:list/tei:item/tei:term[not(@ref)][not(@type='placename')]"/>
+            </xsl:when>
+            <xsl:otherwise>
+               <!-- part -->
+               <xsl:variable name="mspart_id" select="@xml:id"/>
+               <xsl:variable name="mspart_id_ref">
+                  <xsl:if test="normalize-space($mspart_id)">
+                     <xsl:value-of select="concat('#', $mspart_id)"/>
+                  </xsl:if>
+               </xsl:variable>
+               <xsl:copy-of select="//tei:profileDesc/tei:textClass/tei:keywords/tei:list/tei:item/tei:term[@ref=$mspart_id_ref][not(@type='placename')]"/>
+            </xsl:otherwise>
+         </xsl:choose>
       </xsl:variable>
       
-      
-      <xsl:if
-         test="//*:profileDesc/*:textClass/*:keywords/*:list/*:item/*:term[@ref=$mspart_id_ref][@type='placename']">
-         
-         <places>
+      <xsl:if test="$target">
+         <!-- SHIM removed [normalize-space(.)] for testing compatibility -->
+         <map key="subjects" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:call-template name="write-metadata-block-header">
+               <xsl:with-param name="seq" select="1"/>
+               <xsl:with-param name="label" select="'Subject(s)'"/>
+               <xsl:with-param name="listDisplay" select="'inline'"/>
+            </xsl:call-template>
             
-            <xsl:attribute name="display" select="'true'"/>
-            
-            <xsl:for-each
-               select="//*:profileDesc/*:textClass/*:keywords/*:list/*:item/*:term[@ref=$mspart_id_ref][@type='placename']">
-               
-               <xsl:if test="normalize-space(.)">
-                  
-                  <place>
-                     
-                     <xsl:attribute name="display" select="'true'"/>
-                     
-                     <xsl:attribute name="displayForm" select="normalize-space(.)"/>
-                     
-                     <fullForm>
-                        <xsl:value-of select="normalize-space(.)"/>
-                     </fullForm>
-                     
-                     
-                     
-                  </place>
-                  
-               </xsl:if>
-               
-            </xsl:for-each>
-            
-            
-         </places>
-      </xsl:if>
-      
-   </xsl:template>
-   
-   
-
-   <!--EVENTS-->
-   <xsl:template name="get-doc-events">
-
-      <xsl:choose>
-         <xsl:when test="//*:editor[@role='pbl'] and *:history/*:origin">
-
-            <!--publication-->
-            <publications>
-
-               <xsl:attribute name="display" select="'true'"/>
-
-               <!--will there only ever be one of these?-->
-               <xsl:for-each select="*:history/*:origin">
-                  <event>
-
-                     <type>publication</type>
-
-                     <xsl:variable name="place-elems" as="item()*">
-                        <xsl:variable name="item_teiHeader"
-                           select="ancestor-or-self::tei:teiHeader[1]"/>
-                        <xsl:choose>
-                           <xsl:when
-                              test="exists($item_teiHeader//tei:profileDesc/tei:correspDesc/tei:correspAction//tei:placeName)">
-                              <xsl:copy-of
-                                 select="$item_teiHeader//tei:profileDesc/tei:correspDesc/tei:correspAction//tei:placeName"
-                              />
-                           </xsl:when>
-                           <xsl:otherwise>
-                              <xsl:copy-of select="descendant::*:origPlace"/>
-                           </xsl:otherwise>
-                        </xsl:choose>
-                     </xsl:variable>
-
-                     <xsl:if test="$place-elems">
-                        <places>
-
-                           <xsl:attribute name="display" select="'true'"/>
-
-                           <xsl:for-each select="$place-elems">
-                              <place>
-                                 <xsl:attribute name="display" select="'true'"/>
-
-                                 <xsl:attribute name="displayForm" select="normalize-space(.)"/>
-                                 <shortForm>
-                                    <xsl:value-of select="normalize-space(.)"/>
-                                 </shortForm>
-                                 <fullForm>
-                                    <xsl:value-of select="normalize-space(.)"/>
-                                 </fullForm>
-                              </place>
-
-                           </xsl:for-each>
-                        </places>
+            <array key="value" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:for-each select="if ($level eq 'part') then $target else $target[normalize-space(.)]">
+                  <map xmlns="http://www.w3.org/2005/xpath-functions">
+                     <xsl:if test="normalize-space(.)">
+                        <xsl:copy-of select="cudl:display(true())"/>
+                        <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+                           <xsl:value-of select="normalize-space(.)"/>
+                        </string>
+                        <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+                           <xsl:value-of select="1"/>
+                        </number>
+                        <string key="linktype" xmlns="http://www.w3.org/2005/xpath-functions">
+                           <xsl:value-of select="'keyword search'"/>
+                        </string>
+                        <string key="fullForm" xmlns="http://www.w3.org/2005/xpath-functions">
+                           <xsl:value-of select="normalize-space(.)"/>
+                        </string>
+                        <xsl:if test="(starts-with(@key, 'subject_sh'))">
+                           <string key="authority" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:text>Library of Congress Subject Headings</xsl:text>
+                           </string>
+                           <string key="authorityURI" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:text>http://id.loc.gov/authorities/about.html#lcsh</xsl:text>
+                           </string>
+                           <string key="valueURI" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:value-of select="@key"/>
+                           </string>
+                        </xsl:if>
                      </xsl:if>
-
-                     <xsl:variable name="preferred-date-elem" as="item()*">
-                        <xsl:variable name="correspAction-elems"
-                           select="ancestor-or-self::tei:teiHeader[1]//tei:correspDesc/tei:correspAction"
-                           as="item()*"/>
-                        <xsl:copy-of
-                           select="($correspAction-elems[@type='sent']//tei:date,$correspAction-elems[not(@type='sent')]//tei:date,.//*:origDate,.//*:date)[1]"
-                        />
-                     </xsl:variable>
-
-                     <xsl:if test="not(empty($preferred-date-elem))">
-                        <xsl:call-template name="output-date-elems">
-                           <xsl:with-param name="date_elem" select="$preferred-date-elem"/>
-                        </xsl:call-template>
-                     </xsl:if>
-
-                     <publishers>
-                        <xsl:attribute name="display" select="'true'"/>
-
-                        <xsl:apply-templates select="//*:editor[@role='pbl']" mode="publisher"/>
-
-                     </publishers>
-
-
-                  </event>
+                  </map>
                </xsl:for-each>
-
-
-
-            </publications>
-
-
-
+            </array>
+         </map>
+      </xsl:if>
+   </xsl:template>
+   
+   <xsl:template name="get-places">
+      <!-- level may be either 'doc' or 'part' -->
+      <xsl:param name="level" select="'doc'"/>
+      
+      <xsl:variable name="target" as="item()*">
+         <xsl:choose>
+            <xsl:when test="$level = 'doc'">
+               <xsl:copy-of select="//tei:profileDesc/tei:textClass/tei:keywords/tei:list/tei:item/tei:term[not(@ref)][@type='placename']"/>
+            </xsl:when>
+            <xsl:otherwise>
+               <!-- part -->
+               <xsl:variable name="mspart_id" select="@xml:id"/>
+               <xsl:variable name="mspart_id_ref">
+                  <xsl:if test="normalize-space($mspart_id)">
+                     <xsl:value-of select="concat('#', $mspart_id)"/>
+                  </xsl:if>
+               </xsl:variable>
+               <xsl:copy-of select="//tei:profileDesc/tei:textClass/tei:keywords/tei:list/tei:item/tei:term[@ref=$mspart_id_ref][@type='placename']"/>
+            </xsl:otherwise>
+         </xsl:choose>
+      </xsl:variable>
+      
+      <xsl:if test="$target">
+         <map key="places" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:copy-of select="cudl:display(true())"/>
+            <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:text>Associated Place(s)</xsl:text>
+            </string>
+            <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="1"/>
+            </number>
+            <array key="value" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:for-each select="$target">
+                  <xsl:if test="normalize-space(.)">
+                     <map xmlns="http://www.w3.org/2005/xpath-functions">
+                        <xsl:if test="normalize-space(.)">
+                           <xsl:copy-of select="cudl:display(true())"/>
+                           <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:value-of select="normalize-space(.)"/>
+                           </string>
+                           <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions" parent="descriptiveMetadata">
+                              <xsl:value-of select="1"/>
+                           </number>
+                           <string key="linktype" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:value-of select="'keyword search'"/>
+                           </string>
+                           <string key="fullForm" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:value-of select="normalize-space(.)"/>
+                           </string>
+                           <xsl:if test="(starts-with(@key, 'subject_sh'))"><!-- IS THIS USED -->
+                              <string key="authority" xmlns="http://www.w3.org/2005/xpath-functions">
+                                 <xsl:text>Library of Congress Subject Headings</xsl:text>
+                              </string>
+                              <string key="authorityURI" xmlns="http://www.w3.org/2005/xpath-functions">
+                                 <xsl:text>http://id.loc.gov/authorities/about.html#lcsh</xsl:text>
+                              </string>
+                              <string key="valueURI" xmlns="http://www.w3.org/2005/xpath-functions">
+                                 <xsl:value-of select="@key"/>
+                              </string>
+                           </xsl:if>
+                        </xsl:if>
+                     </map>
+                  </xsl:if>
+               </xsl:for-each>
+            </array>
+         </map>
+      </xsl:if>
+   </xsl:template>
+   
+   <xsl:template name="get-doc-events">
+      <xsl:choose>
+         <xsl:when test="//tei:editor[@role='pbl'] and tei:history/tei:origin">
+            <map key="publications" xmlns="http://www.w3.org/2005/xpath-functions">
+               <!-- Root of object is a container for our standard flat objects, stored in value array -->
+               <xsl:copy-of select="cudl:display(true())"/>
+               <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="1"/>
+               </number>
+               <array key="value" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <!--will there only ever be one of these?-->
+                  <xsl:for-each select="tei:history/tei:origin">
+                     <map xmlns="http://www.w3.org/2005/xpath-functions">
+                        <string key="type" xmlns="http://www.w3.org/2005/xpath-functions">
+                           <xsl:text>publication</xsl:text>
+                        </string>
+                        
+                        <xsl:variable name="place-elems" as="item()*">
+                           <xsl:variable name="item_teiHeader" select="ancestor-or-self::tei:teiHeader[1]"/>
+                           <xsl:choose>
+                              <xsl:when test="exists($item_teiHeader//tei:profileDesc/tei:correspDesc/tei:correspAction//tei:placeName)">
+                                 <xsl:copy-of select="$item_teiHeader//tei:profileDesc/tei:correspDesc/tei:correspAction//tei:placeName"/>
+                              </xsl:when>
+                              <xsl:otherwise>
+                                 <xsl:copy-of select="descendant::tei:origPlace"/>
+                              </xsl:otherwise>
+                           </xsl:choose>
+                        </xsl:variable>
+                        
+                        <xsl:if test="$place-elems">
+                           <map key="places" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:copy-of select="cudl:display(true())"/>
+                              <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
+                                 <xsl:value-of select="'Place of Publication'"/>
+                              </string>
+                              <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+                                 <xsl:value-of select="1"/>
+                              </number>
+                              <array key="value" xmlns="http://www.w3.org/2005/xpath-functions">
+                                 <xsl:for-each select="$place-elems">
+                                    <map xmlns="http://www.w3.org/2005/xpath-functions">
+                                       <xsl:copy-of select="cudl:display(true())"/>
+                                       <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+                                          <xsl:value-of select="normalize-space(.)"/>
+                                       </string>
+                                       <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+                                          <xsl:value-of select="1"/>
+                                       </number>
+                                       <string key="linktype" xmlns="http://www.w3.org/2005/xpath-functions">
+                                          <xsl:value-of select="'keyword search'"/>
+                                       </string>
+                                       <string key="shortForm" xmlns="http://www.w3.org/2005/xpath-functions">
+                                          <xsl:value-of select="normalize-space(.)"/>
+                                       </string>
+                                       <string key="fullForm" xmlns="http://www.w3.org/2005/xpath-functions">
+                                          <xsl:value-of select="normalize-space(.)"/>
+                                       </string>
+                                    </map>
+                                 </xsl:for-each>
+                              </array>
+                           </map>
+                        </xsl:if>
+                        
+                        <xsl:variable name="preferred-date-elem" as="item()*">
+                           <xsl:variable name="correspAction-elems" select="ancestor-or-self::tei:teiHeader[1]//tei:correspDesc/tei:correspAction" as="item()*"/>
+                           <xsl:copy-of select="($correspAction-elems[@type='sent']//tei:date,$correspAction-elems[not(@type='sent')]//tei:date,.//tei:origDate,.//tei:date)[1]" />
+                        </xsl:variable>
+                        
+                        <xsl:if test="not(empty($preferred-date-elem))">
+                           <xsl:call-template name="output-date-elems">
+                              <xsl:with-param name="date_elem" select="$preferred-date-elem"/>
+                              <xsl:with-param name="label" select="'Date of Publication'"/>
+                              <xsl:with-param name="output_empty" select="true()"/>
+                           </xsl:call-template>
+                        </xsl:if>
+                        
+                        <map key="publishers" xmlns="http://www.w3.org/2005/xpath-functions">
+                           <xsl:copy-of select="cudl:display(true())"/>
+                           <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:value-of select="1"/>
+                           </number>
+                           <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:text>Publisher</xsl:text>
+                           </string>
+                           <array key="value" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:apply-templates select="//tei:editor[@role='pbl']" mode="publisher"/>
+                           </array>
+                        </map>
+                     </map>
+                  </xsl:for-each>
+               </array>
+            </map>
          </xsl:when>
-
-         <xsl:when
-            test="*:history/*:origin 
-                         |
-                         ancestor-or-self::tei:teiHeader[1]//tei:profileDesc/tei:correspDesc/tei:correspAction[descendant::tei:placeName|descendant::tei:date]">
-
-
-            <!--creation-->
-            <creations>
-
-               <xsl:attribute name="display" select="'true'"/>
-
+         <xsl:when test="tei:history/tei:origin|ancestor-or-self::tei:teiHeader[1]//tei:profileDesc/tei:correspDesc/tei:correspAction[descendant::tei:placeName|descendant::tei:date]">
+            <map key="creations" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:copy-of select="cudl:display(true())"/>
+               <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="1"/>
+               </number>
+               
                <xsl:variable name="context-elem" as="item()*">
                   <xsl:choose>
-                     <xsl:when
-                        test="ancestor-or-self::tei:teiHeader[1]//tei:profileDesc/tei:correspDesc">
-                        <xsl:copy-of
-                           select="ancestor-or-self::tei:teiHeader[1]//tei:profileDesc/tei:correspDesc"
-                        />
+                     <xsl:when test="ancestor-or-self::tei:teiHeader[1]//tei:profileDesc/tei:correspDesc">
+                        <xsl:copy-of select="ancestor-or-self::tei:teiHeader[1]//tei:profileDesc/tei:correspDesc"/>
                      </xsl:when>
-                     <xsl:when test="*:history/*:origin">
-                        <!--will there only ever be one of these?-->
-                        <xsl:copy-of select="*:history/*:origin"/>
+                     <xsl:when test="tei:history/tei:origin">
+                        <xsl:copy-of select="tei:history/tei:origin"/>
                      </xsl:when>
                   </xsl:choose>
                </xsl:variable>
 
-               <xsl:for-each select="$context-elem">
-                  <event>
-
-                     <type>creation</type>
-
-                     <xsl:variable name="place-elems" as="item()*">
-                        <xsl:choose>
-                           <xsl:when test="exists(tei:correspAction//tei:placeName)">
-                              <xsl:copy-of select="tei:correspAction//tei:placeName"/>
-                           </xsl:when>
-                           <xsl:otherwise>
-                              <xsl:copy-of select="descendant::*:origPlace"/>
-                           </xsl:otherwise>
-                        </xsl:choose>
-                     </xsl:variable>
-
-                     <xsl:if test="not(empty($place-elems))">
-                        <places>
-
-                           <xsl:attribute name="display" select="'true'"/>
-
-                           <xsl:for-each select="$place-elems">
-                              <place>
-                                 <xsl:attribute name="display" select="'true'"/>
-
-                                 <xsl:attribute name="displayForm" select="normalize-space(.)"/>
-                                 <shortForm>
-                                    <xsl:value-of select="normalize-space(.)"/>
-                                 </shortForm>
-                                 <fullForm>
-                                    <xsl:value-of select="normalize-space(.)"/>
-                                 </fullForm>
-                              </place>
-
-                           </xsl:for-each>
-                        </places>
-                     </xsl:if>
-
-
-                     <xsl:variable name="preferred-date-elem" as="item()*">
-                        <xsl:variable name="correspAction-elems"
-                           select="$context-elem//tei:correspAction" as="item()*"/>
-                        <xsl:copy-of
-                           select="($correspAction-elems[@type='sent']//tei:date,$correspAction-elems[not(@type='sent')]//tei:date,.//*:origDate,.//*:date)[1]"
-                        />
-                     </xsl:variable>
-
-                     <xsl:if test="not(empty($preferred-date-elem))">
-                        <xsl:call-template name="output-date-elems">
-                           <xsl:with-param name="date_elem" select="$preferred-date-elem"/>
-                        </xsl:call-template>
-                     </xsl:if>
-
-                  </event>
-               </xsl:for-each>
-
-
-            </creations>
-         </xsl:when>
-
-      </xsl:choose>
-
-
-      <!--acquisition-->
-      <xsl:if test="*:history/*:acquisition">
-
-         <acquisitions>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:for-each select="*:history/*:acquisition">
-               <event>
-
-                  <type>acquisition</type>
-
-                  <xsl:for-each select=".//*:date[1][not (parent::*:date)]">
-
-                     <xsl:choose>
-                        <xsl:when test="@from">
-                           <dateStart>
-                              <xsl:value-of select="@from"/>
-                           </dateStart>
-                        </xsl:when>
-                        <xsl:when test="@notBefore">
-                           <dateStart>
-                              <xsl:value-of select="@notBefore"/>
-                           </dateStart>
-                        </xsl:when>
-                        <xsl:when test="@when">
-                           <dateStart>
-                              <xsl:value-of select="@when"/>
-                           </dateStart>
-                        </xsl:when>
-                        <xsl:otherwise> </xsl:otherwise>
-                     </xsl:choose>
-
-                     <xsl:choose>
-                        <xsl:when test="@to">
-                           <dateEnd>
-                              <xsl:value-of select="@to"/>
-                           </dateEnd>
-                        </xsl:when>
-                        <xsl:when test="@notAfter">
-                           <dateEnd>
-                              <xsl:value-of select="@notBefore"/>
-                           </dateEnd>
-                        </xsl:when>
-                        <xsl:when test="@when">
-                           <dateEnd>
-                              <xsl:value-of select="@when"/>
-                           </dateEnd>
-                        </xsl:when>
-                        <xsl:otherwise> </xsl:otherwise>
-                     </xsl:choose>
-
-                     <dateDisplay>
-
-                        <xsl:attribute name="display" select="'true'"/>
-
-                        <xsl:attribute name="displayForm" select="normalize-space(.)"/>
-
-                        <xsl:value-of select="normalize-space(.)"/>
-                     </dateDisplay>
-
+               <array key="value" xmlns="http://www.w3.org/2005/xpath-functions">
+                  
+                  <xsl:for-each select="$context-elem">
+                     <map xmlns="http://www.w3.org/2005/xpath-functions">
+                        <string key="type" xmlns="http://www.w3.org/2005/xpath-functions">
+                           <xsl:text>creation</xsl:text>
+                        </string>
+                        
+                        <xsl:variable name="place-elems" as="item()*">
+                           <xsl:choose>
+                              <xsl:when test="exists(tei:correspAction//tei:placeName)">
+                                 <xsl:copy-of select="tei:correspAction//tei:placeName"/>
+                              </xsl:when>
+                              <xsl:otherwise>
+                                 <xsl:copy-of select="descendant::tei:origPlace"/>
+                              </xsl:otherwise>
+                           </xsl:choose>
+                        </xsl:variable>
+                        
+                        <xsl:if test="not(empty($place-elems))">
+                           <map key="places" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:copy-of select="cudl:display(true())"/>
+                              <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+                                 <xsl:value-of select="70"/>
+                              </number>
+                              <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
+                                 <xsl:text>Origin Place</xsl:text>
+                              </string>
+                              <array key="value" xmlns="http://www.w3.org/2005/xpath-functions">
+                                 <xsl:for-each select="$place-elems">
+                                    <map xmlns="http://www.w3.org/2005/xpath-functions">
+                                       <xsl:copy-of select="cudl:display(true())"/>
+                                       <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+                                          <xsl:value-of select="normalize-space(.)"/>
+                                       </string>
+                                       <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+                                          <xsl:value-of select="1"/>
+                                       </number>
+                                       <string key="linktype" xmlns="http://www.w3.org/2005/xpath-functions">
+                                          <xsl:text>keyword search</xsl:text>
+                                       </string>
+                                       <string key="shortForm" xmlns="http://www.w3.org/2005/xpath-functions">
+                                          <xsl:value-of select="normalize-space(.)"/>
+                                       </string>
+                                       <string key="fullForm" xmlns="http://www.w3.org/2005/xpath-functions">
+                                          <xsl:value-of select="normalize-space(.)"/>
+                                       </string>
+                                    </map>
+                                 </xsl:for-each>
+                              </array>
+                           </map>
+                        </xsl:if>
+                        
+                        <xsl:variable name="preferred-date-elem" as="item()*">
+                           <xsl:variable name="correspAction-elems" select="$context-elem//tei:correspAction" as="item()*"/>
+                           <xsl:copy-of select="($correspAction-elems[@type='sent']//tei:date,$correspAction-elems[not(@type='sent')]//tei:date,.//tei:origDate,.//tei:date)[1]"/>
+                        </xsl:variable>
+                        
+                        <xsl:if test="not(empty($preferred-date-elem))">
+                           <xsl:call-template name="output-date-elems">
+                              <xsl:with-param name="date_elem" select="$preferred-date-elem"/>
+                              <xsl:with-param name="output_empty" select="true()"/><!-- SHIM COMPAT -->
+                              <xsl:with-param name="output_centuries" select="true()"/>
+                           </xsl:call-template>
+                        </xsl:if>
+                     </map>
                   </xsl:for-each>
-               </event>
+               </array>
+            </map>
+         </xsl:when>
+      </xsl:choose>
+      
+      <xsl:if test="tei:history/tei:acquisition">
+         <map key="acquisitions" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:copy-of select="cudl:display(true())"/>
+            <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="1"/>
+            </number>
+            <array key="value" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:for-each select="tei:history/tei:acquisition">
+                  <map xmlns="http://www.w3.org/2005/xpath-functions">
+                     <string key="type" xmlns="http://www.w3.org/2005/xpath-functions">
+                        <xsl:value-of select="'acquisition'"/>
+                     </string>
+                     <xsl:for-each select=".//tei:date[1][not (parent::tei:date)]">
+                        <xsl:variable name="dateStart" select="cudl:get-date-start(.)" as="xsd:string*"/>
+                        <xsl:if test="exists((@from, @notBefore, @when)[1]) or $dateStart !=''"><!-- SHIM COMPAT -->
+                           <string key="dateStart" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:value-of select="$dateStart"/>
+                           </string>
+                        </xsl:if>
+                        
+                        <xsl:variable name="dateEnd" select="cudl:get-date-end(.)" as="xsd:string*"/>
+                        <xsl:if test="exists((@to, @notAfter, @when)[1]) or $dateEnd !=''"><!-- SHIM COMPAT -->
+                           <string key="dateEnd" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:value-of select="$dateEnd"/>
+                           </string>
+                        </xsl:if>
+                        <map key="dateDisplay" xmlns="http://www.w3.org/2005/xpath-functions">
+                           <xsl:copy-of select="cudl:display(true())"/>
+                           <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:value-of select="normalize-space(.)"/>
+                           </string>
+                           <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:value-of select="1"/>
+                           </number>
+                           <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:value-of select="'Date of Acquisition'"/>
+                           </string>
+                        </map>
+                     </xsl:for-each>
+                  </map>
             </xsl:for-each>
-
-         </acquisitions>
+            </array>
+         </map>
       </xsl:if>
-
    </xsl:template>
-
-
-   <xsl:template match="*:editor[@role='pbl']" mode="publisher">
-
-      <publisher>
-
-         <xsl:attribute name="display" select="'true'"/>
-
-         <xsl:attribute name="displayForm" select="normalize-space(.)"/>
-
-
-         <xsl:value-of select="normalize-space(.)"/>
-
-
-
-      </publisher>
-
-
+   
+   <xsl:template match="tei:editor[@role='pbl']" mode="publisher">
+      <map xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:copy-of select="cudl:display(true())"/>
+         <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="normalize-space(.)"/>
+         </string>
+         <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="1"/>
+         </number>
+      </map>
    </xsl:template>
-
-   <!--LOCATION AND CLASSMARK-->
+   
    <xsl:template name="get-doc-physloc">
-
-      <xsl:if test="*:msIdentifier/*:repository[normalize-space(.)]">
-
-         <physicalLocation>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:attribute name="displayForm" select="normalize-space(*:msIdentifier/*:repository)"/>
-
-            <xsl:value-of select="normalize-space(*:msIdentifier/*:repository)"/>
-
-         </physicalLocation>
+      <xsl:if test="tei:msIdentifier/tei:repository[normalize-space(.)]">
+         <map key="physicalLocation" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:copy-of select="cudl:display(true())"/>
+            <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="normalize-space(tei:msIdentifier/tei:repository)"/>
+            </string>
+            <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:text>Physical Location</xsl:text>
+            </string>
+            <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="1"/>
+            </number>
+         </map>
       </xsl:if>
+      
       <xsl:variable name="shelfLocator_elem" as="item()*">
          <xsl:choose>
-            <xsl:when
-               test="ancestor-or-self::tei:teiHeader[1]/tei:fileDesc/tei:sourceDesc/tei:bibl[normalize-space(.)]">
-               <xsl:copy-of
-                  select="(ancestor-or-self::tei:teiHeader[1]/tei:fileDesc/tei:sourceDesc/tei:bibl[normalize-space(.)])[1]"
-               />
+            <xsl:when test="ancestor-or-self::tei:teiHeader[1]/tei:fileDesc/tei:sourceDesc/tei:bibl[normalize-space(.)]">
+               <xsl:copy-of select="(ancestor-or-self::tei:teiHeader[1]/tei:fileDesc/tei:sourceDesc/tei:bibl[normalize-space(.)])[1]"/>
             </xsl:when>
             <xsl:otherwise>
-               <xsl:copy-of select="*:msIdentifier/*:idno"/>
+               <xsl:copy-of select="tei:msIdentifier/tei:idno"/>
             </xsl:otherwise>
          </xsl:choose>
       </xsl:variable>
 
       <xsl:if test="$shelfLocator_elem[normalize-space(.)]">
-         <shelfLocator>
-            <xsl:attribute name="display" select="'true'"/>
-            <xsl:attribute name="displayForm" select="normalize-space($shelfLocator_elem)"/>
-            <xsl:value-of select="normalize-space($shelfLocator_elem)"/>
-         </shelfLocator>
+         <map key="shelfLocator" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:copy-of select="cudl:display(true())"/>
+            <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="normalize-space($shelfLocator_elem)"/>
+            </string>
+            <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:text>Classmark</xsl:text>
+            </string>
+            <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="1"/>
+            </number>
+         </map>
       </xsl:if>
-
    </xsl:template>
-
-   <!--ALTERNATIVE IDENTIFIERS-->
+   
    <xsl:template name="get-doc-alt-ids">
-
-      <xsl:if
-         test="normalize-space(*:msIdentifier/*:altIdentifier[not(@type='internal')][1]/*:idno)">
-
-         <altIdentifiers>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-
-            <xsl:for-each select="*:msIdentifier/*:altIdentifier[not(@type='internal')]/*:idno">
-
-               <altIdentifier>
-                  <xsl:attribute name="display" select="'true'"/>
-                  <xsl:attribute name="displayForm" select="normalize-space(.)"/>
-
-                  <xsl:value-of select="normalize-space(.)"/>
-
-
-               </altIdentifier>
-
-
-
-            </xsl:for-each>
-
-         </altIdentifiers>
-
+      <xsl:if test="normalize-space(tei:msIdentifier/tei:altIdentifier[not(@type='internal')][1]/tei:idno)">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'altIdentifiers'"/>
+            <xsl:with-param name="displayFormIter" select="tei:msIdentifier/tei:altIdentifier[not(@type='internal')]/tei:idno"/>
+            <xsl:with-param name="label" select="'Alternative Identifier(s)'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="seq2" select="2"/>
+         </xsl:call-template>
       </xsl:if>
-
    </xsl:template>
-
-
-   <!--THUMBNAIL-->
+   
    <xsl:template name="get-doc-thumbnail">
-
-
-      <xsl:variable name="graphic" select="//*:graphic[@decls='#document-thumbnail']"/>
+      
+      <xsl:variable name="graphic" select="//tei:graphic[@decls='#document-thumbnail']"/>
 
       <xsl:if test="$graphic">
-
-         <thumbnailUrl>
+         <string key="thumbnailUrl" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="normalize-space($graphic/@url)"/>
-         </thumbnailUrl>
-
-         <thumbnailOrientation>
+         </string>
+         <string key="thumbnailOrientation" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
                <xsl:when test="$graphic/@rend = 'portrait'">
                   <xsl:value-of select="'portrait'"/>
@@ -1841,481 +1094,457 @@
                   <xsl:value-of select="'portrait'"/>
                </xsl:otherwise>
             </xsl:choose>
-         </thumbnailOrientation>
-
+         </string>
       </xsl:if>
-
    </xsl:template>
-
-
-
-   <!-- RIGHTS-->
+   
    <xsl:template name="get-doc-image-rights">
-
-      <displayImageRights>
-         <xsl:value-of
-            select="normalize-space(//*:publicationStmt/*:availability[@xml:id='displayImageRights'])"
-         />
-      </displayImageRights>
-
-      <downloadImageRights>
-         <xsl:value-of
-            select="normalize-space(//*:publicationStmt/*:availability[@xml:id='downloadImageRights'])"
-         />
-      </downloadImageRights>
-
-      <imageReproPageURL>
-         <xsl:value-of
-            select="cudl:get-imageReproPageURL(normalize-space(*:msIdentifier/*:repository), normalize-space(*:msIdentifier/*:idno))"
-         />
-      </imageReproPageURL>
-
+      <string key="displayImageRights" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:value-of select="normalize-space(//tei:publicationStmt/tei:availability[@xml:id='displayImageRights'])" />
+      </string>
+      <string key="downloadImageRights" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:value-of select="normalize-space(//tei:publicationStmt/tei:availability[@xml:id='downloadImageRights'])" />
+      </string>
+      <string key="imageReproPageURL" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:value-of select="cudl:get-imageReproPageURL(normalize-space(tei:msIdentifier/tei:repository), normalize-space(tei:msIdentifier/tei:idno))" />
+      </string>
    </xsl:template>
 
    <xsl:template name="get-doc-metadata-rights">
-
-      <metadataRights>
-         <xsl:value-of
-            select="normalize-space(//*:publicationStmt/*:availability[@xml:id='metadataRights'])"/>
-      </metadataRights>
-
+      <string key="metadataRights" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:value-of select="normalize-space(//tei:publicationStmt/tei:availability[@xml:id='metadataRights'])"/>
+      </string>
    </xsl:template>
 
    <xsl:template name="get-doc-pdf-rights">
-
-      <pdfRights>
-         <xsl:value-of
-            select="normalize-space(//*:publicationStmt/*:availability[@xml:id='pdfRights'])"/>
-      </pdfRights>
-
+      <string key="pdfRights" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:value-of select="normalize-space(//tei:publicationStmt/tei:availability[@xml:id='pdfRights'])"/>
+      </string>
    </xsl:template>
-
-
+   
    <xsl:template name="get-doc-watermark-statement">
-
-      <watermarkStatement>
-         <xsl:value-of
-            select="normalize-space(//*:publicationStmt/*:availability[@xml:id='watermark'])"/>
-      </watermarkStatement>
-
+      <string key="watermarkStatement" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:value-of select="normalize-space(//tei:publicationStmt/tei:availability[@xml:id='watermark'])"/>
+      </string>
    </xsl:template>
-
-   <!--AUTHORITY-->
+   
    <xsl:template name="get-doc-authority">
-
-      <docAuthority>
-
+      <string key="docAuthority" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:variable name="authority">
-            <xsl:apply-templates select="//*:publicationStmt/*:authority" mode="html"/>
-
+            <xsl:apply-templates select="//tei:publicationStmt/tei:authority" mode="html"/>
          </xsl:variable>
-
          <xsl:value-of select="normalize-space($authority)"/>
-
-      </docAuthority>
-
+      </string>
    </xsl:template>
-
-   <xsl:template match="*:authority" mode="html">
-      <xsl:apply-templates mode="html"/>
-   </xsl:template>
-
-   <!--COMPLETENESS-->
-
-   <xsl:template match="*:note[@type='completeness']">
+   
+   <xsl:template match="tei:note[@type='completeness']"><!-- NB: This does not apperar to be used. Delete? -->
       <completeness>
-
          <xsl:value-of select="normalize-space(.)"/>
       </completeness>
    </xsl:template>
-
-   <!--FUNDING-->
+   
    <xsl:template name="get-doc-funding">
-
-      <fundings>
-
-         <xsl:variable name="funding">
-            <xsl:apply-templates select="//*:titleStmt/*:funder" mode="html"/>
-         </xsl:variable>
-
-         <xsl:attribute name="display" select="'true'"/>
-         <funding>
-            <xsl:attribute name="display" select="'true'"/>
-            <xsl:attribute name="displayForm" select="normalize-space($funding)"/>
-            <xsl:value-of select="normalize-space($funding)"/>
-         </funding>
-      </fundings>
-
+      <xsl:variable name="funding">
+         <xsl:apply-templates select="//tei:titleStmt/tei:funder" mode="html"/>
+      </xsl:variable>
+      
+      <xsl:call-template name="write-container-lg">
+         <xsl:with-param name="type" select="'fundings'"/>
+         <xsl:with-param name="displayFormIter" select="$funding"/>
+         <xsl:with-param name="label" select="'Funding'"/>
+         <xsl:with-param name="seq" select="1"/>
+         <xsl:with-param name="seq2" select="2"/>
+         <xsl:with-param name="displayNullItems" select="true()"/>
+      </xsl:call-template>
    </xsl:template>
-
-   <!--PHYSICAL DESCRIPTION-->
-   <!--general physical description either in p tag or a list - often used as a general summary for composite manuscripts where physDesc has msParts-->
+   
+   <xsl:template name="write-data-obj-flat" xmlns="http://www.w3.org/2005/xpath-functions">
+      <xsl:param name="display" select="true()"/>
+      <xsl:param name="seq" select="1"/>
+      <xsl:param name="listDisplay"/>
+      <xsl:param name="label"/>
+      <xsl:param name="displayForm"/>
+      <xsl:param name="displayNull" select="false()"/>
+      
+      <xsl:copy-of select="cudl:display($display)"/>
+      <xsl:choose>
+         <xsl:when test="not(normalize-space($displayForm)) and $displayNull"><!-- SHIM: Entire clause  to print displayForm and others in correct order -->
+            <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="$displayForm"/>
+            </string>
+            <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="$label"/>
+            </string>
+            <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="$seq"/>
+            </number>
+         </xsl:when>
+         <xsl:when test="normalize-space($displayForm)">
+            <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="$displayForm"/>
+            </string>
+            <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="$label"/>
+            </string>
+            <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="$seq"/>
+            </number>
+         </xsl:when>
+         <xsl:otherwise>
+            <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="$seq"/>
+            </number>
+            <xsl:if test="normalize-space($listDisplay) != ''">
+               <string key="listDisplay" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="$listDisplay"/>
+               </string>
+            </xsl:if>
+            <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="$label"/>
+            </string>
+         </xsl:otherwise>
+      </xsl:choose>
+   </xsl:template>
+   
+   <xsl:template name="write-metadata-block-header" xmlns="http://www.w3.org/2005/xpath-functions">
+      <xsl:param name="display" select="true()"/>
+      <xsl:param name="seq" select="1"/>
+      <xsl:param name="listDisplay"/>
+      <xsl:param name="label"/>
+      <xsl:param name="displayForm"/>
+      <xsl:param name="displayNull" select="false()"/>
+      
+      <xsl:copy-of select="cudl:display($display)"/>
+      <xsl:choose>
+         <xsl:when test="not(normalize-space($displayForm)) and $displayNull"><!-- SHIM: Entire clause  to print displayForm and others in correct order -->
+            <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="$displayForm"/>
+            </string>
+            <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="$label"/>
+            </string>
+            <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="$seq"/>
+            </number>
+         </xsl:when>
+         <xsl:when test="normalize-space($displayForm)">
+            <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="$displayForm"/>
+            </string>
+            <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="$label"/>
+            </string>
+            <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="$seq"/>
+            </number>
+         </xsl:when>
+         <xsl:otherwise>
+            <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="$seq"/>
+            </number>
+            <xsl:if test="normalize-space($listDisplay) != ''">
+               <string key="listDisplay" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="$listDisplay"/>
+               </string>
+            </xsl:if>
+            <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="$label"/>
+            </string>
+         </xsl:otherwise>
+      </xsl:choose>
+   </xsl:template>
+   
+   <xsl:template name="write-container-lg" as="item()*">
+      <xsl:param name="type"/>
+      <xsl:param name="display" select="true()"/>
+      <xsl:param name="displayForm"/>
+      <xsl:param name="displayFormIter"/>
+      <xsl:param name="label"/>
+      <xsl:param name="seq"/>
+      <xsl:param name="seq2"/>
+      <xsl:param name="displayNullItems" select="false()"/>
+      
+      <map key="{$type}" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:choose>
+            <xsl:when test="string($seq2) = ''">
+               <xsl:call-template name="write-data-obj-flat">
+                  <xsl:with-param name="display" select="$display"/>
+                  <xsl:with-param name="displayForm" select="$displayForm"/>
+                  <xsl:with-param name="label" select="$label"/>
+                  <xsl:with-param name="seq" select="$seq"/>
+                  <xsl:with-param name="displayNull" select="$displayNullItems"/>
+               </xsl:call-template>
+            </xsl:when>
+            <xsl:otherwise>
+               <xsl:copy-of select="cudl:display($display)"/>
+               <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="$seq"/>
+               </number>
+               <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="$label"/>
+               </string>
+               <array key="value" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:choose>
+                     <xsl:when test="not($displayNullItems) and empty($displayFormIter[normalize-space(.)])"/>
+                     <xsl:when test="$displayNullItems or (not($displayNullItems) and not(empty($displayFormIter[normalize-space(.)])))">
+                        <xsl:variable name="iterItems" as="item()*">
+                           <xsl:choose>
+                              <xsl:when test="empty($displayFormIter[normalize-space(.)]) or $type = 'notes'">
+                                 <xsl:copy-of select="$displayFormIter"/>
+                              </xsl:when>
+                              <xsl:otherwise>
+                                 <xsl:copy-of select="$displayFormIter[normalize-space(.)]"/>
+                              </xsl:otherwise>
+                           </xsl:choose>
+                        </xsl:variable>
+                        <xsl:for-each select="$iterItems">
+                           <map xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:copy-of select="cudl:display($display)"/>
+                              <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+                                 <xsl:value-of select="normalize-space(.)"/>
+                              </string>
+                              <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+                                 <xsl:value-of select="$seq2"/>
+                              </number>
+                           </map>
+                        </xsl:for-each>
+                     </xsl:when>
+                     <xsl:otherwise>
+                        <map xmlns="http://www.w3.org/2005/xpath-functions">
+                           <xsl:copy-of select="cudl:display($display)"/>
+                           <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:value-of select="$displayForm"/>
+                           </string>
+                           <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:value-of select="$seq2"/>
+                           </number>
+                        </map>
+                     </xsl:otherwise>
+                  </xsl:choose>
+               </array>
+            </xsl:otherwise>
+         </xsl:choose>
+      </map>
+   </xsl:template>
+   
    <xsl:template name="get-doc-physdesc">
-
-      <xsl:if test="exists(*:physDesc/*:p|*:physDesc/*:list)">
-
-         <physdesc>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:variable name="physdesc">
-               <xsl:apply-templates select="*:physDesc/*:p|*:physDesc/*:list" mode="html"/>
-
-            </xsl:variable>
-
-            <xsl:attribute name="displayForm" select="normalize-space($physdesc)"/>
-
-            <!-- <xsl:value-of select="normalize-space($physdesc)" /> -->
-            <xsl:value-of select="normalize-space(replace($physdesc, '&lt;[^&gt;]+&gt;', ''))"/>
-
-         </physdesc>
-
+      <xsl:if test="exists(tei:physDesc/tei:p|tei:physDesc/tei:list)">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'physdesc'"/>
+            <xsl:with-param name="displayForm">
+               <xsl:variable name="physdesc">
+                  <xsl:apply-templates select="tei:physDesc/tei:p|tei:physDesc/tei:list" mode="html"/>
+               </xsl:variable>
+               <xsl:value-of select="normalize-space($physdesc)"/>
+            </xsl:with-param>
+            <xsl:with-param name="label" select="'Physical Description'"/>
+            <xsl:with-param name="seq" select="1"/>
+         </xsl:call-template>
       </xsl:if>
 
-      <xsl:if test="normalize-space(*:physDesc/*:objectDesc/@form)">
-
-         <form>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:variable name="form">
-               <xsl:apply-templates select="*:physDesc/*:objectDesc/@form" mode="html"/>
-
-
-            </xsl:variable>
-
-            <xsl:attribute name="displayForm" select="normalize-space($form)"/>
-
-            <xsl:value-of select="normalize-space(replace($form, '&lt;[^&gt;]+&gt;', ''))"/>
-
-         </form>
-
+      <xsl:if test="normalize-space(tei:physDesc/tei:objectDesc/@form)">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'form'"/>
+            <xsl:with-param name="displayForm">
+               <xsl:variable name="t">
+                  <xsl:apply-templates select="tei:physDesc/tei:objectDesc/@form" mode="html"/>
+               </xsl:variable>
+               <xsl:value-of select="normalize-space($t)"/>
+            </xsl:with-param>
+            <xsl:with-param name="label" select="'Format'"/>
+            <xsl:with-param name="seq" select="1"/>
+         </xsl:call-template>
       </xsl:if>
 
-      <xsl:if test="normalize-space(*:physDesc/*:objectDesc/*:supportDesc/*:support)">
-
-         <material>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:variable name="material">
-               <xsl:apply-templates select="*:physDesc/*:objectDesc/*:supportDesc/*:support"
-                  mode="html"/>
-
-
-            </xsl:variable>
-
-            <xsl:attribute name="displayForm" select="normalize-space($material)"/>
-
-            <!-- <xsl:value-of select="normalize-space($material)" /> -->
-            <xsl:value-of select="normalize-space(replace($material, '&lt;[^&gt;]+&gt;', ''))"/>
-
-         </material>
-
-      </xsl:if>
-
-      <xsl:if test="normalize-space(*:physDesc/*:objectDesc/*:supportDesc/*:extent)">
-
-         <extent>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:variable name="extent">
-               <xsl:apply-templates select="*:physDesc/*:objectDesc/*:supportDesc/*:extent"
-                  mode="html"/>
-
-            </xsl:variable>
-
-            <xsl:attribute name="displayForm" select="normalize-space($extent)"/>
-
-            <!-- <xsl:value-of select="normalize-space($extent)" /> -->
-            <xsl:value-of select="normalize-space(replace($extent, '&lt;[^&gt;]+&gt;', ''))"/>
-
-         </extent>
-
-      </xsl:if>
-
-      <xsl:if test="*:physDesc/*:objectDesc/*:supportDesc/*:foliation">
-
-         <foliation>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:variable name="foliation">
-               <xsl:apply-templates select="*:physDesc/*:objectDesc/*:supportDesc/*:foliation"
-                  mode="html"/>
-
-            </xsl:variable>
-
-            <xsl:attribute name="displayForm" select="normalize-space($foliation)"/>
-            <!-- <xsl:value-of select="normalize-space($foliation)" /> -->
-            <xsl:value-of select="normalize-space(replace($foliation, '&lt;[^&gt;]+&gt;', ''))"/>
-
-         </foliation>
-
-      </xsl:if>
-
-
-      <xsl:if test="*:physDesc/*:objectDesc/*:supportDesc/*:collation">
-
-         <collation>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:variable name="collation">
-               <xsl:apply-templates select="*:physDesc/*:objectDesc/*:supportDesc/*:collation"
-                  mode="html"/>
-
-            </xsl:variable>
-
-            <xsl:attribute name="displayForm" select="normalize-space($collation)"/>
-            <xsl:value-of select="normalize-space(replace($collation, '&lt;[^&gt;]+&gt;', ''))"/>
-
-         </collation>
-
-      </xsl:if>
-
-
-      <xsl:if test="normalize-space(*:physDesc/*:objectDesc/*:supportDesc/*:condition)">
-
-         <conditions>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <condition>
-
-               <xsl:attribute name="display" select="'true'"/>
-
-               <xsl:variable name="condition">
-                  <xsl:apply-templates select="*:physDesc/*:objectDesc/*:supportDesc/*:condition"
+      <xsl:if test="normalize-space(tei:physDesc/tei:objectDesc/tei:supportDesc/tei:support)">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'material'"/>
+            <xsl:with-param name="displayForm">
+               <xsl:variable name="t">
+                  <xsl:apply-templates select="tei:physDesc/tei:objectDesc/tei:supportDesc/tei:support"
                      mode="html"/>
-
-
                </xsl:variable>
-
-               <xsl:attribute name="displayForm" select="normalize-space($condition)"/>
-
-               <!-- <xsl:value-of select="normalize-space($condition)" /> -->
-               <xsl:value-of select="normalize-space(replace($condition, '&lt;[^&gt;]+&gt;', ''))"/>
-
-            </condition>
-
-         </conditions>
-
+               <xsl:value-of select="normalize-space($t)"/>
+            </xsl:with-param>
+            <xsl:with-param name="label" select="'Material'"/>
+            <xsl:with-param name="seq" select="1"/>
+         </xsl:call-template>
       </xsl:if>
 
-      <xsl:if test="*:physDesc/*:objectDesc/*:layoutDesc">
-
-         <layouts>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <layout>
-
-               <xsl:attribute name="display" select="'true'"/>
-
-               <xsl:variable name="layout">
-                  <xsl:apply-templates select="*:physDesc/*:objectDesc/*:layoutDesc" mode="html"/>
-
+      <xsl:if test="normalize-space(tei:physDesc/tei:objectDesc/tei:supportDesc/tei:extent)">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'extent'"/>
+            <xsl:with-param name="displayForm">
+               <xsl:variable name="t">
+                  <xsl:apply-templates select="tei:physDesc/tei:objectDesc/tei:supportDesc/tei:extent" mode="html"/>
                </xsl:variable>
-
-               <xsl:attribute name="displayForm" select="normalize-space($layout)"/>
-
-               <!-- <xsl:value-of select="normalize-space($layout)" /> -->
-               <xsl:value-of select="normalize-space(replace($layout, '&lt;[^&gt;]+&gt;', ''))"/>
-
-            </layout>
-
-         </layouts>
-
+               <xsl:value-of select="normalize-space($t)"/>
+            </xsl:with-param>
+            <xsl:with-param name="label" select="'Extent'"/>
+            <xsl:with-param name="seq" select="1"/>
+         </xsl:call-template>
       </xsl:if>
 
-      <xsl:if test="*:physDesc/*:handDesc">
-
-         <scripts>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <script>
-               
-               <xsl:attribute name="display" select="'true'"/>
-               
-               <xsl:variable name="script">
-                  <xsl:apply-templates select="*:physDesc/*:handDesc" mode="html"/>
-
-                  
-                  
+      <xsl:if test="tei:physDesc/tei:objectDesc/tei:supportDesc/tei:foliation">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'foliation'"/>
+            <xsl:with-param name="displayForm">
+               <xsl:variable name="t">
+                  <xsl:apply-templates select="tei:physDesc/tei:objectDesc/tei:supportDesc/tei:foliation" mode="html"/>
                </xsl:variable>
-            
-               <xsl:attribute name="displayForm" select="normalize-space($script)"/>
-               
-               <!-- <xsl:value-of select="normalize-space($script)" /> -->
-               <xsl:value-of select="normalize-space(replace($script, '&lt;[^&gt;]+&gt;', ''))"/>
-               
-            </script>
-
-         </scripts>
-
+               <xsl:value-of select="normalize-space($t)"/>
+            </xsl:with-param>
+            <xsl:with-param name="label" select="'Foliation'"/>
+            <xsl:with-param name="seq" select="1"/>
+         </xsl:call-template>
+      </xsl:if>
+      
+      <xsl:if test="tei:physDesc/tei:objectDesc/tei:supportDesc/tei:collation">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'collation'"/>
+            <xsl:with-param name="displayForm">
+               <xsl:variable name="t">
+                  <xsl:apply-templates select="tei:physDesc/tei:objectDesc/tei:supportDesc/tei:collation" mode="html"/>
+               </xsl:variable>
+               <xsl:value-of select="normalize-space($t)"/>
+            </xsl:with-param>
+            <xsl:with-param name="label" select="'Collation'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="displayNullItems" select="true()"/>
+         </xsl:call-template>
+      </xsl:if>
+      
+      <xsl:if test="normalize-space(tei:physDesc/tei:objectDesc/tei:supportDesc/tei:condition)">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'conditions'"/>
+            <xsl:with-param name="displayFormIter">
+               <xsl:variable name="t">
+                  <xsl:apply-templates select="tei:physDesc/tei:objectDesc/tei:supportDesc/tei:condition" mode="html"/>
+               </xsl:variable>
+               <xsl:value-of select="normalize-space($t)"/>
+            </xsl:with-param>
+            <xsl:with-param name="label" select="'Condition'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="seq2" select="1"/>
+         </xsl:call-template>
       </xsl:if>
 
-
-      <xsl:if test="*:physDesc/*:musicNotation">
-
-         <musicNotations>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <musicNotation>
-
-               <xsl:attribute name="display" select="'true'"/>
-
-               <xsl:variable name="musicNotation">
-                  <xsl:apply-templates select="*:physDesc/*:musicNotation" mode="html"/>
+      <xsl:if test="tei:physDesc/tei:objectDesc/tei:layoutDesc">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'layouts'"/>
+            <xsl:with-param name="displayFormIter">
+               <xsl:variable name="t">
+                  <xsl:apply-templates select="tei:physDesc/tei:objectDesc/tei:layoutDesc" mode="html"/>
                </xsl:variable>
-
-               <xsl:attribute name="displayForm" select="normalize-space($musicNotation)"/>
-
-               <!-- <xsl:value-of select="normalize-space($binding)" /> -->
-               <xsl:value-of
-                  select="normalize-space(replace($musicNotation, '&lt;[^&gt;]+&gt;', ''))"/>
-
-            </musicNotation>
-
-         </musicNotations>
-
+               <xsl:value-of select="normalize-space($t)"/>
+            </xsl:with-param>
+            <xsl:with-param name="label" select="'Layout'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="seq2" select="2"/>
+            <xsl:with-param name="displayNullItems" select="true()"/>
+         </xsl:call-template>
       </xsl:if>
 
-
-      <xsl:if test="*:physDesc/*:decoDesc">
-
-         <decorations>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <decoration>
-
-               <xsl:attribute name="display" select="'true'"/>
-
-               <xsl:variable name="decoration">
-                  <xsl:apply-templates select="*:physDesc/*:decoDesc" mode="html"/>
-
+      <xsl:if test="tei:physDesc/tei:handDesc">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'scripts'"/>
+            <xsl:with-param name="displayFormIter">
+               <xsl:variable name="t">
+                  <xsl:apply-templates select="tei:physDesc/tei:handDesc" mode="html"/>
                </xsl:variable>
-
-               <xsl:attribute name="displayForm" select="normalize-space($decoration)"/>
-
-               <!-- <xsl:value-of select="normalize-space($decoration)" /> -->
-               <xsl:value-of select="normalize-space(replace($decoration, '&lt;[^&gt;]+&gt;', ''))"/>
-
-            </decoration>
-
-         </decorations>
-
+               <xsl:value-of select="normalize-space($t)"/>
+            </xsl:with-param>
+            <xsl:with-param name="label" select="'Script'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="seq2" select="2"/>
+         </xsl:call-template>
+      </xsl:if>
+      
+      <xsl:if test="tei:physDesc/tei:musicNotation">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'musicNotations'"/>
+            <xsl:with-param name="displayFormIter">
+               <xsl:variable name="t">
+                  <xsl:apply-templates select="tei:physDesc/tei:musicNotation" mode="html"/>
+               </xsl:variable>
+               <xsl:value-of select="normalize-space($t)"/>
+            </xsl:with-param>
+            <xsl:with-param name="label" select="'Music notation'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="seq2" select="2"/>
+            <xsl:with-param name="displayNullItems" select="true()"/>
+         </xsl:call-template>
+      </xsl:if>
+      
+      <xsl:if test="tei:physDesc/tei:decoDesc">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'decorations'"/>
+            <xsl:with-param name="displayFormIter">
+               <xsl:variable name="t">
+                  <xsl:apply-templates select="tei:physDesc/tei:decoDesc" mode="html"/>
+               </xsl:variable>
+               <xsl:value-of select="normalize-space($t)"/>
+            </xsl:with-param>
+            <xsl:with-param name="label" select="'Decoration'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="seq2" select="2"/>
+            <xsl:with-param name="displayNullItems" select="true()"/>
+         </xsl:call-template>
       </xsl:if>
 
-      <xsl:if test="*:physDesc/*:additions">
-
-         <additions>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <addition>
-
-               <xsl:attribute name="display" select="'true'"/>
-
-               <xsl:variable name="addition">
-                  <xsl:apply-templates select="*:physDesc/*:additions" mode="html"/>
-
+      <xsl:if test="tei:physDesc/tei:additions">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'additions'"/>
+            <xsl:with-param name="displayFormIter">
+               <xsl:variable name="t">
+                  <xsl:apply-templates select="tei:physDesc/tei:additions" mode="html"/>
                </xsl:variable>
-
-               <xsl:attribute name="displayForm" select="normalize-space($addition)"/>
-
-               <!-- <xsl:value-of select="normalize-space($addition)" /> -->
-               <xsl:value-of select="normalize-space(replace($addition, '&lt;[^&gt;]+&gt;', ''))"/>
-
-            </addition>
-
-         </additions>
-
+               <xsl:value-of select="normalize-space($t)"/>
+            </xsl:with-param>
+            <xsl:with-param name="label" select="'Additions'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="seq2" select="2"/>
+            <xsl:with-param name="displayNullItems" select="true()"/>
+         </xsl:call-template>
       </xsl:if>
 
-      <xsl:if test="*:physDesc/*:bindingDesc">
-
-         <bindings>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <binding>
-
-               <xsl:attribute name="display" select="'true'"/>
-
-               <xsl:variable name="binding">
-                  <xsl:apply-templates select="*:physDesc/*:bindingDesc" mode="html"/>
+      <xsl:if test="tei:physDesc/tei:bindingDesc">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'bindings'"/>
+            <xsl:with-param name="displayFormIter">
+               <xsl:variable name="t">
+                  <xsl:apply-templates select="tei:physDesc/tei:bindingDesc" mode="html"/>
                </xsl:variable>
-
-               <xsl:attribute name="displayForm" select="normalize-space($binding)"/>
-
-               <!-- <xsl:value-of select="normalize-space($binding)" /> -->
-               <xsl:value-of select="normalize-space(replace($binding, '&lt;[^&gt;]+&gt;', ''))"/>
-
-            </binding>
-
-         </bindings>
-
+               <xsl:value-of select="normalize-space($t)"/>
+            </xsl:with-param>
+            <xsl:with-param name="label" select="'Binding'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="seq2" select="2"/>
+         </xsl:call-template>
       </xsl:if>
 
-      <xsl:if test="*:physDesc/*:accMat">
-
-         <accMats>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <accMat>
-
-               <xsl:attribute name="display" select="'true'"/>
-
-               <xsl:variable name="accMat">
-                  <xsl:apply-templates select="*:physDesc/*:accMat" mode="html"/>
+      <xsl:if test="tei:physDesc/tei:accMat">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'accMats'"/>
+            <xsl:with-param name="displayFormIter">
+               <xsl:variable name="t">
+                  <xsl:apply-templates select="tei:physDesc/tei:accMat" mode="html"/>
                </xsl:variable>
-
-               <xsl:attribute name="displayForm" select="normalize-space($accMat)"/>
-
-               <!-- <xsl:value-of select="normalize-space($binding)" /> -->
-               <xsl:value-of select="normalize-space(replace($accMat, '&lt;[^&gt;]+&gt;', ''))"/>
-
-            </accMat>
-
-         </accMats>
-
+               <xsl:value-of select="normalize-space($t)"/>
+            </xsl:with-param>
+            <xsl:with-param name="label" select="'Accompanying Material'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="seq2" select="2"/>
+            <xsl:with-param name="displayNullItems" select="true()"/>
+         </xsl:call-template>
       </xsl:if>
-
-
-
    </xsl:template>
-
-   <!--physical description processing templates-->
-   <xsl:template match="*:objectDesc/@form" mode="html">
-
-
+   
+   <xsl:template match="tei:objectDesc/@form" mode="html">
       <xsl:value-of select="concat(upper-case(substring(., 1, 1)), substring(., 2))"/>
-      <!--<xsl:value-of select="normalize-space(.)" />-->
-      <!--<xsl:text>.</xsl:text>-->
-
    </xsl:template>
-
-   <xsl:template match="*:supportDesc/*:support" mode="html">
-
-      <xsl:apply-templates mode="html"/>
-
-   </xsl:template>
-
-   <xsl:template match="*:supportDesc/*:extent" mode="html">
-
-      <xsl:apply-templates mode="html"/>
-
-   </xsl:template>
-
-   <xsl:template match="*:supportDesc/*:foliation" mode="html">
-
+   
+   <xsl:template match="tei:supportDesc/tei:foliation" mode="html">
       <xsl:text>&lt;p&gt;</xsl:text>
 
       <xsl:if test="@n">
@@ -2324,41 +1553,29 @@
       </xsl:if>
 
       <xsl:if test="@type">
-         <xsl:value-of select="cudl:first-upper-case(@type)"/>
+         <xsl:value-of select="cudl:capitalise-first(@type)"/>
          <xsl:text>: </xsl:text>
       </xsl:if>
 
       <xsl:apply-templates mode="html"/>
-
       <xsl:text>&lt;/p&gt;</xsl:text>
-
    </xsl:template>
-
-   <xsl:template match="*:supportDesc/*:condition" mode="html">
-
-      <xsl:apply-templates mode="html"/>
-
-   </xsl:template>
-
-   <xsl:template match="*:dimensions" mode="html">
-
-      <!--      <xsl:text>&lt;br /&gt;</xsl:text> -->
-
+   
+   <xsl:template match="tei:dimensions" mode="html">
       <xsl:if test="@subtype">
          <xsl:text>&lt;b&gt;</xsl:text>
-         <xsl:value-of select="cudl:first-upper-case(translate(@subtype, '_', ' '))"/>
+         <xsl:value-of select="cudl:capitalise-first(translate(@subtype, '_', ' '))"/>
          <xsl:text>:</xsl:text>
          <xsl:text>&lt;/b&gt;</xsl:text>
          <xsl:text> </xsl:text>
       </xsl:if>
 
       <xsl:text> </xsl:text>
-      <xsl:value-of select="cudl:first-upper-case(@type)"/>
+      <xsl:value-of select="cudl:capitalise-first(@type)"/>
       <xsl:text> </xsl:text>
       <xsl:for-each select="*">
-
          <xsl:choose>
-            <xsl:when test="local-name(.) = 'dim'">
+            <xsl:when test="self::tei:dim">
                <xsl:value-of select="@type"/>
             </xsl:when>
             <xsl:otherwise>
@@ -2366,7 +1583,6 @@
             </xsl:otherwise>
          </xsl:choose>
          <xsl:text>: </xsl:text>
-
          <xsl:choose>
             <xsl:when test="normalize-space(.)">
                <xsl:value-of select="."/>
@@ -2374,9 +1590,7 @@
             <xsl:when test="normalize-space(@quantity)">
                <xsl:value-of select="@quantity"/>
             </xsl:when>
-            <xsl:otherwise>
-               <!-- shouldn't happen? -->
-            </xsl:otherwise>
+            <xsl:otherwise/>
          </xsl:choose>
 
          <xsl:if test="../@unit">
@@ -2387,293 +1601,49 @@
          <xsl:if test="not(position()=last())">
             <xsl:text>, </xsl:text>
          </xsl:if>
-
       </xsl:for-each>
-
       <xsl:text>. </xsl:text>
-
-
    </xsl:template>
-
-   <xsl:template match="*:layoutDesc" mode="html">
-
-      <xsl:apply-templates mode="html"/>
-
-   </xsl:template>
-
-   <xsl:template match="*:layout" mode="html">
-
-      <xsl:apply-templates mode="html"/>
-
-   </xsl:template>
-
-   <xsl:template match="*:commentaryForm" mode="html">
-
+   
+   <xsl:template match="tei:commentaryForm" mode="html">
       <xsl:text>&lt;div&gt;</xsl:text>
       <xsl:text>&lt;b&gt;Commentary form:&lt;/b&gt; </xsl:text>
       <xsl:value-of select="@type"/>
       <xsl:text>. </xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
-
    </xsl:template>
-
-   <xsl:template match="*:stringHole" mode="html">
-
-
-      <xsl:apply-templates mode="html"/>
-
-   </xsl:template>
-
-   <xsl:template match="*:handDesc" mode="html">
-
+   
+   <xsl:template match="tei:handDesc" mode="html">
       <xsl:text>&lt;div style=&apos;list-style-type: disc;&apos;&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:handNote" mode="html">
-
-
-
+   <xsl:template match="tei:handNote" mode="html">
       <xsl:text>&lt;div style=&apos;display: list-item; margin-left: 20px;&apos;&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
-
    </xsl:template>
-
-   <xsl:template match="*:decoDesc" mode="html">
-
+   
+   <xsl:template match="tei:decoNote" mode="html">
       <xsl:apply-templates mode="html"/>
-
-   </xsl:template>
-
-   <xsl:template match="*:decoNote" mode="html">
-
-      <xsl:apply-templates mode="html"/>
-
       <xsl:if test="exists(following-sibling::*)">
          <xsl:text>&lt;br /&gt;</xsl:text>
       </xsl:if>
-
    </xsl:template>
 
-   <xsl:template match="*:additions" mode="html">
-
+   <xsl:template match="tei:additions|tei:bindingDesc|tei:accMat|tei:decoDesc|tei:stringHole|tei:layout|tei:layoutDesc|tei:supportDesc/tei:condition|tei:supportDesc/tei:support|tei:supportDesc/tei:extent|tei:recordHist/tei:source|tei:revisionDesc|tei:note|tei:abstract|tei:authority" mode="html">
       <xsl:apply-templates mode="html"/>
-
    </xsl:template>
-
-   <xsl:template match="*:bindingDesc" mode="html">
-
-      <xsl:apply-templates mode="html"/>
-
-   </xsl:template>
-
-   <xsl:template match="*:accMat" mode="html">
-
-      <xsl:apply-templates mode="html"/>
-
-   </xsl:template>
-
-
-   <!--provenance-->
-   <xsl:template name="get-doc-history">
-
-      <xsl:if test="*:history/*:provenance">
-
-         <provenances>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <provenance>
-               <xsl:attribute name="display" select="'true'"/>
-
-               <xsl:variable name="provenance">
-                  <xsl:apply-templates select="*:history/*:provenance" mode="html"/>
-               </xsl:variable>
-
-               <xsl:attribute name="displayForm" select="normalize-space($provenance)"/>
-
-               <xsl:value-of select="normalize-space(replace($provenance, '&lt;[^&gt;]+&gt;', ''))"/>
-
-            </provenance>
-
-         </provenances>
-
-      </xsl:if>
-
-      <xsl:if test="*:history/*:origin/text()|*:history/*:origin/*:p">
-
-         <origins>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <origin>
-               <xsl:attribute name="display" select="'true'"/>
-
-               <xsl:variable name="origin">
-                  <xsl:apply-templates select="*:history/*:origin" mode="html"/>
-               </xsl:variable>
-
-               <xsl:attribute name="displayForm" select="normalize-space($origin)"/>
-
-               <xsl:value-of select="normalize-space(replace($origin, '&lt;[^&gt;]+&gt;', ''))"/>
-
-            </origin>
-
-         </origins>
-
-      </xsl:if>
-
-      <xsl:if test="*:history/*:acquisition/text()|*:history/*:acquisition/*:p">
-
-         <acquisitionTexts>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <acquisitionText>
-               <xsl:attribute name="display" select="'true'"/>
-
-               <xsl:variable name="acquisition">
-                  <xsl:apply-templates select="*:history/*:acquisition" mode="html"/>
-               </xsl:variable>
-
-               <xsl:attribute name="displayForm" select="normalize-space($acquisition)"/>
-
-               <xsl:value-of select="normalize-space(replace($acquisition, '&lt;[^&gt;]+&gt;', ''))"/>
-
-            </acquisitionText>
-
-         </acquisitionTexts>
-
-      </xsl:if>
-
-
-
-   </xsl:template>
-
-
-
-
-
-   <xsl:template match="*:history/*:provenance" mode="html">
-
+   
+   <xsl:template match="tei:history/tei:provenance|tei:history/tei:origin|tei:history/tei:acquisition" mode="html">
       <xsl:if test="normalize-space(.)">
-
          <xsl:apply-templates mode="html"/>
-
       </xsl:if>
-
    </xsl:template>
-
-
-   <xsl:template match="*:history/*:origin" mode="html">
-
-      <xsl:if test="normalize-space(.)">
-
-         <xsl:apply-templates mode="html"/>
-
-      </xsl:if>
-
-   </xsl:template>
-
-
-   <xsl:template match="*:history/*:acquisition" mode="html">
-
-      <xsl:if test="normalize-space(.)">
-
-         <xsl:apply-templates mode="html"/>
-
-      </xsl:if>
-
-   </xsl:template>
-
-   <!--***********************************EXCERPTS - bits of transcription-->
-   <!--TODO - review-->
-   <xsl:template name="get-item-excerpts">
-
-
-      <xsl:if
-         test="*:head|*:div/*:head|*:p|*:div/*:p|*:div/*:note|*:colophon|*:div/*:colophon|*:decoNote|*:div/*:decoNote|*:explicit|*:div/*:explicit|*:finalRubric|*:div/*:finalRubric|*:incipit|*:div/*:incipit|*:rubric|*:div/*:rubric">
-         <excerpts>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:variable name="excerpts">
-               <xsl:apply-templates
-                  select="*:head|*:div/*:head|*:p|*:div/*:p|*:div/*:note|*:colophon|*:div/*:colophon|*:decoNote|*:div/*:decoNote|*:explicit|*:div/*:explicit|*:finalRubric|*:div/*:finalRubric|*:incipit|*:div/*:incipit|*:rubric|*:div/*:rubric"
-                  mode="html"/>
-            </xsl:variable>
-
-            <xsl:attribute name="displayForm" select="normalize-space($excerpts)"/>
-            <!-- <xsl:value-of select="normalize-space($excerpts)" /> -->
-            <xsl:value-of select="normalize-space(replace($excerpts, '&lt;[^&gt;]+&gt;', ''))"/>
-         </excerpts>
-      </xsl:if>
-
-   </xsl:template>
-
-   <!--NOTES-->
-   <!--<xsl:template name="get-doc-notes">
-
-
-      <xsl:if test="*:history/*:origin/*:note">
-         <notes>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:for-each select="*:history/*:origin/*:note">
-
-               <xsl:variable name="note">
-                  <xsl:apply-templates mode="html"/>
-               </xsl:variable>
-
-               <note>
-                  <xsl:attribute name="display" select="'true'"/>
-                  <xsl:attribute name="displayForm" select="normalize-space($note)"/>
-                  <xsl:value-of select="normalize-space($note)"/>
-               </note>
-
-            </xsl:for-each>
-
-         </notes>
-      </xsl:if>
-
-   </xsl:template>-->
-
-
-   <xsl:template name="get-item-notes">
-
-
-      <xsl:if test="*:note">
-         <notes>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:for-each select="*:note">
-
-               <xsl:variable name="note">
-                  <xsl:apply-templates mode="html"/>
-               </xsl:variable>
-
-               <note>
-                  <xsl:attribute name="display" select="'true'"/>
-                  <xsl:attribute name="displayForm" select="normalize-space($note)"/>
-                  <xsl:value-of select="normalize-space($note)"/>
-               </note>
-
-            </xsl:for-each>
-
-         </notes>
-      </xsl:if>
-
-   </xsl:template>
-
-   <!--COLOPHON-->
-   <xsl:template match="*:msItem/*:colophon|*:msItem/*:div/*:colophon" mode="html">
-
+   
+   <xsl:template match="tei:msItem/tei:colophon|tei:msItem/tei:div/tei:colophon" mode="html">
       <xsl:text>&lt;div&gt;</xsl:text>
       <xsl:text>&lt;b&gt;Colophon</xsl:text>
 
@@ -2684,12 +1654,9 @@
       <xsl:text>:&lt;/b&gt; </xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
-
    </xsl:template>
-
-   <!--EXPLICIT-->
-   <xsl:template match="*:msItem/*:explicit|*:msItem/*:div/*:explicit" mode="html">
-
+   
+   <xsl:template match="tei:msItem/tei:explicit|tei:msItem/tei:div/tei:explicit" mode="html">
       <xsl:text>&lt;div&gt;</xsl:text>
       <xsl:text>&lt;b&gt;Explicit</xsl:text>
 
@@ -2700,13 +1667,9 @@
       <xsl:text>:&lt;/b&gt; </xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
-
    </xsl:template>
-
-
-   <!--INCIPIT-->
-   <xsl:template match="*:msItem/*:incipit|*:msItem/*:div/*:incipit" mode="html">
-
+   
+   <xsl:template match="tei:msItem/tei:incipit|tei:msItem/tei:div/tei:incipit" mode="html">
       <xsl:text>&lt;div&gt;</xsl:text>
       <xsl:text>&lt;b&gt;Incipit</xsl:text>
 
@@ -2717,26 +1680,23 @@
       <xsl:text>:&lt;/b&gt; </xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
-
    </xsl:template>
-
-   <!--INCIPIT as title-->
-   <xsl:template match="*:incipit" mode="title">
-      <xsl:apply-templates select="node() except *:locus" mode="html"/>
-
-
+   
+   <xsl:template match="tei:summary" mode="html">
+      <!--we need to put this in a paragraph if the summary itself contains no paragraphs-->
+      <xsl:choose>
+         <xsl:when test=".//tei:seg[@type='para']">
+            <xsl:apply-templates mode="html"/>
+         </xsl:when>
+         <xsl:otherwise>
+            <xsl:text>&lt;p style=&apos;text-align: justify;&apos;&gt;</xsl:text>
+            <xsl:apply-templates mode="html"/>
+            <xsl:text>&lt;/p&gt;</xsl:text>
+         </xsl:otherwise>
+      </xsl:choose>
    </xsl:template>
-
-   <!--RUBRIC as title-->
-   <xsl:template match="*:rubric" mode="title">
-
-      <xsl:apply-templates select="node() except *:locus" mode="html"/>
-
-   </xsl:template>
-
-   <!--RUBRIC-->
-   <xsl:template match="*:msItem/*:rubric|*:msItem/*:div/*:rubric" mode="html">
-
+   
+   <xsl:template match="tei:msItem/tei:rubric|tei:msItem/tei:div/tei:rubric" mode="html">
       <xsl:text>&lt;div&gt;</xsl:text>
       <xsl:text>&lt;b&gt;Rubric</xsl:text>
 
@@ -2747,11 +1707,9 @@
       <xsl:text>:&lt;/b&gt; </xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:msItem/*:finalRubric|*:msItem/*:div/*:finalRubric" mode="html">
-
+   <xsl:template match="tei:msItem/tei:finalRubric|tei:msItem/tei:div/tei:finalRubric" mode="html">
       <xsl:text>&lt;div&gt;</xsl:text>
       <xsl:text>&lt;b&gt;Final Rubric</xsl:text>
 
@@ -2762,513 +1720,626 @@
       <xsl:text>:&lt;/b&gt; </xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
-
    </xsl:template>
-
-   <!--****************************notes-->
-   <xsl:template match="*:note" mode="html">
-
-
-      <xsl:apply-templates mode="html"/>
-
-   </xsl:template>
-
-   <!--deco notes within msitems-->
-   <xsl:template match="*:msItem//*:decoNote" mode="html">
-
+   
+   <xsl:template match="tei:msItem//tei:decoNote" mode="html">
       <xsl:choose>
-         <xsl:when test="*:p">
-
+         <xsl:when test="tei:p">
             <xsl:text>&lt;p&gt;</xsl:text>
             <xsl:text>&lt;b&gt;Decoration:&lt;/b&gt; </xsl:text>
             <xsl:text>&lt;/p&gt;</xsl:text>
-
             <xsl:apply-templates mode="html"/>
-
          </xsl:when>
          <xsl:otherwise>
-
             <xsl:text>&lt;p&gt;</xsl:text>
             <xsl:text>&lt;b&gt;Decoration:&lt;/b&gt; </xsl:text>
             <xsl:apply-templates mode="html"/>
             <xsl:text>&lt;/p&gt;</xsl:text>
-
          </xsl:otherwise>
       </xsl:choose>
-
    </xsl:template>
-
-   <!--FILIATION-->
-   <xsl:template name="get-item-filiation">
-
-      <xsl:if test="*:filiation">
-         <filiations>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:variable name="filiation">
-               <xsl:text>&lt;div&gt;</xsl:text>
-               <xsl:apply-templates select="*:filiation" mode="html"/>
-               <xsl:text>&lt;/div&gt;</xsl:text>
-            </xsl:variable>
-
-            <xsl:attribute name="displayForm" select="normalize-space($filiation)"/>
-            <!-- <xsl:value-of select="normalize-space($filiation)" /> -->
-            <xsl:value-of select="normalize-space(replace($filiation, '&lt;[^&gt;]+&gt;', ''))"/>
-         </filiations>
-      </xsl:if>
-
-   </xsl:template>
-
-   <xsl:template match="*:filiation" mode="html">
-
+   
+   <xsl:template match="tei:filiation" mode="html">
       <xsl:text>&lt;div&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
-
    </xsl:template>
-
-
-
-
-   <!--*******************************************NAMES-->
-
-   <!-- Table of role relator codes and role element names -->
+   
+   <xsl:template match="tei:revisionDesc/tei:change" mode="html">
+      <xsl:apply-templates mode="html"/>
+      
+      <xsl:if test="not(position()=last())">
+         <xsl:text>&lt;br /&gt;</xsl:text>
+      </xsl:if>
+   </xsl:template>
+   
+   <xsl:template match="tei:incipit" mode="title">
+      <xsl:apply-templates select="node() except tei:locus" mode="html"/>
+   </xsl:template>
+   
+   <xsl:template match="tei:rubric" mode="title">
+      <xsl:apply-templates select="node() except tei:locus" mode="html"/>
+   </xsl:template>
+   
+   <xsl:template name="get-doc-history">
+      <xsl:if test="tei:history/tei:provenance">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'provenances'"/>
+            <xsl:with-param name="displayFormIter">
+               <xsl:variable name="t">
+                  <xsl:apply-templates select="tei:history/tei:provenance" mode="html"/>
+               </xsl:variable>
+               <xsl:value-of select="normalize-space($t)"/>
+            </xsl:with-param>
+            <xsl:with-param name="label" select="'Provenance'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="seq2" select="2"/>
+            <xsl:with-param name="displayNullItems" select="true()"/>
+         </xsl:call-template>
+      </xsl:if>
+      
+      <xsl:if test="tei:history/tei:origin/text()|tei:history/tei:origin/tei:p">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'origins'"/>
+            <xsl:with-param name="displayFormIter">
+               <xsl:variable name="t">
+                  <xsl:apply-templates select="tei:history/tei:origin" mode="html"/>
+               </xsl:variable>
+               <xsl:value-of select="normalize-space($t)"/>
+            </xsl:with-param>
+            <xsl:with-param name="label" select="'Origin'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="seq2" select="2"/>
+         </xsl:call-template>
+      </xsl:if>
+      
+      <xsl:if test="tei:history/tei:acquisition/text()|tei:history/tei:acquisition/tei:p">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'acquisitionTexts'"/>
+            <xsl:with-param name="displayFormIter">
+               <xsl:variable name="t">
+                  <xsl:apply-templates select="tei:history/tei:acquisition" mode="html"/>
+               </xsl:variable>
+               <xsl:value-of select="normalize-space($t)"/>
+            </xsl:with-param>
+            <xsl:with-param name="label" select="'Acquisition'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="seq2" select="2"/>
+         </xsl:call-template>
+      </xsl:if>
+   </xsl:template>
+   
+   <xsl:template name="get-item-excerpts">
+      <xsl:if test="tei:head|tei:div/tei:head|tei:p|tei:div/tei:p|tei:div/tei:note|tei:colophon|tei:div/tei:colophon|tei:decoNote|tei:div/tei:decoNote|tei:explicit|tei:div/tei:explicit|tei:finalRubric|tei:div/tei:finalRubric|tei:incipit|tei:div/tei:incipit|tei:rubric|tei:div/tei:rubric">
+         <xsl:variable name="excerpts">
+            <xsl:apply-templates select="tei:head|tei:div/tei:head|tei:p|tei:div/tei:p|tei:div/tei:note|tei:colophon|tei:div/tei:colophon|tei:decoNote|tei:div/tei:decoNote|tei:explicit|tei:div/tei:explicit|tei:finalRubric|tei:div/tei:finalRubric|tei:incipit|tei:div/tei:incipit|tei:rubric|tei:div/tei:rubric" mode="html"/>
+         </xsl:variable>
+         
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'excerpts'"/>
+            <xsl:with-param name="displayForm" select="normalize-space($excerpts)"/>
+            <xsl:with-param name="label" select="'Excerpts'"/>
+            <xsl:with-param name="seq" select="1"/>
+         </xsl:call-template>
+      </xsl:if>
+   </xsl:template>
+   
+   <xsl:template name="get-item-notes">
+      <xsl:if test="tei:note">
+         <xsl:variable name="notes" as="item()*">
+            <xsl:for-each select="tei:note">
+               <xsl:variable name="note">
+                  <xsl:apply-templates mode="html"/>
+               </xsl:variable>
+               <xsl:sequence select="normalize-space($note)"/>
+            </xsl:for-each>
+         </xsl:variable>
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'notes'"/>
+            <xsl:with-param name="displayFormIter" select="$notes"/>
+            <xsl:with-param name="label" select="'Note(s)'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="seq2" select="2"/>
+            <xsl:with-param name="displayNullItems" select="true()"/>
+         </xsl:call-template>
+      </xsl:if>
+   </xsl:template>
+   
+   <xsl:template name="get-item-filiation">
+      <xsl:if test="tei:filiation">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'filiations'"/>
+            <xsl:with-param name="displayForm">
+               <xsl:variable name="filiation">
+                  <xsl:text>&lt;div&gt;</xsl:text>
+                  <xsl:apply-templates select="tei:filiation" mode="html"/>
+                  <xsl:text>&lt;/div&gt;</xsl:text>
+               </xsl:variable>
+               <xsl:value-of select="normalize-space($filiation)"/>
+            </xsl:with-param>
+            <xsl:with-param name="label" select="'Filiations'"/>
+            <xsl:with-param name="seq" select="1"/>
+         </xsl:call-template>
+      </xsl:if>
+   </xsl:template>
+   
+   <xsl:template name="write-named-entity-object">
+      <xsl:param name="map_key"/>
+      <xsl:param name="display" select="true()"/>
+      <xsl:param name="seq" select="1"/>
+      <xsl:param name="listDisplay" select="'unordered'"/>
+      <xsl:param name="label"/>
+      <xsl:param name="array_nodes"/>
+      <xsl:param name="processing_mode" select="'default'"/>
+      
+      <map key="{$map_key}" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:copy-of select="cudl:display($display)"/>
+         <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="$seq"/>
+         </number>
+         <xsl:if test="$listDisplay">
+            <string key="listDisplay" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="$listDisplay"/>
+            </string>
+         </xsl:if>
+         <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="$label"/>
+         </string>
+         <array key="value" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:variable name="name_obj" as="item()*">
+               <xsl:choose>
+               <xsl:when test="$processing_mode = 'doc-level'">
+                  <xsl:apply-templates select="$array_nodes" mode="doc-level"/>
+               </xsl:when>
+               <xsl:otherwise>
+                  <xsl:apply-templates select="$array_nodes"/>
+               </xsl:otherwise>
+            </xsl:choose>
+            </xsl:variable>
+            <xsl:choose>
+               <xsl:when test="$map_key = ('associated', 'formerOwners')">
+                  <xsl:for-each-group select="$name_obj" group-by="json:string[@key='displayForm']">
+                     <xsl:copy-of select="current-group()[1]"/>
+                  </xsl:for-each-group>
+               </xsl:when>
+               <xsl:otherwise>
+                  <xsl:copy-of select="$name_obj"/>
+               </xsl:otherwise>
+            </xsl:choose>
+         </array>
+      </map>
+   </xsl:template>
+   
    <xsl:variable name="rolemap">
-      <role code="aut" name="authors"/>
-      <role code="dnr" name="donors"/>
-      <role code="fmo" name="formerOwners"/>
-      <role code="pbl" name="publishers"/>
-      <role code="rcp" name="recipients"/>
-      <role code="scr" name="scribes"/>
+      <cudl:role code="aut" name="authors"/>
+      <cudl:role code="dnr" name="donors"/>
+      <cudl:role code="fmo" name="formerOwners"/>
+      <cudl:role code="pbl" name="publishers"/>
+      <cudl:role code="rcp" name="recipients"/>
+      <cudl:role code="scr" name="scribes"/>
    </xsl:variable>
 
    <xsl:template name="get-doc-names">
-
-      <!--for doc names looks only in summary, physdesc and history-->
-
-      <xsl:if
-         test="*:msContents/*:summary//*:name[@role='aut']|*:physDesc//*:name[@role='aut']|*:history//*:name[@role='aut']">
-
-         <xsl:element name="authors">
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:apply-templates select="*:msContents/*:summary//*:name[@role='aut']"/>
-            <xsl:apply-templates select="*:physDesc//*:name[@role='aut']"/>
-            <xsl:apply-templates select="*:history//*:name[@role='aut']"/>
-
-
-         </xsl:element>
-
+      <xsl:if test="tei:msContents/tei:summary//tei:name[@role='aut']|tei:physDesc//tei:name[@role='aut']|tei:history//tei:name[@role='aut']">
+         <xsl:call-template name="write-named-entity-object">
+            <xsl:with-param name="map_key" select="'authors'"/>
+            <xsl:with-param name="label" select="'Author(s)'"/>
+            <xsl:with-param name="seq" select="42"></xsl:with-param>
+            <xsl:with-param name="array_nodes" select="(
+               tei:msContents/tei:summary//tei:name[@role='aut'],
+               tei:physDesc//tei:name[@role='aut'],
+               tei:history//tei:name[@role='aut']
+               )"/>
+            <xsl:with-param name="processing_mode" select="'doc-level'"/>
+         </xsl:call-template>
       </xsl:if>
 
-      <xsl:if
-         test="*:msContents/*:summary//*:name[@role='dnr']|*:physDesc//*:name[@role='dnr']|*:history//*:name[@role='dnr']">
-
-         <xsl:element name="donors">
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:apply-templates select="*:msContents/*:summary//*:name[@role='dnr']"/>
-            <xsl:apply-templates select="*:physDesc//*:name[@role='dnr']"/>
-            <xsl:apply-templates select="*:history//*:name[@role='dnr']"/>
-
-
-         </xsl:element>
-
-
+      <xsl:if test="tei:msContents/tei:summary//tei:name[@role='dnr']|tei:physDesc//tei:name[@role='dnr']|tei:history//tei:name[@role='dnr']">
+         <xsl:call-template name="write-named-entity-object">
+            <xsl:with-param name="map_key" select="'donors'"/>
+            <xsl:with-param name="label" select="'Donor(s)'"/>
+            <xsl:with-param name="listDisplay" select="false()"/>
+            <xsl:with-param name="seq" select="42"></xsl:with-param>
+            <xsl:with-param name="array_nodes" select="(
+               tei:msContents/tei:summary//tei:name[@role='dnr'],
+               tei:physDesc//tei:name[@role='dnr'],
+               tei:history//tei:name[@role='dnr']
+               )"/>
+            <xsl:with-param name="processing_mode" select="'doc-level'"/>
+         </xsl:call-template>
       </xsl:if>
 
-      <xsl:if
-         test="*:msContents/*:summary//*:name[@role='fmo']|*:physDesc//*:name[@role='fmo']|*:history//*:name[@role='fmo']">
-
-         <xsl:element name="formerOwners">
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:apply-templates select="*:msContents/*:summary//*:name[@role='fmo']"/>
-            <xsl:apply-templates select="*:physDesc//*:name[@role='fmo']"/>
-            <xsl:apply-templates select="*:history//*:name[@role='fmo']"/>
-
-
-         </xsl:element>
-
+      <xsl:if test="tei:msContents/tei:summary//tei:name[@role='fmo']|tei:physDesc//tei:name[@role='fmo']|tei:history//tei:name[@role='fmo']">
+         <xsl:call-template name="write-named-entity-object">
+            <xsl:with-param name="map_key" select="'formerOwners'"/>
+            <xsl:with-param name="label" select="'Former Owner(s)'"/>
+            <xsl:with-param name="listDisplay" select="false()"/>
+            <xsl:with-param name="seq" select="42"></xsl:with-param>
+            <xsl:with-param name="array_nodes" select="(
+               tei:msContents/tei:summary//tei:name[@role='fmo'],
+               tei:physDesc//tei:name[@role='fmo'],
+               tei:history//tei:name[@role='fmo']
+               )"/>
+            <xsl:with-param name="processing_mode" select="'doc-level'"/>
+         </xsl:call-template>
       </xsl:if>
 
-      <xsl:if
-         test="*:msContents/*:summary//*:name[@role='rcp']|*:physDesc//*:name[@role='rcp']|*:history//*:name[@role='rcp']">
-
-         <xsl:element name="recipients">
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:apply-templates select="*:msContents/*:summary//*:name[@role='rcp']"/>
-            <xsl:apply-templates select="*:physDesc//*:name[@role='rcp']"/>
-            <xsl:apply-templates select="*:history//*:name[@role='rcp']"/>
-
-
-         </xsl:element>
-
+      <xsl:if test="tei:msContents/tei:summary//tei:name[@role='rcp']|tei:physDesc//tei:name[@role='rcp']|tei:history//tei:name[@role='rcp']">
+         <xsl:call-template name="write-named-entity-object">
+            <xsl:with-param name="map_key" select="'recipients'"/>
+            <xsl:with-param name="label" select="'Recipient(s)'"/>
+            <xsl:with-param name="seq" select="42"></xsl:with-param>
+            <xsl:with-param name="array_nodes" select="(
+               tei:msContents/tei:summary//tei:name[@role='rcp'],
+               tei:physDesc//tei:name[@role='rcp'],
+               tei:history//tei:name[@role='rcp']
+               )"/>
+            <xsl:with-param name="processing_mode" select="'doc-level'"/>
+         </xsl:call-template>
       </xsl:if>
 
-      <xsl:if
-         test="*:msContents/*:summary//*:name[@role='scr']|*:physDesc//*:name[@role='scr']|*:history//*:name[@role='scr']">
-
-         <xsl:element name="scribes">
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:apply-templates select="*:msContents/*:summary//*:name[@role='scr']"/>
-            <xsl:apply-templates select="*:physDesc//*:name[@role='scr']"/>
-            <xsl:apply-templates select="*:history//*:name[@role='scr']"/>
-
-
-         </xsl:element>
+      <xsl:if test="tei:msContents/tei:summary//tei:name[@role='scr']|tei:physDesc//tei:name[@role='scr']|tei:history//tei:name[@role='scr']">
+         <xsl:call-template name="write-named-entity-object">
+            <xsl:with-param name="map_key" select="'scribes'"/>
+            <xsl:with-param name="label" select="'Scribe(s)'"/>
+            <xsl:with-param name="seq" select="42"></xsl:with-param>
+            <xsl:with-param name="array_nodes" select="(
+               tei:msContents/tei:summary//tei:name[@role='scr'],
+               tei:physDesc//tei:name[@role='scr'],
+               tei:history//tei:name[@role='scr']
+               )"/>
+            <xsl:with-param name="processing_mode" select="'doc-level'"/>
+         </xsl:call-template>
       </xsl:if>
 
-      <xsl:if
-         test="*:msContents/*:summary//*:name[@role='oth' or not(@role) or not(@role=$rolemap/role/@code)]|*:physDesc//*:name[@role='oth' or not(@role) or not(@role=$rolemap/role/@code)]|*:history//*:name[@role='oth' or not(@role) or not(@role=$rolemap/role/@code)]">
-
-         <xsl:element name="associated">
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:apply-templates
-               select="*:msContents/*:summary//*:name[@role='oth' or not(@role) or not(@role=$rolemap/role/@code)]"/>
-            <xsl:apply-templates
-               select="*:physDesc//*:name[@role='oth' or not(@role) or not(@role=$rolemap/role/@code)]"/>
-            <xsl:apply-templates
-               select="*:history//*:name[@role='oth' or not(@role) or not(@role=$rolemap/role/@code)]"/>
-
-
-         </xsl:element>
-
+      <xsl:if test="tei:msContents/tei:summary//tei:name[@role='oth' or not(@role) or not(@role=$rolemap/cudl:role/@code)]|tei:physDesc//tei:name[@role='oth' or not(@role) or not(@role=$rolemap/cudl:role/@code)]|tei:history//tei:name[@role='oth' or not(@role) or not(@role=$rolemap/cudl:role/@code)]">
+         <xsl:call-template name="write-named-entity-object">
+            <xsl:with-param name="map_key" select="'associated'"/>
+            <xsl:with-param name="label" select="'Associated Name(s)'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="array_nodes" select="(
+               tei:msContents/tei:summary//tei:name[@role='oth' or not(@role) or not(@role=$rolemap/cudl:role/@code)],
+               tei:physDesc//tei:name[@role='oth' or not(@role) or not(@role=$rolemap/cudl:role/@code)],
+               tei:history//tei:name[@role='oth' or not(@role) or not(@role=$rolemap/cudl:role/@code)]
+               )"/>
+            <xsl:with-param name="processing_mode" select="'doc-level'"/>
+         </xsl:call-template>
       </xsl:if>
-
    </xsl:template>
 
    <xsl:template name="get-doc-and-item-names">
-
-
-      <!--for doc and item, looks in summary, physdesc, history, first msItem author and respstmt fields-->
-      <!--simplify to just pick up all names in first msItem?-->
-      <!-- and correspDesc -->
-      <xsl:if
-         test="ancestor-or-self::tei:teiHeader//tei:correspDesc//tei:correspAction[@type=('sent','received')]">
-         <xsl:apply-templates
-            select="ancestor-or-self::tei:teiHeader//tei:correspDesc//tei:correspAction[@type=('sent','received')]"
-         />
+      <xsl:if test="ancestor-or-self::tei:teiHeader//tei:correspDesc//tei:correspAction[@type=('sent','received')]">
+         <xsl:apply-templates  select="ancestor-or-self::tei:teiHeader//tei:correspDesc//tei:correspAction[@type=('sent','received')]"/>
       </xsl:if>
 
-      <xsl:if
-         test="*:msContents/*:summary//*:name[@role='aut']|//*:physDesc//*:name[@role='aut']|*:history//*:name[@role='aut']|//*:msContents/*:msItem[1]/*:author">
-
-
-         <xsl:element name="authors">
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:apply-templates select="*:msContents/*:summary//*:name[@role='aut']"/>
-            <xsl:apply-templates select="*:physDesc//*:name[@role='aut']"/>
-            <xsl:apply-templates select="*:history//*:name[@role='aut']"/>
-            <xsl:apply-templates select="*:msContents/*:msItem[1]/*:author"/>
-
-         </xsl:element>
+      <xsl:if test="tei:msContents/tei:summary//tei:name[@role='aut']|//tei:physDesc//tei:name[@role='aut']|tei:history//tei:name[@role='aut']|//tei:msContents/tei:msItem[1]/tei:author">
+         <xsl:call-template name="write-named-entity-object">
+            <xsl:with-param name="map_key" select="'authors'"/>
+            <xsl:with-param name="label" select="'Author(s)'"/>
+            <xsl:with-param name="seq" select="420"/>
+            <xsl:with-param name="array_nodes" select="(
+               tei:msContents/tei:summary//tei:name[@role='aut'],
+               tei:physDesc//tei:name[@role='aut'],
+               tei:history//tei:name[@role='aut'],
+               tei:msContents/tei:msItem[1]/tei:author
+               )"/>
+            <xsl:with-param name="processing_mode" select="'doc-level'"/>
+         </xsl:call-template>
+      </xsl:if>
+      
+      <xsl:if test="tei:msContents/tei:summary//tei:name[@role='dnr']|tei:physDesc//tei:name[@role='dnr']|tei:history//tei:name[@role='dnr']|tei:msContents/tei:msItem[1]/tei:editor[@role='dnr']">
+         <xsl:call-template name="write-named-entity-object">
+            <xsl:with-param name="map_key" select="'donors'"/>
+            <xsl:with-param name="listDisplay" select="false()"/>
+            <xsl:with-param name="label" select="'Donor(s)'"/>
+            <xsl:with-param name="seq" select="420"></xsl:with-param>
+            <xsl:with-param name="array_nodes" select="(
+               tei:msContents/tei:summary//tei:name[@role='dnr'],
+               tei:physDesc//tei:name[@role='dnr'],
+               tei:history//tei:name[@role='dnr'],
+               tei:msContents/tei:msItem[1]/tei:editor[@role='dnr']
+               )"/>
+            <xsl:with-param name="processing_mode" select="'doc-level'"/>
+         </xsl:call-template>
       </xsl:if>
 
-
-      <xsl:if
-         test="*:msContents/*:summary//*:name[@role='dnr']|*:physDesc//*:name[@role='dnr']|*:history//*:name[@role='dnr']|*:msContents/*:msItem[1]/*:editor[@role='dnr']">
-
-         <xsl:element name="donors">
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:apply-templates select="*:msContents/*:summary//*:name[@role='dnr']"/>
-            <xsl:apply-templates select="*:physDesc//*:name[@role='dnr']"/>
-            <xsl:apply-templates select="*:history//*:name[@role='dnr']"/>
-            <xsl:apply-templates select="*:msContents/*:msItem[1]/*:editor[@role='dnr']"/>
-
-         </xsl:element>
-
+      <xsl:if test="tei:msContents/tei:summary//tei:name[@role='fmo']|tei:physDesc//tei:name[@role='fmo']|tei:history//tei:name[@role='fmo']|tei:msContents/tei:msItem[1]/tei:editor[@role='fmo']">
+         <xsl:call-template name="write-named-entity-object">
+            <xsl:with-param name="map_key" select="'formerOwners'"/>
+            <xsl:with-param name="label" select="'Former Owner(s)'"/>
+            <xsl:with-param name="listDisplay" select="false()"/>
+            <xsl:with-param name="seq" select="420"></xsl:with-param>
+            <xsl:with-param name="array_nodes" select="(
+               tei:msContents/tei:summary//tei:name[@role='fmo'],
+               tei:physDesc//tei:name[@role='fmo'],
+               tei:history//tei:name[@role='fmo'],
+               tei:msContents/tei:msItem[1]/tei:editor[@role='fmo']
+               )"/>
+            <xsl:with-param name="processing_mode" select="'doc-level'"/>
+         </xsl:call-template>
       </xsl:if>
 
-      <xsl:if
-         test="*:msContents/*:summary//*:name[@role='fmo']|*:physDesc//*:name[@role='fmo']|*:history//*:name[@role='fmo']|*:msContents/*:msItem[1]/*:editor[@role='fmo']">
-
-         <xsl:element name="formerOwners">
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:apply-templates select="*:msContents/*:summary//*:name[@role='fmo']"/>
-            <xsl:apply-templates select="*:physDesc//*:name[@role='fmo']"/>
-            <xsl:apply-templates select="*:history//*:name[@role='fmo']"/>
-            <xsl:apply-templates select="*:msContents/*:msItem[1]/*:editor[@role='fmo']"/>
-
-         </xsl:element>
-
+      <xsl:if test="tei:msContents/tei:summary//tei:name[@role='rcp']|tei:physDesc//tei:name[@role='rcp']|tei:history//tei:name[@role='rcp']|tei:msContents/tei:msItem[1]/tei:editor[@role='rcp']">
+         <xsl:call-template name="write-named-entity-object">
+            <xsl:with-param name="map_key" select="'recipients'"/>
+            <xsl:with-param name="label" select="'Recipient(s)'"/>
+            <xsl:with-param name="seq" select="420"></xsl:with-param>
+            <xsl:with-param name="array_nodes" select="(
+               tei:msContents/tei:summary//tei:name[@role='rcp'],
+               tei:physDesc//tei:name[@role='rcp'],
+               tei:history//tei:name[@role='rcp'],
+               tei:msContents/tei:msItem[1]/tei:editor[@role='rcp']
+               )"/>
+            <xsl:with-param name="processing_mode" select="'doc-level'"/>
+         </xsl:call-template>
+      </xsl:if>
+      
+      <xsl:if test="tei:msContents/tei:summary//tei:name[@role='scr']|tei:physDesc//tei:name[@role='scr']|tei:history//tei:name[@role='scr']|tei:msContents/tei:msItem[1]/tei:editor[@role='scr']">
+         <xsl:call-template name="write-named-entity-object">
+            <xsl:with-param name="map_key" select="'scribes'"/>
+            <xsl:with-param name="label" select="'Scribe(s)'"/>
+            <xsl:with-param name="seq" select="420"></xsl:with-param>
+            <xsl:with-param name="array_nodes" select="(
+               tei:msContents/tei:summary//tei:name[@role='scr'],
+               tei:physDesc//tei:name[@role='scr'],
+               tei:history//tei:name[@role='scr'],
+               tei:msContents/tei:msItem[1]/tei:editor[@role='scr']
+               )"/>
+            <xsl:with-param name="processing_mode" select="'doc-level'"/>
+         </xsl:call-template>
       </xsl:if>
 
-      <xsl:if
-         test="*:msContents/*:summary//*:name[@role='rcp']|*:physDesc//*:name[@role='rcp']|*:history//*:name[@role='rcp']|*:msContents/*:msItem[1]/*:editor[@role='rcp']">
-
-
-         <xsl:element name="recipients">
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:apply-templates select="*:msContents/*:summary//*:name[@role='rcp']"/>
-            <xsl:apply-templates select="*:physDesc//*:name[@role='rcp']"/>
-            <xsl:apply-templates select="*:history//*:name[@role='rcp']"/>
-            <xsl:apply-templates select="*:msContents/*:msItem[1]/*:editor[@role='rcp']"/>
-
-         </xsl:element>
+      <xsl:if test="tei:msContents/tei:summary//tei:name[@role='oth' or not(@role) or not(@role=$rolemap/cudl:role/@code)]|tei:physDesc//tei:name[@role='oth' or not(@role) or not(@role=$rolemap/cudl:role/@code)]|tei:history//tei:name[@role='oth' or not(@role) or not(@role=$rolemap/cudl:role/@code)]|tei:msContents/tei:msItem[1]/tei:editor[@role='oth' or not(@role) or not(@role=$rolemap/cudl:role/@code)]">
+         <xsl:call-template name="write-named-entity-object">
+            <xsl:with-param name="map_key" select="'associated'"/>
+            <xsl:with-param name="label" select="'Associated Name(s)'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="array_nodes" select="(
+               tei:msContents/tei:summary//tei:name[@role='oth' or not(@role) or not(@role=$rolemap/cudl:role/@code)],
+               tei:physDesc//tei:name[@role='oth' or not(@role) or not(@role=$rolemap/cudl:role/@code)],
+               tei:history//tei:name[@role='oth' or not(@role) or not(@role=$rolemap/cudl:role/@code)],
+               tei:msContents/tei:msItem[1]/tei:editor[@role='oth' or not(@role) or not(@role=$rolemap/cudl:role/@code)]
+               )"/>
+            <xsl:with-param name="processing_mode" select="'doc-level'"/>
+         </xsl:call-template>
       </xsl:if>
-
-
-      <xsl:if
-         test="*:msContents/*:summary//*:name[@role='scr']|*:physDesc//*:name[@role='scr']|*:history//*:name[@role='scr']|*:msContents/*:msItem[1]/*:editor[@role='scr']">
-
-         <xsl:element name="scribes">
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:apply-templates select="*:msContents/*:summary//*:name[@role='scr']"/>
-            <xsl:apply-templates select="*:physDesc//*:name[@role='scr']"/>
-            <xsl:apply-templates select="*:history//*:name[@role='scr']"/>
-            <xsl:apply-templates select="*:msContents/*:msItem[1]/*:editor[@role='scr']"/>
-
-         </xsl:element>
-      </xsl:if>
-
-      <xsl:if
-         test="*:msContents/*:summary//*:name[@role='oth' or not(@role) or not(@role=$rolemap/role/@code)]|*:physDesc//*:name[@role='oth' or not(@role) or not(@role=$rolemap/role/@code)]|*:history//*:name[@role='oth' or not(@role) or not(@role=$rolemap/role/@code)]|*:msContents/*:msItem[1]/*:editor[@role='oth' or not(@role) or not(@role=$rolemap/role/@code)]">
-
-         <xsl:element name="associated">
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:apply-templates
-               select="*:msContents/*:summary//*:name[@role='oth' or not(@role) or not(@role=$rolemap/role/@code)]"/>
-            <xsl:apply-templates
-               select="*:physDesc//*:name[@role='oth' or not(@role) or not(@role=$rolemap/role/@code)]"/>
-            <xsl:apply-templates
-               select="*:history//*:name[@role='oth' or not(@role) or not(@role=$rolemap/role/@code)]"/>
-            <xsl:apply-templates
-               select="*:msContents/*:msItem[1]/*:editor[@role='oth' or not(@role) or not(@role=$rolemap/role/@code)]"/>
-
-
-
-         </xsl:element>
-
-      </xsl:if>
-
-
    </xsl:template>
 
    <xsl:template name="get-item-names">
-
-      <!--for items, just look in author field-->
-      <!--look for all names in msItem?-->
-
       <xsl:choose>
-         <xsl:when
-            test="ancestor-or-self::tei:teiHeader//tei:correspDesc//tei:correspAction[@type=('sent','received')]">
-            <xsl:apply-templates
-               select="ancestor-or-self::tei:teiHeader//tei:correspDesc//tei:correspAction[@type=('sent','received')]"
-            />
+         <xsl:when test="ancestor-or-self::tei:teiHeader//tei:correspDesc//tei:correspAction[@type=('sent','received')]">
+            <xsl:apply-templates select="ancestor-or-self::tei:teiHeader//tei:correspDesc//tei:correspAction[@type=('sent','received')]" />
          </xsl:when>
          <xsl:otherwise>
-            <xsl:if test="*:author">
-
-               <xsl:element name="authors">
-                  <xsl:attribute name="display" select="'true'"/>
-
-                  <xsl:apply-templates select="*:author"/>
-
-               </xsl:element>
+            <xsl:if test="tei:author">
+               <xsl:call-template name="write-named-entity-object">
+                  <xsl:with-param name="map_key" select="'authors'"/>
+                  <xsl:with-param name="label" select="'Author(s)'"/>
+                  <xsl:with-param name="seq" select="4200"></xsl:with-param>
+                  <xsl:with-param name="array_nodes" select="tei:author"/>
+               </xsl:call-template>
             </xsl:if>
 
-            <xsl:if test="*:editor[@role='dnr']">
-
-               <xsl:element name="donors">
-                  <xsl:attribute name="display" select="'true'"/>
-
-                  <xsl:apply-templates select="*:editor[@role='dnr']"/>
-
-               </xsl:element>
-
+            <xsl:if test="tei:editor[@role='dnr']">
+               <xsl:call-template name="write-named-entity-object">
+                  <xsl:with-param name="map_key" select="'donors'"/>
+                  <xsl:with-param name="label" select="'Donor(s)'"/>
+                  <xsl:with-param name="listDisplay" select="false()"/>
+                  <xsl:with-param name="seq" select="4200"></xsl:with-param>
+                  <xsl:with-param name="array_nodes" select="tei:editor[@role='dnr']"/>
+               </xsl:call-template>
             </xsl:if>
 
-            <xsl:if test="*:editor[@role='fmo']">
-
-               <xsl:element name="formerOwners">
-                  <xsl:attribute name="display" select="'true'"/>
-
-                  <xsl:apply-templates select="*:editor[@role='fmo']"/>
-
-               </xsl:element>
-
+            <xsl:if test="tei:editor[@role='fmo']">
+               <xsl:call-template name="write-named-entity-object">
+                  <xsl:with-param name="map_key" select="'formerOwners'"/>
+                  <xsl:with-param name="label" select="'Former Owner(s)'"/>
+                  <xsl:with-param name="seq" select="4200"></xsl:with-param>
+                  <xsl:with-param name="array_nodes" select="tei:editor[@role='fmo']"/>
+               </xsl:call-template>
             </xsl:if>
 
-            <xsl:if test="*:editor[@role='rcp']">
-
-               <xsl:element name="recipients">
-                  <xsl:attribute name="display" select="'true'"/>
-
-                  <xsl:apply-templates select="*:editor[@role='rcp']"/>
-
-               </xsl:element>
-
+            <xsl:if test="tei:editor[@role='rcp']">
+               <xsl:call-template name="write-named-entity-object">
+                  <xsl:with-param name="map_key" select="'recipients'"/>
+                  <xsl:with-param name="label" select="'Recipient(s)'"/>
+                  <xsl:with-param name="seq" select="4200"></xsl:with-param>
+                  <xsl:with-param name="array_nodes" select="tei:editor[@role='rcp']"/>
+               </xsl:call-template>
             </xsl:if>
 
-            <xsl:if test="*:editor[@role='scr']">
-
-               <xsl:element name="scribes">
-                  <xsl:attribute name="display" select="'true'"/>
-
-                  <xsl:apply-templates select="*:editor[@role='scr']"/>
-
-               </xsl:element>
+            <xsl:if test="tei:editor[@role='scr']">
+               <xsl:call-template name="write-named-entity-object">
+                  <xsl:with-param name="map_key" select="'scribes'"/>
+                  <xsl:with-param name="label" select="'Scribe(s)'"/>
+                  <xsl:with-param name="seq" select="4200"></xsl:with-param>
+                  <xsl:with-param name="array_nodes" select="tei:editor[@role='scr']"/>
+               </xsl:call-template>
             </xsl:if>
 
-            <xsl:if test="*:editor[@role='oth' or not(@role) or not(@role=$rolemap/role/@code)]">
-
-               <xsl:element name="associated">
-                  <xsl:attribute name="display" select="'true'"/>
-
-                  <xsl:apply-templates
-                     select="*:editor[@role='oth' or not(@role) or not(@role=$rolemap/role/@code)]"/>
-
-               </xsl:element>
+            <xsl:if test="tei:editor[@role='oth' or not(@role) or not(@role=$rolemap/cudl:role/@code)]">
+               <xsl:call-template name="write-named-entity-object">
+                  <xsl:with-param name="map_key" select="'associated'"/>
+                  <xsl:with-param name="label" select="'Associated Name(s)'"/>
+                  <xsl:with-param name="seq" select="1"/>
+                  <xsl:with-param name="array_nodes" select="tei:editor[@role='oth' or not(@role) or not(@role=$rolemap/cudl:role/@code)]"/>
+               </xsl:call-template>
             </xsl:if>
-
          </xsl:otherwise>
-
       </xsl:choose>
-
    </xsl:template>
 
-   <xsl:template match="tei:correspAction[@type='sent'][normalize-space(.)]">
-      <authors display="true">
-         <xsl:apply-templates select="(tei:persName|tei:orgName|tei:name)[normalize-space(.)]"/>
-      </authors>
-   </xsl:template>
-
-   <xsl:template match="tei:correspAction[@type='received']">
-      <recipients display="true">
-         <xsl:apply-templates select="(tei:persName|tei:orgName|tei:name)[normalize-space(.)]"/>
-      </recipients>
-   </xsl:template>
-
-   <xsl:template match="*:name[*:persName]">
-
-      <name>
-
-         <xsl:attribute name="display" select="'true'"/>
-
+   <xsl:template match="tei:correspAction[@type='received']|tei:correspAction[@type='sent'][normalize-space(.)]">
+      <xsl:variable name="object_name">
          <xsl:choose>
-            <xsl:when test="*:persName[@type='standard']">
-               <xsl:for-each select="*:persName[@type='standard']">
-                  <xsl:attribute name="displayForm" select="normalize-space(.)"/>
-                  <fullForm>
-                     <xsl:value-of select="normalize-space(.)"/>
-                  </fullForm>
-               </xsl:for-each>
+            <xsl:when test="@type=('recieved', 'received')"><!-- SHIM on mispelling -->
+               <xsl:text>recipients</xsl:text>
+            </xsl:when>
+            <xsl:otherwise>authors</xsl:otherwise>
+         </xsl:choose>
+      </xsl:variable>
+      
+      <xsl:variable name="object_label">
+         <xsl:choose>
+            <xsl:when test="@type=('recieved', 'received')"><!-- SHIM on mispelling -->
+               <xsl:text>Recipient(s)</xsl:text>
+            </xsl:when>
+            <xsl:otherwise>Author(s)</xsl:otherwise>
+         </xsl:choose>
+      </xsl:variable>
+      
+      <map key="{$object_name}" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:copy-of select="cudl:display(true())"/>
+         <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="1"/>
+         </number>
+         <string key="listDisplay" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:text>unordered</xsl:text>
+         </string>
+         <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="$object_label"/>
+         </string>
+         <array key="value" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:apply-templates select="(tei:persName|tei:orgName|tei:name)[normalize-space(.)]"/>
+         </array>
+      </map>
+   </xsl:template>
+   
+   <xsl:template match="tei:name[not(tei:persName)]" mode="#default doc-level"/>
+   
+   <xsl:template match="tei:name[tei:persName]" mode="#default" priority="2">
+      <string key="linktype" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:text>keyword search</xsl:text>
+      </string>
+   </xsl:template>
+   
+   <xsl:template match="tei:name[tei:persName]" mode="doc-level" priority="2">
+      <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:value-of select="1"/>
+      </number>
+      <string key="linktype" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:text>keyword search</xsl:text>
+      </string>
+   </xsl:template>
 
+   <xsl:template match="tei:name[tei:persName]" mode="#default doc-level" priority="3">
+      <map xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:copy-of select="cudl:display(true())"/>
+         <xsl:variable name="additional-doc-level-items" as="item()*">
+            <xsl:next-match/>
+         </xsl:variable>
+         <xsl:choose>
+            <xsl:when test="tei:persName[@type='standard']">
+               <xsl:for-each select="tei:persName[@type='standard']">
+                  <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+                     <xsl:value-of select="normalize-space(.)"/>
+                  </string>
+                  <xsl:copy-of select="$additional-doc-level-items"/>
+                  <string key="fullForm" xmlns="http://www.w3.org/2005/xpath-functions">
+                     <xsl:value-of select="normalize-space(.)"/>
+                  </string>
+               </xsl:for-each>
                <xsl:choose>
                   <!-- if separate display form exists, use as short form -->
-                  <xsl:when test="*:persName[@type='display']">
-                     <xsl:for-each select="*:persName[@type='display']">
-                        <shortForm>
+                  <xsl:when test="tei:persName[@type='display']">
+                     <xsl:for-each select="tei:persName[@type='display']">
+                        <string key="shortForm" xmlns="http://www.w3.org/2005/xpath-functions">
                            <xsl:value-of select="normalize-space(.)"/>
-                        </shortForm>
+                        </string>
                      </xsl:for-each>
-
                   </xsl:when>
                   <!-- if no separate display form exists, use standard form as short form -->
                   <xsl:otherwise>
-                     <xsl:for-each select="*:persName[@type='standard']">
-                        <shortForm>
+                     <xsl:for-each select="tei:persName[@type='standard']">
+                        <string key="shortForm" xmlns="http://www.w3.org/2005/xpath-functions">
                            <xsl:value-of select="normalize-space(.)"/>
-                        </shortForm>
+                        </string>
                      </xsl:for-each>
                   </xsl:otherwise>
                </xsl:choose>
-
             </xsl:when>
-            <xsl:when test="*:persName[@type='display']">
-
-               <xsl:attribute name="displayForm"
-                  select="normalize-space(*:persName[@type='display'][1])"/>
-               <shortForm>
-                  <xsl:value-of select="normalize-space(*:persName[@type='display'][1])"/>
-               </shortForm>
-
-
+            <xsl:when test="tei:persName[@type='display']">
+               <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="normalize-space(tei:persName[@type='display'][1])"/>
+               </string>
+               <xsl:copy-of select="$additional-doc-level-items"/>
+               <string key="shortForm" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="normalize-space(tei:persName[@type='display'][1])"/>
+               </string>
             </xsl:when>
             <xsl:otherwise>
-               <!-- No standard form, no display form, take whatever we've got? -->
-
-               <xsl:attribute name="displayForm" select="normalize-space(*:persName[1])"/>
-               <shortForm>
-                  <xsl:value-of select="normalize-space(*:persName[1])"/>
-               </shortForm>
-
-
+               <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="normalize-space(tei:persName[1])"/>
+               </string>
+               <xsl:copy-of select="$additional-doc-level-items"/>
+               <string key="shortForm" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="normalize-space(tei:persName[1])"/>
+               </string>
             </xsl:otherwise>
          </xsl:choose>
-
-
+         
          <xsl:for-each select="@type">
-            <type>
+            <string key="type" xmlns="http://www.w3.org/2005/xpath-functions">
                <xsl:value-of select="normalize-space(.)"/>
-            </type>
+            </string>
          </xsl:for-each>
 
          <xsl:for-each select="@role">
-            <role>
+            <string key="role" xmlns="http://www.w3.org/2005/xpath-functions">
                <xsl:value-of select="normalize-space(.)"/>
-            </role>
+            </string>
          </xsl:for-each>
 
          <xsl:for-each select="@key[contains(., 'person_v')]">
-
-            <authority>VIAF</authority>
-            <authorityURI>http://viaf.org/</authorityURI>
-
-            <!-- Possible that there are multiple VIAF_* tokens (if multiple VIAF entries for same person) e.g. Sanskrit MS-OR-02339. For now, just use first, but should maybe handle multiple -->
+            <string key="authority" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:text>VIAF</xsl:text>
+            </string>
+            <string key="authorityURI" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:text>http://viaf.org/</xsl:text>
+            </string>
+            
+            <!-- NB: Some files, like Sanskrit MS-OR-02339, might have multiple VIAF_* tokens. For now, just use first, but should maybe handle multiple -->
             <xsl:for-each select="tokenize(normalize-space(.), ' ')[starts-with(., 'person_v')][1]">
-
-               <!-- <xsl:if test="starts-with(., 'VIAF_')"> -->
-               <valueURI>
-                  <xsl:value-of
-                     select="concat('http://viaf.org/viaf/', substring-after(.,'person_v'))"/>
-               </valueURI>
-               <!-- </xsl:if> -->
+               <string key="valueURI" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="concat('http://viaf.org/viaf/', substring-after(.,'person_v'))"/>
+               </string>
             </xsl:for-each>
-
          </xsl:for-each>
-
-      </name>
-
+      </map>
    </xsl:template>
-
-
+   
    <xsl:template
-      match="*:author|tei:correspAction/tei:*[self::tei:persName|self::tei:orgName|self::tei:name]">
-
-      <name>
-
-         <xsl:attribute name="display" select="'true'"/>
-
-         <xsl:attribute name="displayForm" select="normalize-space(.)"/>
-         <fullForm>
+      match="tei:author|tei:correspAction/tei:*[self::tei:persName|self::tei:orgName|self::tei:name]|tei:editor" mode="#default doc-level">
+      <map xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:copy-of select="cudl:display(true())"/>
+         <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="normalize-space(.)"/>
-         </fullForm>
-
-         <shortForm>
+         </string>
+         <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="1"/>
+         </number>
+         <string key="linktype" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:text>keyword search</xsl:text>
+         </string>
+         <string key="fullForm" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="normalize-space(.)"/>
-         </shortForm>
-
+         </string>
+         <string key="shortForm" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="normalize-space(.)"/>
+         </string>
+         
          <xsl:for-each select="@type">
-            <type>
+            <string key="type" xmlns="http://www.w3.org/2005/xpath-functions">
                <xsl:value-of select="normalize-space(.)"/>
-            </type>
+            </string>
          </xsl:for-each>
-
-
-         <role>
+         
+         <xsl:variable name="role" as="xsd:string*">
             <xsl:choose>
+               <xsl:when test="self::tei:editor[@role]">
+                  <xsl:value-of select="normalize-space(@role)"/>
+               </xsl:when>
+               <xsl:when test="self::tei:editor[not(@role)]"/>
                <xsl:when test="ancestor::tei:correspAction[@type='received']">
                   <xsl:text>rcp</xsl:text>
                </xsl:when>
@@ -3276,693 +2347,410 @@
                   <xsl:text>aut</xsl:text>
                </xsl:otherwise>
             </xsl:choose>
-         </role>
-
-
+         </xsl:variable>
+         
+         <xsl:if test="$role != ''">
+            <string key="role" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="$role"/>
+            </string>
+         </xsl:if>
+         
          <xsl:for-each select="@key[contains(., 'person_v')]">
-
-            <authority>VIAF</authority>
-            <authorityURI>http://viaf.org/</authorityURI>
-
-            <!-- Possible that there are multiple VIAF_* tokens (if multiple VIAF entries for same person) e.g. Sanskrit MS-OR-02339. For now, just use first, but should maybe handle multiple -->
+            <string key="authority" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:text>VIAF</xsl:text>
+            </string>
+            <string key="authorityURI" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:text>http://viaf.org/</xsl:text>
+            </string>
+            
+            <!-- NB: Some files, like Sanskrit MS-OR-02339, might have multiple VIAF_* tokens. For now, just use first, but should maybe handle multiple -->
             <xsl:for-each select="tokenize(normalize-space(.), ' ')[starts-with(., 'person_v')][1]">
-
-               <!-- <xsl:if test="starts-with(., 'VIAF_')"> -->
-               <valueURI>
-                  <xsl:value-of
-                     select="concat('http://viaf.org/viaf/', substring-after(.,'person_v'))"/>
-               </valueURI>
-               <!-- </xsl:if> -->
+               <string key="valueURI" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="concat('http://viaf.org/viaf/', substring-after(.,'person_v'))"/>
+               </string>
             </xsl:for-each>
-
          </xsl:for-each>
-
-      </name>
-
+      </map>
    </xsl:template>
-
-   <xsl:template match="*:editor">
-
-      <name>
-
-         <xsl:attribute name="display" select="'true'"/>
-         <xsl:attribute name="displayForm" select="normalize-space(.)"/>
-
-         <fullForm>
-            <xsl:value-of select="normalize-space(.)"/>
-         </fullForm>
-
-         <shortForm>
-            <xsl:value-of select="normalize-space(.)"/>
-         </shortForm>
-
-
-         <xsl:for-each select="@type">
-            <type>
-               <xsl:value-of select="normalize-space(.)"/>
-            </type>
-         </xsl:for-each>
-
-         <xsl:for-each select="@role">
-            <role>
-               <xsl:value-of select="normalize-space(.)"/>
-            </role>
-         </xsl:for-each>
-
-         <xsl:for-each select="@key[contains(., 'person_v')]">
-
-            <authority>VIAF</authority>
-            <authorityURI>http://viaf.org/</authorityURI>
-
-            <!-- Possible that there are multiple VIAF_* tokens (if multiple VIAF entries for same person) e.g. Sanskrit MS-OR-02339. For now, just use first, but should maybe handle multiple -->
-            <xsl:for-each select="tokenize(normalize-space(.), ' ')[starts-with(., 'person_v')][1]">
-
-               <!-- <xsl:if test="starts-with(., 'VIAF_')"> -->
-               <valueURI>
-                  <xsl:value-of
-                     select="concat('http://viaf.org/viaf/', substring-after(.,'person_v'))"/>
-               </valueURI>
-               <!-- </xsl:if> -->
-            </xsl:for-each>
-
-         </xsl:for-each>
-
-      </name>
-
-   </xsl:template>
-
-
-   <!--******************************LANGUAGES-->
-   <xsl:template name="get-doc-languages">
-
+   
+   <xsl:template name="get-languages">
+      <xsl:param name="level" select="'doc'"/>
+      
       <xsl:variable name="language-elems" as="item()*">
          <xsl:choose>
-            <xsl:when test="*:msContents/*:textLang">
-               <xsl:copy-of select="*:msContents/*:textLang"/>
+            <xsl:when test="not($level = ('doc', 'item'))"/>
+            <xsl:when test="$level = 'doc' and tei:msContents/tei:textLang">
+               <xsl:copy-of select="tei:msContents/tei:textLang"/>
+            </xsl:when>
+            <xsl:when test="$level = 'item' and tei:textLang">
+               <xsl:copy-of select="tei:textLang"/>
             </xsl:when>
             <xsl:otherwise>
-               <xsl:copy-of select="ancestor-or-self::tei:teiHeader[1]//tei:langUsage/tei:language"
-               />
+               <!-- If doc or item doesn't have required node, take the following -->
+               <xsl:copy-of select="ancestor-or-self::tei:teiHeader[1]//tei:langUsage/tei:language"/>
             </xsl:otherwise>
          </xsl:choose>
       </xsl:variable>
-
-      <xsl:if test="$language-elems/(@mainLang,@ident)[normalize-space(.)][1]">
-
-         <languageCodes>
-
-            <xsl:for-each select="$language-elems/(@mainLang,@ident)[normalize-space(.)][1]">
-
-               <languageCode>
-                  <xsl:value-of select="normalize-space(.)"/>
-               </languageCode>
-
+      
+      <xsl:if test="$language-elems[exists((@mainLang,@ident)[normalize-space(.)])]">
+         <array key="languageCodes" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:for-each select="$language-elems[exists((@mainLang,@ident)[normalize-space(.)])]">
+               <xsl:variable name="lang_code" select="(@mainLang,@ident)[normalize-space(.)][1]"/>
+               <string xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="normalize-space($lang_code)"/>
+               </string>
             </xsl:for-each>
-
-         </languageCodes>
-
+         </array>
       </xsl:if>
-
-      <xsl:if test="$language-elems">
-
-         <languageStrings>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:for-each select="$language-elems">
-
-               <languageString>
-
-                  <xsl:attribute name="display" select="'true'"/>
-                  <xsl:attribute name="displayForm" select="normalize-space(.)"/>
-                  <xsl:value-of select="normalize-space(.)"/>
-               </languageString>
-
-            </xsl:for-each>
-
-         </languageStrings>
-
+      
+      <xsl:if test="if ($level eq 'doc') then $language-elems else $language-elems[normalize-space(.)]">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'languageStrings'"/>
+            <xsl:with-param name="displayFormIter" select="$language-elems[normalize-space(.)]"/>
+            <xsl:with-param name="label" select="'Language(s)'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="seq2" select="2"/>
+         </xsl:call-template>
       </xsl:if>
-
    </xsl:template>
-
-
-
-   <xsl:template name="get-item-languages">
-
-      <xsl:variable name="language-elems" as="item()*">
-         <xsl:choose>
-            <!--CHANGE-->
-            <xsl:when test="*:textLang">
-               <xsl:copy-of select="*:textLang"/>
-            </xsl:when>
-
-            <!--<xsl:when test="*:msContents/*:textLang">
-               <xsl:copy-of select="*:msContents/*:textLang"/>
-            </xsl:when>-->
-            <xsl:otherwise>
-               <xsl:copy-of select="ancestor-or-self::tei:teiHeader[1]//tei:langUsage/tei:language"
-               />
-            </xsl:otherwise>
-         </xsl:choose>
-      </xsl:variable>
-
-      <xsl:if test="$language-elems/(@mainLang,@ident)[normalize-space(.)][1]">
-
-         <languageCodes>
-
-            <xsl:for-each select="$language-elems/(@mainLang,@ident)[normalize-space(.)][1]">
-
-               <languageCode>
-                  <xsl:value-of select="normalize-space(.)"/>
-               </languageCode>
-
-            </xsl:for-each>
-
-         </languageCodes>
-
-      </xsl:if>
-
-      <xsl:if test="$language-elems[normalize-space(.)][1]">
-
-         <languageStrings>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <xsl:for-each select="$language-elems[normalize-space(.)]">
-
-               <languageString>
-
-                  <xsl:attribute name="display" select="'true'"/>
-                  <xsl:attribute name="displayForm" select="normalize-space(.)"/>
-                  <xsl:value-of select="normalize-space(.)"/>
-               </languageString>
-
-            </xsl:for-each>
-
-         </languageStrings>
-
-      </xsl:if>
-
-   </xsl:template>
-
-
-   <!--******************************DATA SOURCES AND REVISIONS-->
+   
    <xsl:template name="get-doc-metadata">
-
-      <xsl:if test="normalize-space(*:additional/*:adminInfo/*:recordHist/*:source)">
-
-         <dataSources>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <dataSource>
-
-               <xsl:variable name="dataSource">
-                  <xsl:apply-templates select="*:additional/*:adminInfo/*:recordHist/*:source"
-                     mode="html"/>
-               </xsl:variable>
-
-               <xsl:attribute name="display" select="'true'"/>
-               <xsl:attribute name="displayForm" select="normalize-space($dataSource)"/>
-               <!-- <xsl:value-of select="normalize-space($dataSource)" /> -->
-               <xsl:value-of select="normalize-space(replace($dataSource, '&lt;[^&gt;]+&gt;', ''))"/>
-
-            </dataSource>
-
-         </dataSources>
-
+      <xsl:if test="normalize-space(tei:additional/tei:adminInfo/tei:recordHist/tei:source)">
+         <xsl:variable name="dataSource">
+            <xsl:apply-templates select="tei:additional/tei:adminInfo/tei:recordHist/tei:source" mode="html"/>
+         </xsl:variable>
+         
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'dataSources'"/>
+            <xsl:with-param name="displayFormIter" select="normalize-space($dataSource)"/>
+            <xsl:with-param name="label" select="'Data Source(s)'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="seq2" select="1"/>
+         </xsl:call-template>
       </xsl:if>
 
-      <xsl:if test="normalize-space(//*:revisionDesc)">
-
-         <dataRevisions>
-
-            <xsl:attribute name="display" select="'true'"/>
-
+      <xsl:if test="normalize-space(//tei:revisionDesc)">
+         <map key="dataRevisions" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:variable name="dataRevisions">
-               <!--<xsl:apply-templates select="//*:revisionDesc/*:change[1]/*:persName" mode="html" />-->
-
-               <xsl:value-of
-                  select="distinct-values(//*:revisionDesc/*:change/tei:*[self::tei:persName|self::tei:name|self::tei:orgName][normalize-space(.)])"
-                  separator=", "/>
-
+               <xsl:value-of select="distinct-values(//tei:revisionDesc/tei:change/tei:*[self::tei:persName|self::tei:name|self::tei:orgName][normalize-space(.)])" separator=", "/>
             </xsl:variable>
-
-            <xsl:attribute name="displayForm" select="normalize-space($dataRevisions)"/>
-            <!-- <xsl:value-of select="normalize-space($dataRevisions)" /> -->
-            <xsl:value-of select="normalize-space(replace($dataRevisions, '&lt;[^&gt;]+&gt;', ''))"/>
-
-         </dataRevisions>
-
+            
+            <xsl:call-template name="write-data-obj-flat">
+               <xsl:with-param name="seq" select="1"/>
+               <xsl:with-param name="displayForm" select="normalize-space($dataRevisions)"/>
+               <xsl:with-param name="label" select="'Author(s) of the Record'"/>
+               <xsl:with-param name="displayNull" select="true()"/>
+            </xsl:call-template>
+         </map>
       </xsl:if>
-
    </xsl:template>
-
-   <xsl:template match="*:recordHist/*:source" mode="html">
-
-      <xsl:apply-templates mode="html"/>
-
+   
+   <xsl:template match="tei:facsimile/tei:surface" mode="count">
+      <xsl:number format="1" level="any" count="tei:facsimile/tei:surface"/>
    </xsl:template>
-
-   <xsl:template match="*:revisionDesc" mode="html">
-
-      <xsl:apply-templates mode="html"/>
-
-   </xsl:template>
-
-   <xsl:template match="*:revisionDesc/*:change" mode="html">
-
-      <xsl:apply-templates mode="html"/>
-
-      <xsl:if test="not(position()=last())">
-         <xsl:text>&lt;br /&gt;</xsl:text>
-      </xsl:if>
-
-   </xsl:template>
-
-
-
-
-   <!--***********************************************************************STRUCTURE-->
-   <!--*****************************make pages and urls which relate to them-->
-
+   
    <xsl:template name="make-pages">
-
-      <pages>
-
+      <xsl:variable name="html_dir" select="string-join(tokenize(cudl:construct-output-filename-path(.,'',concat('i',position()), ''), '/')[position() lt last()], '/')"/>
+      
+      <array key="pages" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:choose>
-
-            <!--does the item have any images?-->
-            <xsl:when test="//*:facsimile/*:surface">
-
-               <xsl:for-each select="//*:facsimile/*:surface">
-
-                  <xsl:variable name="surface-elem" select="."/>
-                  <xsl:variable name="label" select="normalize-space(@n)"/>
-
-                  <page>
-                     <label>
+            <xsl:when test="//tei:facsimile/tei:surface">
+               <xsl:for-each select="//tei:facsimile/tei:surface">
+                     <xsl:variable name="surface-elem" select="."/>
+                     <xsl:variable name="label" select="normalize-space(@n)"/>
+                  <map xmlns="http://www.w3.org/2005/xpath-functions">
+                     <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:value-of select="$label"/>
-                     </label>
-
-                     <physID>
+                     </string>
+                     
+                     <string key="physID" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:value-of select="concat('PHYS-',position())"/>
-                     </physID>
-
-                     <sequence>
+                     </string>
+                     
+                     <number key="sequence" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:value-of select="position()"/>
-                     </sequence>
-
-                     <xsl:variable name="imageUrl"
-                        select="normalize-space(*:graphic[contains(@decls, '#download')]/@url)"/>
-
-                     <xsl:variable name="thumbnailOrientation"
-                        select="normalize-space(*:graphic[contains(@decls, '#download')]/@rend)"/>
-
-                     <xsl:variable name="imageWidth1"
-                        select="normalize-space(*:graphic[contains(@decls, '#download')]/@width)"/>
-
-                     <xsl:variable name="imageWidth" select="replace($imageWidth1, 'px', '')"/>
-
-                     <xsl:variable name="imageHeight1"
-                        select="normalize-space(*:graphic[contains(@decls, '#download')]/@height)"/>
-
-                     <xsl:variable name="imageHeight" select="replace($imageHeight1, 'px', '')"/>
-
-
-                     <IIIFImageURL>
-
+                     </number>
+                     
+                     <xsl:variable name="imageUrl" select="normalize-space(tei:graphic[contains(@decls, '#download')]/@url)"/>
+                     <xsl:variable name="thumbnailOrientation" select="normalize-space(tei:graphic[contains(@decls, '#download')]/@rend)"/>
+                     
+                     <xsl:variable name="imageWidth" select="replace(normalize-space(tei:graphic[contains(@decls, '#download')]/@width), 'px', '')"/>
+                     
+                     <xsl:variable name="imageHeight" select="replace(normalize-space(tei:graphic[contains(@decls, '#download')]/@height), 'px', '')"/>
+                     
+                     <string key="IIIFImageURL" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:value-of select="$imageUrl"/>
-
-                     </IIIFImageURL>
-
-                     <thumbnailImageOrientation>
+                     </string>
+                     
+                     <string key="thumbnailImageOrientation" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:value-of select="$thumbnailOrientation"/>
-                     </thumbnailImageOrientation>
-
-                     <!--default values for testing-->
-                     <imageWidth>
+                     </string>
+                     
+                     <number key="imageWidth" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:choose>
                            <xsl:when test="normalize-space($imageWidth)">
                               <xsl:value-of select="$imageWidth"/>
                            </xsl:when>
-                           <xsl:otherwise>0</xsl:otherwise>
+                           <xsl:otherwise>
+                              <xsl:text>0</xsl:text>
+                           </xsl:otherwise>
                         </xsl:choose>
-
-                     </imageWidth>
-                     <imageHeight>
+                     </number>
+                     
+                     <number key="imageHeight" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:choose>
-
-
                            <xsl:when test="normalize-space($imageHeight)">
                               <xsl:value-of select="$imageHeight"/>
                            </xsl:when>
-                           <xsl:otherwise>0</xsl:otherwise>
-                        </xsl:choose>
-                     </imageHeight>
-
-
-                     <xsl:if
-                        test="normalize-space(*:media[@mimeType='transcription_diplomatic']/@url)">
-
-                        <xsl:variable name="transDiplUrl"
-                           select="*:media[@mimeType='transcription_diplomatic']/@url"/>
-                        <xsl:variable name="transDiplUrlShort"
-                           select="replace($transDiplUrl, 'http://services.cudl.lib.cam.ac.uk','')"/>
-
-                        <transcriptionDiplomaticURL>
-                           <xsl:value-of select="normalize-space($transDiplUrlShort)"/>
-
-                        </transcriptionDiplomaticURL>
-
-                     </xsl:if>
-
-                     <xsl:if
-                        test="normalize-space(*:media[@mimeType='transcription_normalised']/@url)">
-
-                        <xsl:variable name="transNormUrl"
-                           select="*:media[@mimeType='transcription_normalised']/@url"/>
-                        <xsl:variable name="transNormUrlShort"
-                           select="replace($transNormUrl, 'http://services.cudl.lib.cam.ac.uk','')"/>
-
-                        <transcriptionNormalisedURL>
-                           <xsl:value-of select="normalize-space($transNormUrlShort)"/>
-
-                        </transcriptionNormalisedURL>
-
-                     </xsl:if>
-
-                     <xsl:if test="normalize-space(*:media[@mimeType='translation']/@url)">
-
-                        <xsl:variable name="translationNormUrl"
-                           select="*:media[@mimeType='translation']/@url"/>
-                        <xsl:variable name="translationNormUrlShort"
-                           select="replace($translationNormUrl, 'http://services.cudl.lib.cam.ac.uk','')"/>
-
-                        <translationURL>
-                           <xsl:value-of select="normalize-space($translationNormUrlShort)"/>
-
-                        </translationURL>
-
-                     </xsl:if>
-
-
-                     <xsl:variable name="isLast">
-                        <xsl:choose>
-                           <xsl:when test="position()=last()">
-                              <xsl:text>true</xsl:text>
-                           </xsl:when>
                            <xsl:otherwise>
-                              <xsl:text>false</xsl:text>
+                              <xsl:text>0</xsl:text>
                            </xsl:otherwise>
                         </xsl:choose>
-
-
-                     </xsl:variable>
-
-                     <!-- Page transcription -->
+                     </number>
+                     
+                     <xsl:if test="normalize-space(tei:media[@mimeType='transcription_diplomatic']/@url)">
+                        <string key="transcriptionDiplomaticURL" xmlns="http://www.w3.org/2005/xpath-functions">
+                           <xsl:value-of select="normalize-space(replace(tei:media[@mimeType='transcription_diplomatic']/@url, 'http://services.cudl.lib.cam.ac.uk',''))"/>
+                        </string>
+                     </xsl:if>
+                     
+                     <xsl:if test="normalize-space(tei:media[@mimeType='transcription_normalised']/@url)">
+                        <string key="transcriptionNormalisedURL" xmlns="http://www.w3.org/2005/xpath-functions">
+                           <xsl:value-of select="replace(tei:media[@mimeType='transcription_normalised']/@url, 'http://services.cudl.lib.cam.ac.uk','')"/>
+                        </string>
+                     </xsl:if>
+                     
+                     <xsl:if test="normalize-space(tei:media[@mimeType='translation']/@url)">
+                        <string key="translationURL" xmlns="http://www.w3.org/2005/xpath-functions">
+                           <xsl:value-of select="replace(tei:media[@mimeType='translation']/@url, 'http://services.cudl.lib.cam.ac.uk','')"/>
+                        </string>
+                     </xsl:if>
+                     
+                     <xsl:variable name="isLast" select="string(position()=last())"/>
+                     
                      <xsl:choose>
-
-
-
-
-                        <!--when file contains external transcription do nothing here-->
-                        <xsl:when test="*:media[contains(@mimeType,'transcription')]"/>
-
-
+                        <xsl:when test="tei:media[contains(@mimeType,'transcription')]"/>
                         <xsl:otherwise>
-
-                           <xsl:for-each
-                              select="(//*:text/*:body/*:div[not(@type)]//*:pb[@type='pageBoundary'][@n = $label],//*:text/*:body/*:div[not(@type)]//*:pb[@n = $label][lambda:has-valid-context(.)])[1]">
-                              <xsl:call-template name="output-html-link">
-                                 <xsl:with-param name="current_pb" select="."/>
-                                 <xsl:with-param name="isLast" select="$isLast"/>
-                                 <xsl:with-param name="label" select="$label"/>
-                                 <xsl:with-param name="type" select="'transcription'"/>
-                              </xsl:call-template>
-                           </xsl:for-each>
+                           <xsl:variable name="transcription_container" select="//tei:text/tei:body/tei:div[not(@type)]" as="item()*" />
+                           
+                           <!--<xsl:if test="exists($transcription_container)">-->
+                              <xsl:variable name="transcription_pb" select="(
+                                 key('pbNs', $label)[@type='pageBoundary'][ancestor::tei:div[not(@type)]/parent::tei:body],
+                                 key('pbNs', $label)[ancestor::tei:div[not(@type)]/parent::tei:body][lambda:has-valid-context(.)]
+                                 )[1]" as="item()*"/>
+                              <xsl:if test="exists($transcription_pb[ancestor::tei:div[@decls='#unpaginated']]) and exists($transcription_pb/ancestor::tei:div[@decls='#unpaginated']//tei:pb[lambda:has-valid-context(.)][position() gt 1][. is $transcription_pb ])">
+                                 <boolean key="unpaginatedAdditionalPb" xmlns="http://www.w3.org/2005/xpath-functions">
+                                    <xsl:value-of select="false()"/>
+                                 </boolean>
+                              </xsl:if>
+                              <xsl:for-each select="$transcription_pb">
+                                 <xsl:call-template name="output-html-link">
+                                    <xsl:with-param name="current_pb" select="."/>
+                                    <xsl:with-param name="isLast" select="$isLast"/>
+                                    <xsl:with-param name="label" select="$label"/>
+                                    <xsl:with-param name="type" select="'transcription'"/>
+                                    <xsl:with-param name="html_dir" select="$html_dir"/>
+                                 </xsl:call-template>
+                              </xsl:for-each>
+                           <!--</xsl:if>-->
                         </xsl:otherwise>
                      </xsl:choose>
-
-                     <xsl:for-each
-                        select="(//tei:text/tei:body/tei:div[@type='translation']//*:pb[@type='pageBoundary'][@n = $label],//tei:text/tei:body/tei:div[@type='translation']//*:pb[not(@type='pageBoundary')][@n = $label])[1]">
-                        <xsl:call-template name="output-html-link">
-                           <xsl:with-param name="current_pb" select="."/>
-                           <xsl:with-param name="isLast" select="$isLast"/>
-                           <xsl:with-param name="label" select="$label"/>
-                           <xsl:with-param name="type" select="'translation'"/>
-                        </xsl:call-template>
-                     </xsl:for-each>
-
-                     <!-- 
-                  Note: possible to have:
-                  - page with neither image nor transcription
-                  - page with image but no transcription
-                  - page with transcription but no image
-                  - page with image and transcription
-               -->
-                  </page>
-
-               </xsl:for-each>
-
-            </xsl:when>
-
-
-            <!--default single page for items without images-->
+                     
+                     <xsl:variable name="translation_container" select="//tei:text/tei:body/tei:div[@type='translation']" as="item()*"/>
+                     
+                     <!--<xsl:if test="exists($translation_container)">-->
+                        <xsl:variable name="translation_pb" select="(
+                           key('pbNs', $label)[@type='pageBoundary'][ancestor::tei:div[@type='translation']/parent::tei:body],
+                           key('pbNs', $label)[ancestor::tei:div[@type='translation']/parent::tei:body][not(@type='pageBoundary')]
+                           )[1]" as="item()*"/>
+                        <xsl:for-each select="$translation_pb">
+                           <xsl:call-template name="output-html-link">
+                              <xsl:with-param name="current_pb" select="."/>
+                              <xsl:with-param name="isLast" select="$isLast"/>
+                              <xsl:with-param name="label" select="$label"/>
+                              <xsl:with-param name="type" select="'translation'"/>
+                              <xsl:with-param name="html_dir" select="$html_dir"/>
+                           </xsl:call-template>
+                        </xsl:for-each>
+                     <!--</xsl:if>-->
+                  </map>
+                  </xsl:for-each>
+               </xsl:when>
             <xsl:otherwise>
-
-               <page>
-                  <label>
+               <map xmlns="http://www.w3.org/2005/xpath-functions">
+                  <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
                      <xsl:text>cover</xsl:text>
-                  </label>
-
-                  <physID>
+                  </string>
+                  
+                  <string key="physID" xmlns="http://www.w3.org/2005/xpath-functions">
                      <xsl:text>PHYS-1</xsl:text>
-                  </physID>
-
-                  <sequence>
-                     <xsl:text>1</xsl:text>
-                  </sequence>
-               </page>
-
+                  </string>
+                  
+                  <number key="sequence" xmlns="http://www.w3.org/2005/xpath-functions">
+                     <xsl:value-of select="1"/>
+                  </number>
+               </map>
             </xsl:otherwise>
-
-
          </xsl:choose>
-
-      </pages>
-
+      </array>
    </xsl:template>
-
+   
    <xsl:template name="output-html-link">
       <xsl:param name="current_pb" as="item()*"/>
       <xsl:param name="isLast"/>
       <xsl:param name="label"/>
       <xsl:param name="type" as="xsd:string*"/>
-      <xsl:choose>
+      <xsl:param name="html_dir"/>
+      
+      
+      <xsl:variable name="filename" select="lambda:construct-output-filename-path($current_pb, 'filename', $type)"/>
+      <xsl:variable name="html_file" select="concat(string-join(($html_dir, $filename),'/'), '.html')"/>
+      
+      <xsl:variable name="surface_number">
+         <xsl:apply-templates select="key('surfaceIDs', $current_pb/@facs)" mode="count"/>
+      </xsl:variable>
+      
+      <!-- Do not ouput if pb[position() gt 1][ancestor::div[@decls='#unpaginated']] -->
+      <!-- not($current_pb is (tei:div[@decls='unpaginated']//tei:pb)[position() gt 1]) -->
+      
+      <xsl:if test="unparsed-text-available($html_file)">
+         <map key="{$type}_content" xmlns="http://www.w3.org/2005/xpath-functions">
+            <string key="filename" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="replace(tokenize($html_file,'/')[last()],'\.html$','')"/>
+            </string>
+            <string key="fullpath" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="replace($html_file, concat($clean_dest_dir, '/*'), '')"/>
+            </string>
+            <string key="surfaceID" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="concat('i',$surface_number)"/>
+            </string>
+            <string key="text" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:value-of select="unparsed-text($html_file)"/>
+            </string>
+         </map>
+         <xsl:choose>
          <xsl:when test="$isLast = 'true' and count(following::*) = 0"/>
          <!--when there's no content between here and the next pb element do nothing-->
           <xsl:when test="not(key('surfaceIDs', $current_pb/@facs))">
-              <xsl:message select="concat('ERROR: ', $current_filename, ' has invalid pb/@facs or surface/@xml:id: ''', $current_pb/@facs, '''')"/>
+              <xsl:message select="concat('ERROR: ', $fileID, ' has invalid pb/@facs or surface/@xml:id: ''', $current_pb/@facs, '''')"/>
           </xsl:when>
-         <xsl:when
-            test="local-name(following-sibling::*[1]) = 'pb' and not(ancestor::tei:div[tokenize(normalize-space(@decls), '\s+')[. = '#unpaginated']])"/>
+         <xsl:when test="local-name(following-sibling::*[1]) = 'pb' and not(ancestor::tei:div[tokenize(normalize-space(@decls), '\s+')[. = '#unpaginated']])"/>
          <xsl:otherwise>
-            <xsl:variable name="pb_id.end" as="item()">
-               <xsl:choose>
-                  <xsl:when test="@next">
-                     <xsl:value-of select="replace(@next, '^#', '')"/>
-                  </xsl:when>
-                  <xsl:otherwise>
-                     <xsl:value-of
-                        select="(following::tei:pb[replace(@facs, '^#', '') = //tei:surface/@xml:id][lambda:has-valid-context(.)])[1]/@xml:id"
-                     />
-                  </xsl:otherwise>
-               </xsl:choose>
-            </xsl:variable>
-            <xsl:variable name="end.pb" select="//tei:pb[@xml:id = $pb_id.end]"/>
-
-            <xsl:if
-               test="ancestor::tei:div[tokenize(normalize-space(@decls), '\s+')[. = '#unpaginated']] or exists($current_pb[. is (//tei:pb)[last()]][following::node()[lambda:page-has-content(.)]]) or exists(//node()[self::text()[normalize-space(.)] | self::tei:gap | self::tei:graphic | self::tei:g | self::tei:figure][. >> $current_pb and . &lt;&lt; $end.pb][lambda:page-has-content(.)])">
-               <xsl:choose>
+            <xsl:choose>
                   <xsl:when test="$type='transcription'">
                      <xsl:variable name="encoded-label" select="replace($label, ' ', '%20')"/>
-
-                     <transcriptionDiplomaticURL>
+                     
+                     <string key="transcriptionDiplomaticURL" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:value-of select="lambda:write-tei-services-link(., 'transcription')"/>
-                     </transcriptionDiplomaticURL>
+                     </string>
                   </xsl:when>
                   <xsl:when test="$type='translation'">
-                     <translationURL>
+                     <string key="translationURL" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:value-of select="lambda:write-tei-services-link(.,'translation')"/>
-                     </translationURL>
+                     </string>
                   </xsl:when>
                </xsl:choose>
-            </xsl:if>
          </xsl:otherwise>
       </xsl:choose>
+      </xsl:if>
    </xsl:template>
 
    <!--LIST ITEM PAGES - passing through for indexing-->
    <xsl:template name="make-list-item-pages">
-
-
-      <listItemPages>
-
-         <!--this indexes any list items containing at least one locus element under the from attribute of the first locus-->
-         <xsl:for-each select="//*:list/*:item[*:locus]">
-
-
-            <listItemPage>
-
-               <fileID>
+      <array key="listItemPages" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:for-each select="//tei:list/tei:item[tei:locus]">
+            <map xmlns="http://www.w3.org/2005/xpath-functions">
+               <string key="fileID" xmlns="http://www.w3.org/2005/xpath-functions">
                   <xsl:value-of select="$fileID"/>
-               </fileID>
-
-
-
-               <dmdID xtf:noindex="true">DOCUMENT</dmdID>
-
-               <xsl:variable name="startPageLabel" select="*:locus[1]/@from"/>
+               </string>
+               <string key="dmdID" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:text>DOCUMENT</xsl:text>
+               </string>
+               
+               <xsl:variable name="startPageLabel" select="tei:locus[1]/@from"/>
 
                <xsl:variable name="startPagePosition">
-
                   <xsl:choose>
                       <xsl:when test="key('surfaceNs', $startPageLabel)">
                          <xsl:apply-templates select="key('surfaceNs', $startPageLabel)" mode="count"/>
-                        <!--<xsl:variable name="xmlid" select="//*:facsimile/*:surface[@n=$startPageLabel]/@xml:id"/>
-                        <xsl:value-of select="substring-after($xmlid, 'i')"></xsl:value-of>-->
-                     </xsl:when>
+                      </xsl:when>
                      <xsl:otherwise>
-                        <xsl:text>1</xsl:text>
+                        <xsl:value-of select="1"/>
                      </xsl:otherwise>
                   </xsl:choose>
-
                </xsl:variable>
-
-
-               <startPageLabel>
+               
+               <string key="startPageLabel" xmlns="http://www.w3.org/2005/xpath-functions">
                   <xsl:value-of select="$startPageLabel"/>
-
-
-
-               </startPageLabel>
-
-               <startPage>
+               </string>
+               
+               <number key="startPage" xmlns="http://www.w3.org/2005/xpath-functions">
                   <xsl:value-of select="$startPagePosition"/>
-               </startPage>
-
-               <title>
+               </number>
+               
+               <string key="title" xmlns="http://www.w3.org/2005/xpath-functions">
                   <xsl:value-of select="$startPageLabel"/>
-               </title>
-
-               <listItemText>
-
+               </string>
+               
+               <string key="listItemText" xmlns="http://www.w3.org/2005/xpath-functions">
                   <xsl:value-of select="normalize-space(.)"/>
-
-
-               </listItemText>
-
-            </listItemPage>
-
+               </string>
+            </map>
          </xsl:for-each>
-
-
-      </listItemPages>
-
+      </array>
    </xsl:template>
-
-
-   <!--make logical structure for navigation-->
+   
    <xsl:template name="make-logical-structure">
-
-      <logicalStructures xtf:noindex="true">
-
-
-         <xsl:apply-templates select="*:TEI/*:teiHeader/*:fileDesc/*:sourceDesc/*:msDesc"
-            mode="logicalstructure"/>
-
-
-      </logicalStructures>
-
+      <array key="logicalStructures" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:apply-templates select="tei:TEI/tei:teiHeader/tei:fileDesc/tei:sourceDesc/tei:msDesc" mode="logicalstructure"/>
+      </array>
    </xsl:template>
 
-   <xsl:template match="*:msDesc" mode="logicalstructure">
-
-
-      <logicalStructure>
-
-         <descriptiveMetadataID>
+   <xsl:template match="tei:msDesc" mode="logicalstructure">
+      <map xmlns="http://www.w3.org/2005/xpath-functions">
+         <string key="descriptiveMetadataID" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="'DOCUMENT'"/>
-         </descriptiveMetadataID>
-
-
-         <!--TODO - review this-->
-         <!--is this even used?-->
-         <label>
-            
+         </string>
+         
+         <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
                <!--general titles take precedence-->
-               <xsl:when test="*:head">
-                  <xsl:value-of select="normalize-space(*:head)"/>
+               <xsl:when test="tei:head">
+                  <xsl:value-of select="normalize-space(tei:head)"/>
                </xsl:when>
-               <xsl:when test="*:msIdentifier/*:msName">
-                  <xsl:value-of select="normalize-space(*:msIdentifier/*:msName)"/>
+               <xsl:when test="tei:msIdentifier/tei:msName">
+                  <xsl:value-of select="normalize-space(tei:msIdentifier/tei:msName)"/>
+               </xsl:when><!--then titles in the first msItem-->
+               <xsl:when test="normalize-space(tei:msContents/tei:msItem[1]/tei:title[not(@type)][1])">
+                  <xsl:value-of select="normalize-space(tei:msContents/tei:msItem[1]/tei:title[not(@type)][1])"/>
                </xsl:when>
-
-               <!--then titles in the first msItem-->
-               <xsl:when test="normalize-space(*:msContents/*:msItem[1]/*:title[not(@type)][1])">
-                  <xsl:value-of
-                     select="normalize-space(*:msContents/*:msItem[1]/*:title[not(@type)][1])"/>
-
+               <xsl:when test="normalize-space(tei:msContents/tei:msItem[1]/tei:title[@type='general'][1])">
+                  <xsl:value-of select="normalize-space(tei:msContents/tei:msItem[1]/tei:title[@type='general'][1])"/>
                </xsl:when>
-               <xsl:when
-                  test="normalize-space(*:msContents/*:msItem[1]/*:title[@type='general'][1])">
-                  <xsl:value-of
-                     select="normalize-space(*:msContents/*:msItem[1]/*:title[@type='general'][1])"
-                  />
+               <xsl:when test="normalize-space(tei:msContents/tei:msItem[1]/tei:title[@type='desc'][1])">
+                  <xsl:value-of select="normalize-space(tei:msContents/tei:msItem[1]/tei:title[@type='desc'][1])"/>
                </xsl:when>
-               <xsl:when test="normalize-space(*:msContents/*:msItem[1]/*:title[@type='desc'][1])">
-                  <xsl:value-of
-                     select="normalize-space(*:msContents/*:msItem[1]/*:title[@type='desc'][1])"/>
+               <xsl:when test="normalize-space(tei:msContents/tei:msItem[1]/tei:title[@type='standard'][1])">
+                  <xsl:value-of select="normalize-space(tei:msContents/tei:msItem[1]/tei:title[@type='standard'][1])"/>
                </xsl:when>
-               <xsl:when
-                  test="normalize-space(*:msContents/*:msItem[1]/*:title[@type='standard'][1])">
-                  <xsl:value-of
-                     select="normalize-space(*:msContents/*:msItem[1]/*:title[@type='standard'][1])"
-                  />
+               <xsl:when test="normalize-space(tei:msContents/tei:msItem[1]/tei:title[@type='supplied'][1])">
+                  <xsl:value-of select="normalize-space(tei:msContents/tei:msItem[1]/tei:title[@type='supplied'][1])"/>
                </xsl:when>
-               <xsl:when
-                  test="normalize-space(*:msContents/*:msItem[1]/*:title[@type='supplied'][1])">
-                  <xsl:value-of
-                     select="normalize-space(*:msContents/*:msItem[1]/*:title[@type='supplied'][1])"
-                  />
-               </xsl:when>
-               <xsl:when test="normalize-space(*:msContents/*:msItem[1]/*:rubric)">
+               <xsl:when test="normalize-space(tei:msContents/tei:msItem[1]/tei:rubric)">
                   <xsl:variable name="rubric_title">
-
-                     <xsl:apply-templates select="*:msContents/*:msItem[1]/*:rubric" mode="title"/>
-
+                     <xsl:apply-templates select="tei:msContents/tei:msItem[1]/tei:rubric" mode="title"/>
                   </xsl:variable>
-
                   <xsl:value-of select="normalize-space($rubric_title)"/>
                </xsl:when>
-
-               <xsl:when test="normalize-space(*:msContents/*:msItem[1]/*:incipit)">
+               <xsl:when test="normalize-space(tei:msContents/tei:msItem[1]/tei:incipit)">
                   <xsl:variable name="incipit_title">
-
-                     <xsl:apply-templates select="*:msContents/*:msItem[1]/*:incipit" mode="title"/>
-
+                     <xsl:apply-templates select="tei:msContents/tei:msItem[1]/tei:incipit" mode="title"/>
                   </xsl:variable>
-
                   <xsl:value-of select="normalize-space($incipit_title)"/>
                </xsl:when>
-
                <!--then titles from the summary-->
-               <xsl:when test="*:msContents/*:summary//*:title[not(@type)]">
-                  <xsl:for-each-group select="*:msContents/*:summary//*:title[not(@type)]"
-                     group-by="normalize-space(.)">
+               <xsl:when test="tei:msContents/tei:summary//tei:title[not(@type)]">
+                  <xsl:for-each-group select="tei:msContents/tei:summary//tei:title[not(@type)]" group-by="normalize-space(.)">
                      <xsl:value-of select="normalize-space(.)"/>
                      <xsl:if test="not(position()=last())">
                         <xsl:text>, </xsl:text>
@@ -3970,8 +2758,8 @@
                   </xsl:for-each-group>
                </xsl:when>
                <!--then classmark-->
-               <xsl:when test="*:msIdentifier/*:idno">
-                  <xsl:for-each-group select="*:msIdentifier/*:idno" group-by="normalize-space(.)">
+               <xsl:when test="tei:msIdentifier/tei:idno">
+                  <xsl:for-each-group select="tei:msIdentifier/tei:idno" group-by="normalize-space(.)">
                      <xsl:value-of select="normalize-space(.)"/>
                      <xsl:if test="not(position()=last())">
                         <xsl:text>, </xsl:text>
@@ -3982,170 +2770,113 @@
                   <xsl:text>Untitled Document</xsl:text>
                </xsl:otherwise>
             </xsl:choose>
-
-         </label>
-
-         <startPageLabel>
-
+         </string>
+         
+         <string key="startPageLabel" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
-               <xsl:when test="//*:facsimile/*:surface">
-                  <xsl:value-of select="//*:facsimile/*:surface[1]/@n"/>
-
+               <xsl:when test="//tei:facsimile/tei:surface">
+                  <xsl:value-of select="//tei:facsimile/tei:surface[1]/@n"/>
                </xsl:when>
                <xsl:otherwise>
                   <xsl:text>cover</xsl:text>
                </xsl:otherwise>
             </xsl:choose>
-
-
-         </startPageLabel>
-
-         <startPagePosition>
-            <xsl:text>1</xsl:text>
-         </startPagePosition>
-
-         <startPageID>
+         </string>
+         
+         <number key="startPagePosition" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="1"/>
+         </number>
+         
+         <string key="startPageID" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="'PHYS-1'"/>
-         </startPageID>
+         </string>
 
-         <endPageLabel>
-
+         <string key="endPageLabel" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
-               <xsl:when test="//*:facsimile/*:surface">
-
-                  <xsl:value-of select="//*:facsimile/*:surface[last()]/@n"/>
-
+               <xsl:when test="//tei:facsimile/tei:surface">
+                  <xsl:value-of select="//tei:facsimile/tei:surface[last()]/@n"/>
                </xsl:when>
                <xsl:otherwise>
                   <xsl:text>cover</xsl:text>
                </xsl:otherwise>
             </xsl:choose>
-
-         </endPageLabel>
-
-         <endPagePosition>
+         </string>
+         
+         <number key="endPagePosition" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
-               <xsl:when test="//*:facsimile/*:surface">
-                  <xsl:value-of select="count(//*:facsimile/*:surface)"/>
+               <xsl:when test="//tei:facsimile/tei:surface">
+                  <xsl:value-of select="count(//tei:facsimile/tei:surface)"/>
                </xsl:when>
                <xsl:otherwise>
-                  <xsl:text>1</xsl:text>
+                  <xsl:value-of select="1"/>
                </xsl:otherwise>
             </xsl:choose>
-
-         </endPagePosition>
-
-
-         <xsl:if
-            test="(count(*:msContents/*:msItem) = 1 and *:msContents/*:msItem/*:msItem) or count(*:msContents/*:msItem) > 1 or *:msPart">
-
-            <children>
+         </number>
+         
+         <xsl:if test="(count(tei:msContents/tei:msItem) = 1 and tei:msContents/tei:msItem/tei:msItem) or count(tei:msContents/tei:msItem) > 1 or tei:msPart">
+            <array key="children" xmlns="http://www.w3.org/2005/xpath-functions">
                <xsl:choose>
-                  <xsl:when test="count(*:msContents/*:msItem) = 1">
-
-                     <xsl:apply-templates select="*:msContents/*:msItem/*:msItem"
-                        mode="logicalstructure"/>
-
-
+                  <xsl:when test="count(tei:msContents/tei:msItem) = 1">
+                     <xsl:apply-templates select="tei:msContents/tei:msItem/tei:msItem" mode="logicalstructure"/>
                   </xsl:when>
                   <xsl:otherwise>
-                     <xsl:apply-templates select="*:msContents/*:msItem" mode="logicalstructure"/>
+                     <xsl:apply-templates select="tei:msContents/tei:msItem" mode="logicalstructure"/>
                   </xsl:otherwise>
                </xsl:choose>
-
-
-
-               <xsl:apply-templates select="*:msPart" mode="logicalstructure"/>
-
-            </children>
-
+               <xsl:apply-templates select="tei:msPart" mode="logicalstructure"/>
+            </array>
          </xsl:if>
-
-      </logicalStructure>
-
+      </map>
    </xsl:template>
 
 
-   <xsl:template match="*:msPart" mode="logicalstructure">
-
-      <logicalStructure>
-
-         <xsl:variable name="n-tree">
-            <xsl:value-of
-               select="sum((count(ancestor-or-self::*[local-name()='msPart']), count(preceding::*[local-name()='msPart'])))"
-            />
-         </xsl:variable>
-
-         <descriptiveMetadataID>
+   <xsl:template match="tei:msPart" mode="logicalstructure">
+      <map xmlns="http://www.w3.org/2005/xpath-functions">
+         <string key="descriptiveMetadataID" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:variable name="n-tree" select="string(sum((count(ancestor-or-self::*[self::tei:msPart]), count(preceding::*[self::tei:msPart]))))"/>
             <xsl:value-of select="concat('PART-', normalize-space($n-tree))"/>
-         </descriptiveMetadataID>
-
-
-         <label>
+         </string>   
+            
+         <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:variable name="mspart_title">
                <xsl:choose>
                   <!--general titles take precedence-->
-                  <xsl:when test="*:head">
-                     <xsl:value-of select="normalize-space(*:head)"/>
+                  <xsl:when test="tei:head">
+                     <xsl:value-of select="normalize-space(tei:head)"/>
                   </xsl:when>
-                  <xsl:when test="*:msIdentifier/*:msName">
-                     <xsl:value-of select="normalize-space(*:msIdentifier/*:msName)"/>
+                  <xsl:when test="tei:msIdentifier/tei:msName">
+                     <xsl:value-of select="normalize-space(tei:msIdentifier/tei:msName)"/>
                   </xsl:when>
-
                   <!--then titles in the first msItem-->
-                  <xsl:when test="normalize-space(*:msContents/*:msItem[1]/*:title[not(@type)][1])">
-                     <xsl:value-of
-                        select="normalize-space(*:msContents/*:msItem[1]/*:title[not(@type)][1])"/>
-
+                  <xsl:when test="normalize-space(tei:msContents/tei:msItem[1]/tei:title[not(@type)][1])">
+                     <xsl:value-of select="normalize-space(tei:msContents/tei:msItem[1]/tei:title[not(@type)][1])"/></xsl:when>
+                  <xsl:when test="normalize-space(tei:msContents/tei:msItem[1]/tei:title[@type='general'][1])">
+                     <xsl:value-of select="normalize-space(tei:msContents/tei:msItem[1]/tei:title[@type='general'][1])"/>
                   </xsl:when>
-                  <xsl:when
-                     test="normalize-space(*:msContents/*:msItem[1]/*:title[@type='general'][1])">
-                     <xsl:value-of
-                        select="normalize-space(*:msContents/*:msItem[1]/*:title[@type='general'][1])"
-                     />
+                  <xsl:when test="normalize-space(tei:msContents/tei:msItem[1]/tei:title[@type='desc'][1])">
+                     <xsl:value-of select="normalize-space(tei:msContents/tei:msItem[1]/tei:title[@type='desc'][1])"/>
                   </xsl:when>
-                  <xsl:when
-                     test="normalize-space(*:msContents/*:msItem[1]/*:title[@type='desc'][1])">
-                     <xsl:value-of
-                        select="normalize-space(*:msContents/*:msItem[1]/*:title[@type='desc'][1])"
-                     />
+                  <xsl:when test="normalize-space(tei:msContents/tei:msItem[1]/tei:title[@type='standard'][1])">
+                     <xsl:value-of select="normalize-space(tei:msContents/tei:msItem[1]/tei:title[@type='standard'][1])"/>
                   </xsl:when>
-                  <xsl:when
-                     test="normalize-space(*:msContents/*:msItem[1]/*:title[@type='standard'][1])">
-                     <xsl:value-of
-                        select="normalize-space(*:msContents/*:msItem[1]/*:title[@type='standard'][1])"
-                     />
+                  <xsl:when test="normalize-space(tei:msContents/tei:msItem[1]/tei:title[@type='supplied'][1])">
+                     <xsl:value-of select="normalize-space(tei:msContents/tei:msItem[1]/tei:title[@type='supplied'][1])"/>
                   </xsl:when>
-                  <xsl:when
-                     test="normalize-space(*:msContents/*:msItem[1]/*:title[@type='supplied'][1])">
-                     <xsl:value-of
-                        select="normalize-space(*:msContents/*:msItem[1]/*:title[@type='supplied'][1])"
-                     />
-                  </xsl:when>
-                  <xsl:when test="normalize-space(*:msContents/*:msItem[1]/*:rubric)">
+                  <xsl:when test="normalize-space(tei:msContents/tei:msItem[1]/tei:rubric)">
                      <xsl:variable name="rubric_title">
-
-                        <xsl:apply-templates select="*:msContents/*:msItem[1]/*:rubric" mode="title"/>
-
+                        <xsl:apply-templates select="tei:msContents/tei:msItem[1]/tei:rubric" mode="title"/>
                      </xsl:variable>
-
                      <xsl:value-of select="normalize-space($rubric_title)"/>
                   </xsl:when>
-
-                  <xsl:when test="normalize-space(*:msContents/*:msItem[1]/*:incipit)">
+                  <xsl:when test="normalize-space(tei:msContents/tei:msItem[1]/tei:incipit)">
                      <xsl:variable name="incipit_title">
-
-                        <xsl:apply-templates select="*:msContents/*:msItem[1]/*:incipit"
-                           mode="title"/>
-
+                        <xsl:apply-templates select="tei:msContents/tei:msItem[1]/tei:incipit" mode="title"/>
                      </xsl:variable>
-
                      <xsl:value-of select="normalize-space($incipit_title)"/>
                   </xsl:when>
-
                   <!--then titles from the summary-->
-                  <xsl:when test="*:msContents/*:summary//*:title[not(@type)]">
-                     <xsl:for-each-group select="*:msContents/*:summary//*:title[not(@type)]"
+                  <xsl:when test="tei:msContents/tei:summary//tei:title[not(@type)]">
+                     <xsl:for-each-group select="tei:msContents/tei:summary//tei:title[not(@type)]"
                         group-by="normalize-space(.)">
                         <xsl:value-of select="normalize-space(.)"/>
                         <xsl:if test="not(position()=last())">
@@ -4154,329 +2885,245 @@
                      </xsl:for-each-group>
                   </xsl:when>
                </xsl:choose>
-
             </xsl:variable>
             
             <xsl:choose>
                <xsl:when test="normalize-space($mspart_title)">
-                  
-                  <xsl:value-of select="normalize-space(concat(*:msIdentifier/*:idno, ': ', $mspart_title))"/>
-                  
+                  <xsl:value-of select="normalize-space(concat(tei:msIdentifier/tei:idno, ': ', $mspart_title))"/>
                </xsl:when>
                <xsl:otherwise>
-                  <xsl:value-of select="normalize-space(*:msIdentifier/*:idno)"/>      
-               </xsl:otherwise>
-               
-            </xsl:choose>
-            
-
-            
-         </label>
-
+                  <xsl:value-of select="normalize-space(tei:msIdentifier/tei:idno)"/>      
+               </xsl:otherwise></xsl:choose>
+         </string>
+         
          <xsl:variable name="startPageLabel">
+               <xsl:choose>
+                  <xsl:when test="tei:msContents/tei:msItem[1]/tei:locus[1][normalize-space(@from)]">
+                     <xsl:value-of select="tei:msContents/tei:msItem[1]/tei:locus[1]/normalize-space(@from)"/>
+                  </xsl:when>
+                  <xsl:otherwise>
+                     <xsl:choose>
+                        <xsl:when test="//tei:facsimile/tei:surface">
+                           <xsl:value-of select="//tei:facsimile/tei:surface[1]/@n"/>
+                        </xsl:when>
+                        <xsl:otherwise>
+                           <xsl:text>cover</xsl:text>
+                        </xsl:otherwise>
+                     </xsl:choose>
+                  </xsl:otherwise>
+               </xsl:choose>
+            </xsl:variable>
+            
+         <string key="startPageLabel" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="$startPageLabel"/>
+         </string>
+         
+         <xsl:variable name="startPagePosition">
             <xsl:choose>
-               <xsl:when test="*:msContents/*:msItem[1]/*:locus[1][normalize-space(@from)]">
-                  <xsl:value-of select="*:msContents/*:msItem[1]/*:locus[1]/normalize-space(@from)"/>
+               <xsl:when test="key('surfaceNs', $startPageLabel)">
+                  <xsl:apply-templates select="key('surfaceNs', $startPageLabel)" mode="count"/>
                </xsl:when>
                <xsl:otherwise>
-
+                  <xsl:value-of select="1"/>
+               </xsl:otherwise>
+            </xsl:choose>
+         </xsl:variable>
+         
+         <number key="startPagePosition" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="$startPagePosition"/>
+         </number>
+         
+         <string key="startPageID" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="concat('PHYS-',string($startPagePosition))"/>
+         </string>
+         
+         <xsl:variable name="endPageLabel">
+            <xsl:choose>
+               <xsl:when test="tei:msContents/tei:msItem[last()]/tei:locus[1][normalize-space(@to)]">
+                  <xsl:value-of select="tei:msContents/tei:msItem[last()]/tei:locus[1]/normalize-space(@to)"/>
+               </xsl:when>
+               <xsl:otherwise>
                   <xsl:choose>
-                     <xsl:when test="//*:facsimile/*:surface">
-                        <xsl:value-of select="//*:facsimile/*:surface[1]/@n"/>
+                     <xsl:when test="//tei:facsimile/tei:surface">
+                        <xsl:value-of select="//tei:facsimile/tei:surface[last()]/@n"/>
                      </xsl:when>
                      <xsl:otherwise>
                         <xsl:text>cover</xsl:text>
                      </xsl:otherwise>
                   </xsl:choose>
-
-               </xsl:otherwise>
-
-            </xsl:choose>
-         </xsl:variable>
-
-         <startPageLabel>
-            <xsl:value-of select="$startPageLabel"/>
-
-         </startPageLabel>
-
-         <xsl:variable name="startPagePosition">
-
-
-            <xsl:choose>
-                <xsl:when test="key('surfaceNs', $startPageLabel)">
-                   <xsl:apply-templates select="key('surfaceNs', $startPageLabel)" mode="count"/>
-               </xsl:when>
-               <xsl:otherwise>
-                  <xsl:text>1</xsl:text>
                </xsl:otherwise>
             </xsl:choose>
-
-
          </xsl:variable>
-
-         <startPagePosition>
-            <xsl:value-of select="$startPagePosition"/>
-         </startPagePosition>
-
-         <startPageID>
-            <xsl:value-of select="concat('PHYS-',$startPagePosition)"/>
-         </startPageID>
-
-
-
-         <xsl:variable name="endPageLabel">
-             <xsl:choose>
-                 <xsl:when test="*:msContents/*:msItem[last()]/*:locus[1][normalize-space(@to)]">
-                     <xsl:value-of select="*:msContents/*:msItem[last()]/*:locus[1]/normalize-space(@to)"/>
-                 </xsl:when>
-                 <xsl:otherwise>
-                     
-                     <xsl:choose>
-                         <xsl:when test="//*:facsimile/*:surface">
-                             <xsl:value-of select="//*:facsimile/*:surface[last()]/@n"/>
-                         </xsl:when>
-                         <xsl:otherwise>
-                             <xsl:text>cover</xsl:text>
-                         </xsl:otherwise>
-                     </xsl:choose>
-                     
-                 </xsl:otherwise>
-             </xsl:choose>
-         </xsl:variable>
-
-         <endPageLabel>
-            <xsl:value-of select="$endPageLabel"/>
-         </endPageLabel>
-
-         <endPagePosition>
-
-            <xsl:choose>
-                <xsl:when test="key('surfaceNs', $endPageLabel)">
-                   <xsl:apply-templates select="key('surfaceNs', $endPageLabel)" mode="count"/>
-               </xsl:when>
-               <xsl:otherwise>
-                  <xsl:text>1</xsl:text>
-               </xsl:otherwise>
-            </xsl:choose>
-
-         </endPagePosition>
-
          
-         <children>
+         <string key="endPageLabel" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="$endPageLabel"/>
+         </string>
+         
+         <number key="endPagePosition" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
-               <xsl:when test="count(*:msContents/*:msItem) = 1">
-
-                  <xsl:apply-templates select="*:msContents/*:msItem/*:msItem"
-                     mode="logicalstructure"/>
-
-
+               <xsl:when test="key('surfaceNs', $endPageLabel)">
+                  <xsl:apply-templates select="key('surfaceNs', $endPageLabel)" mode="count"/>
                </xsl:when>
                <xsl:otherwise>
-                  <xsl:apply-templates select="*:msContents/*:msItem" mode="logicalstructure"/>
+                  <xsl:value-of select="1"/>
                </xsl:otherwise>
             </xsl:choose>
-
-
-
-            <xsl:apply-templates select="*:msPart" mode="logicalstructure"/>
-
-         </children>
-
-
-      </logicalStructure>
-
+         </number>
+         
+         <array key="children" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:choose>
+                  <xsl:when test="count(tei:msContents/tei:msItem) = 1">
+                     <xsl:apply-templates select="tei:msContents/tei:msItem/tei:msItem" mode="logicalstructure"/>
+                  </xsl:when>
+                  <xsl:otherwise>
+                     <xsl:apply-templates select="tei:msContents/tei:msItem" mode="logicalstructure"/>
+                  </xsl:otherwise>
+               </xsl:choose>
+            <xsl:apply-templates select="tei:msPart" mode="logicalstructure"/>
+         </array>
+      </map>
    </xsl:template>
 
 
-   <xsl:template match="*:msItem" mode="logicalstructure">
-
-      <logicalStructure>
-
-         <xsl:variable name="n-tree">
-            <xsl:value-of
-               select="sum((count(ancestor-or-self::*[local-name()='msItem']), count(preceding::*[local-name()='msItem'])))"
-            />
-         </xsl:variable>
-
-         <descriptiveMetadataID>
+   <xsl:template match="tei:msItem" mode="logicalstructure">
+      <map xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:variable name="n-tree" select="string(sum((count(ancestor-or-self::*[self::tei:msItem]), count(preceding::*[self::tei:msItem]))))"/>
+         
+         <string key="descriptiveMetadataID" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="concat('ITEM-', normalize-space($n-tree))"/>
-         </descriptiveMetadataID>
+         </string>
 
-         <label>
+         <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
-               <xsl:when test="normalize-space(*:title[not(@type)][1])">
-                  <xsl:value-of select="normalize-space(*:title[not(@type)][1])"/>
+               <xsl:when test="normalize-space(tei:title[not(@type)][1])">
+                  <xsl:value-of select="normalize-space(tei:title[not(@type)][1])"/>
                </xsl:when>
-               <xsl:when test="normalize-space(*:title[@type='general'][1])">
-                  <xsl:value-of select="normalize-space(*:title[@type='general'][1])"/>
+               <xsl:when test="normalize-space(tei:title[@type='general'][1])">
+                  <xsl:value-of select="normalize-space(tei:title[@type='general'][1])"/>
                </xsl:when>
-               <xsl:when test="normalize-space(*:title[@type='desc'][1])">
-                  <xsl:value-of select="normalize-space(*:title[@type='desc'][1])"/>
+               <xsl:when test="normalize-space(tei:title[@type='desc'][1])">
+                  <xsl:value-of select="normalize-space(tei:title[@type='desc'][1])"/>
                </xsl:when>
-               <xsl:when test="normalize-space(*:title[@type='standard'][1])">
-                  <xsl:value-of select="normalize-space(*:title[@type='standard'][1])"/>
+               <xsl:when test="normalize-space(tei:title[@type='standard'][1])">
+                  <xsl:value-of select="normalize-space(tei:title[@type='standard'][1])"/>
                </xsl:when>
-               <xsl:when test="normalize-space(*:title[@type='supplied'][1])">
-                  <xsl:value-of select="normalize-space(*:title[@type='supplied'][1])"/>
+               <xsl:when test="normalize-space(tei:title[@type='supplied'][1])">
+                  <xsl:value-of select="normalize-space(tei:title[@type='supplied'][1])"/>
                </xsl:when>
-               <xsl:when test="normalize-space(*:rubric)">
+               <xsl:when test="normalize-space(tei:rubric[1])">
                   <xsl:variable name="rubric_title">
-
-                     <xsl:apply-templates select="*:rubric" mode="title"/>
-
+                     <xsl:apply-templates select="tei:rubric[1]" mode="title"/>
                   </xsl:variable>
-
                   <xsl:value-of select="normalize-space($rubric_title)"/>
                </xsl:when>
-
-               <xsl:when test="normalize-space(*:incipit[1])">
+               <xsl:when test="normalize-space(tei:incipit[1])">
                   <xsl:variable name="incipit_title">
-
-                     <xsl:apply-templates select="*:incipit[1]" mode="title"/>
-
+                     <xsl:apply-templates select="tei:incipit[1]" mode="title"/>
                   </xsl:variable>
-
                   <xsl:value-of select="normalize-space($incipit_title)"/>
                </xsl:when>
-
-
                <xsl:otherwise>
                   <xsl:text>Untitled Item</xsl:text>
                </xsl:otherwise>
             </xsl:choose>
-         </label>
-
+         </string>
+         
          <xsl:variable name="startPageLabel">
             <xsl:choose>
-               <xsl:when test="*:locus[normalize-space(@from)]">
-                  <xsl:value-of select="*:locus[1]/normalize-space(@from)"/>
+               <xsl:when test="tei:locus[normalize-space(@from)]">
+                  <xsl:value-of select="tei:locus[1]/normalize-space(@from)"/>
                </xsl:when>
                <xsl:otherwise>
-
                   <xsl:choose>
-                     <xsl:when test="//*:facsimile/*:surface">
-                        <xsl:value-of select="//*:facsimile/*:surface[1]/@n"/>
+                     <xsl:when test="//tei:facsimile/tei:surface">
+                        <xsl:value-of select="//tei:facsimile/tei:surface[1]/@n"/>
                      </xsl:when>
                      <xsl:otherwise>
                         <xsl:text>cover</xsl:text>
                      </xsl:otherwise>
                   </xsl:choose>
-
                </xsl:otherwise>
-
             </xsl:choose>
          </xsl:variable>
-
-         <startPageLabel>
+         
+         <string key="startPageLabel" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="$startPageLabel"/>
-
-         </startPageLabel>
-
+         </string>
+         
          <xsl:variable name="startPagePosition">
-
-
             <xsl:choose>
                <xsl:when test="key('surfaceNs', $startPageLabel)">
                    <xsl:apply-templates select="key('surfaceNs', $startPageLabel)" mode="count"/>
                </xsl:when>
                <xsl:otherwise>
-                   <xsl:message select="concat('ERROR: ', $current_filename, ' has invalid locus/@from or surface/@n value: ''', $startPageLabel, '''')"/>
-                  <xsl:text>1</xsl:text>
+                   <xsl:message select="concat('ERROR: ', $fileID, ' has invalid locus/@from or surface/@n value: ''', $startPageLabel, '''')"/>
+                  <xsl:value-of select="1"/>
                </xsl:otherwise>
             </xsl:choose>
-
-
          </xsl:variable>
-
-         <startPagePosition>
+         
+         <number key="startPagePosition" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="$startPagePosition"/>
-         </startPagePosition>
-
-         <startPageID>
+         </number>
+         
+         <string key="startPageID" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="concat('PHYS-',$startPagePosition)"/>
-         </startPageID>
-
-
-
+         </string>
+         
          <xsl:variable name="endPageLabel">
             <xsl:choose>
-               <xsl:when test="*:locus/@to">
-                  <xsl:value-of select="*:locus[1]/normalize-space(@to)"/>
+               <xsl:when test="tei:locus/@to">
+                  <xsl:value-of select="tei:locus[1]/normalize-space(@to)"/>
                </xsl:when>
                <xsl:otherwise>
-
                   <xsl:choose>
-                     <xsl:when test="//*:facsimile/*:surface">
-                        <xsl:value-of select="//*:facsimile/*:surface[last()]/@n"/>
+                     <xsl:when test="//tei:facsimile/tei:surface">
+                        <xsl:value-of select="//tei:facsimile/tei:surface[last()]/@n"/>
                      </xsl:when>
                      <xsl:otherwise>
                         <xsl:text>cover</xsl:text>
                      </xsl:otherwise>
                   </xsl:choose>
-
                </xsl:otherwise>
             </xsl:choose>
          </xsl:variable>
-
-         <endPageLabel>
+         
+         <string key="endPageLabel" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="$endPageLabel"/>
-         </endPageLabel>
-
-         <endPagePosition>
-
+         </string>
+         
+         <number key="endPagePosition" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
-                <xsl:when test="key('surfaceNs', $endPageLabel)">
-                    <xsl:apply-templates select="key('surfaceNs', $endPageLabel)" mode="count"/>
-                </xsl:when>
+               <xsl:when test="key('surfaceNs', $endPageLabel)">
+                  <xsl:apply-templates select="key('surfaceNs', $endPageLabel)" mode="count"/>
+               </xsl:when>
                <xsl:otherwise>
-                   <xsl:message select="concat('ERROR: ', $current_filename, ' has invalid locus/@to or surface/@n value: ''', $endPageLabel, '''')"/>
-                  <xsl:text>1</xsl:text>
+                  <xsl:message select="concat('ERROR: ', $fileID, ' has invalid locus/@to or surface/@n value: ''', $endPageLabel, '''')"/>
+                  <xsl:value-of select="1"/>
                </xsl:otherwise>
             </xsl:choose>
-
-         </endPagePosition>
-
-         <!-- <xsl:if test="*:msContents/*:msItem">
-            <children>
-               <xsl:apply-templates select="*:msContents/*:msItem" mode="logicalstructure"/>
-            </children>
-         </xsl:if>-->
-
-         <xsl:if test="*:msItem">
-            <children>
-               <xsl:apply-templates select="*:msItem" mode="logicalstructure"/>
-            </children>
+         </number>
+         
+         <xsl:if test="tei:msItem">
+            <array key="children" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:apply-templates select="tei:msItem" mode="logicalstructure"/>
+            </array>
          </xsl:if>
-
-      </logicalStructure>
-
+      </map>
    </xsl:template>
-
-
-
-   <!-- ******************************HTML-->
-
-
-   <xsl:template match="*:p" mode="html">
-
+   
+   <xsl:template match="tei:p" mode="html">
       <xsl:text>&lt;p&gt;</xsl:text>
-
       <xsl:apply-templates mode="html"/>
-
       <xsl:text>&lt;/p&gt;</xsl:text>
-
    </xsl:template>
 
    <!--allows creation of paragraphs in summary (a bit of a cheat - TEI doesn't allow p tags here so we use seg and process into p)-->
    <!--this is necessary to allow collapse to first paragraph in interface-->
-   <xsl:template match="*:seg[@type='para']|tei:abstract/tei:p" mode="html">
-
+   <xsl:template match="tei:seg[@type='para']|tei:abstract/tei:p" mode="html">
       <xsl:text>&lt;p style=&apos;text-align: justify;&apos;&gt;</xsl:text>
-
       <xsl:apply-templates mode="#current"/>
       <xsl:text>&lt;/p&gt;</xsl:text>
-
-
    </xsl:template>
 
    <xsl:template match="tei:list" mode="html">
@@ -4490,139 +3137,88 @@
       <xsl:apply-templates mode="#current"/>
       <xsl:text>&lt;/li&gt;</xsl:text>
    </xsl:template>
-
-
-   <!--tables-->
-
-   <xsl:template match="*:table" mode="html">
-
+   
+   <xsl:template match="tei:table" mode="html">
       <xsl:text>&lt;table border='1'&gt;</xsl:text>
-
       <xsl:apply-templates mode="html"/>
-
       <xsl:text>&lt;/table&gt;</xsl:text>
-
    </xsl:template>
-
-
-   <xsl:template match="*:table/*:head" mode="html">
-
+   
+   <xsl:template match="tei:table/tei:head" mode="html">
       <xsl:text>&lt;caption&gt;</xsl:text>
-
       <xsl:apply-templates mode="html"/>
-
       <xsl:text>&lt;/caption&gt;</xsl:text>
-
    </xsl:template>
-
-
-
-   <xsl:template match="*:table/*:row" mode="html">
-
+   
+   <xsl:template match="tei:table/tei:row" mode="html">
       <xsl:text>&lt;tr&gt;</xsl:text>
-
       <xsl:apply-templates mode="html"/>
-
       <xsl:text>&lt;/tr&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:table/*:row[@role='label']/*:cell" mode="html">
-
+   <xsl:template match="tei:table/tei:row[@role='label']/tei:cell" mode="html">
       <xsl:text>&lt;th&gt;</xsl:text>
-
       <xsl:apply-templates mode="html"/>
-
       <xsl:text>&lt;/th&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:table/*:row[@role='data']/*:cell" mode="html">
-
+   <xsl:template match="tei:table/tei:row[@role='data']/tei:cell" mode="html">
       <xsl:text>&lt;td&gt;</xsl:text>
-
       <xsl:apply-templates mode="html"/>
-
       <xsl:text>&lt;/td&gt;</xsl:text>
-
    </xsl:template>
-
-
-   <!--end of tables-->
-
-
-   <xsl:template match="*[not(local-name()='additions')]/*:list" mode="html">
-
+   
+   <xsl:template match="*[not(self::tei:additions)]/tei:list" mode="html">
       <xsl:text>&lt;div&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
       <xsl:text>&lt;br /&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*[not(local-name()='additions')]/*:list/*:item" mode="html">
-
-
+   <xsl:template match="*[not(self::tei:additions)]/tei:list/tei:item" mode="html">
       <xsl:apply-templates mode="html"/>
-
       <xsl:text>&lt;br /&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:additions/*:list" mode="html">
-
-      <xsl:apply-templates select="*:head" mode="html"/>
-
+   <xsl:template match="tei:additions/tei:list" mode="html">
+      <xsl:apply-templates select="tei:head" mode="html"/>
       <xsl:text>&lt;div style=&apos;list-style-type: disc;&apos;&gt;</xsl:text>
-      <xsl:apply-templates select="*[not(local-name()='head')]" mode="html"/>
+      <xsl:apply-templates select="*[not(self::tei:head)]" mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:additions/*:list/*:item" mode="html">
-
+   <xsl:template match="tei:additions/tei:list/tei:item" mode="html">
       <xsl:text>&lt;div style=&apos;display: list-item; margin-left: 20px;&apos;&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:lb" mode="html">
-
+   <xsl:template match="tei:lb" mode="html">
       <xsl:text>&lt;br /&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:title" mode="html">
-
+   <xsl:template match="tei:title" mode="html">
       <xsl:text>&lt;i&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/i&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:term" mode="html">
-
+   <xsl:template match="tei:term" mode="html">
       <xsl:text>&lt;i&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/i&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:q|*:quote" mode="html">
-
+   <xsl:template match="tei:q|tei:quote" mode="html">
       <xsl:text>"</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>"</xsl:text>
-
    </xsl:template>
 
    <xsl:template match="*[@rend='italic']" mode="html">
-
       <xsl:text>&lt;i&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/i&gt;</xsl:text>
-
    </xsl:template>
 
    <xsl:template match="*[normalize-space(@rend)=('underline','doubleUnderline')]" mode="html">
@@ -4634,32 +3230,25 @@
    </xsl:template>
 
    <xsl:template match="*[@rend='superscript']" mode="html">
-
       <xsl:text>&lt;sup&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/sup&gt;</xsl:text>
-
    </xsl:template>
 
    <xsl:template match="*[@rend='subscript']" mode="html">
-
       <xsl:text>&lt;sub&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/sub&gt;</xsl:text>
-
    </xsl:template>
 
 
    <xsl:template match="*[@rend='bold']" mode="html">
-
       <xsl:text>&lt;b&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/b&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:g" mode="html">
-
+   <xsl:template match="tei:g" mode="html">
       <xsl:choose>
          <xsl:when test=".='%'">
             <xsl:text>&#x25CE;</xsl:text>
@@ -4685,21 +3274,17 @@
             <xsl:text>&lt;/i&gt;</xsl:text>
          </xsl:otherwise>
       </xsl:choose>
-
    </xsl:template>
 
-   <xsl:template match="*:l" mode="html">
-
+   <xsl:template match="tei:l" mode="html">
       <xsl:if test="not(local-name(preceding-sibling::*[1]) = 'l')">
          <xsl:text>&lt;br /&gt;</xsl:text>
       </xsl:if>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;br /&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:name" mode="html">
-
+   <xsl:template match="tei:name" mode="html">
       <xsl:choose>
          <xsl:when test="*[@type='display']">
             <xsl:value-of select="*[@type='display']"/>
@@ -4710,17 +3295,11 @@
       </xsl:choose>
    </xsl:template>
 
-   <xsl:template match="*:ref[@type='biblio']" mode="html">
-
+   <xsl:template match="tei:ref[@type='biblio']" mode="html">
       <xsl:apply-templates mode="html"/>
-
    </xsl:template>
-
-
-
-
-   <xsl:template match="*:ref[@type='extant_mss']" mode="html">
-
+   
+   <xsl:template match="tei:ref[@type='extant_mss']" mode="html">
       <xsl:choose>
          <xsl:when test="normalize-space(@target)">
             <xsl:text>&lt;a target=&apos;_blank&apos; class=&apos;externalLink&apos; href=&apos;</xsl:text>
@@ -4733,11 +3312,9 @@
             <xsl:apply-templates mode="html"/>
          </xsl:otherwise>
       </xsl:choose>
-
    </xsl:template>
 
-   <xsl:template match="*:ref[@type='cudl_link']" mode="html">
-
+   <xsl:template match="tei:ref[@type='cudl_link']" mode="html">
       <xsl:choose>
          <xsl:when test="normalize-space(@target)">
             <xsl:text>&lt;a href=&apos;</xsl:text>
@@ -4750,11 +3327,9 @@
             <xsl:apply-templates mode="html"/>
          </xsl:otherwise>
       </xsl:choose>
-
    </xsl:template>
 
-   <xsl:template match="*:ref[@type='nmm_link']" mode="html">
-
+   <xsl:template match="tei:ref[@type='nmm_link']" mode="html">
       <xsl:choose>
          <xsl:when test="normalize-space(@target)">
             <xsl:apply-templates mode="html"/>
@@ -4770,111 +3345,74 @@
             <xsl:apply-templates mode="html"/>
          </xsl:otherwise>
       </xsl:choose>
-
    </xsl:template>
 
-   <xsl:template match="*:ref[not(@type)]" mode="html">
-
+   <xsl:template match="tei:ref[not(@type)]" mode="html">
       <xsl:choose>
          <xsl:when test="normalize-space(@target)">
-
             <xsl:choose>
-
                <xsl:when test="@rend='left' or @rend='right'">
-
                   <xsl:text>&lt;span style=&quot;float:</xsl:text>
                   <xsl:value-of select="@rend"/>
                   <xsl:text>; text-align:center; padding-bottom:10px&quot;&gt;</xsl:text>
-
                   <xsl:text>&lt;a target=&apos;_blank&apos; class=&apos;externalLink&apos; href=&apos;</xsl:text>
                   <xsl:value-of select="normalize-space(@target)"/>
                   <xsl:text>&apos;&gt;</xsl:text>
                   <xsl:apply-templates mode="html"/>
                   <xsl:text>&lt;/a&gt;</xsl:text>
-
                   <xsl:text>&lt;/span&gt;</xsl:text>
-
                </xsl:when>
-
                <xsl:otherwise>
-
                   <xsl:text>&lt;a target=&apos;_blank&apos; class=&apos;externalLink&apos; href=&apos;</xsl:text>
                   <xsl:value-of select="normalize-space(@target)"/>
                   <xsl:text>&apos;&gt;</xsl:text>
                   <xsl:apply-templates mode="html"/>
                   <xsl:text>&lt;/a&gt;</xsl:text>
-
-
                </xsl:otherwise>
-
-
             </xsl:choose>
-
          </xsl:when>
          <xsl:otherwise>
             <xsl:apply-templates mode="html"/>
          </xsl:otherwise>
       </xsl:choose>
-
    </xsl:template>
-
-
-   <xsl:template match="*:ref[@type='popup']" mode="html">
-
+   
+   <xsl:template match="tei:ref[@type='popup']" mode="html">
       <xsl:choose>
          <xsl:when test="normalize-space(@target)">
-
             <xsl:choose>
-
                <xsl:when test="@rend='left' or @rend='right'">
-
                   <xsl:text>&lt;span style=&quot;float:</xsl:text>
                   <xsl:value-of select="@rend"/>
                   <xsl:text>; text-align:center; padding-bottom:10px&quot;&gt;</xsl:text>
-
                   <xsl:text>&lt;a class=&apos;popup&apos; href=&apos;</xsl:text>
                   <xsl:value-of select="normalize-space(@target)"/>
                   <xsl:text>&apos;&gt;</xsl:text>
                   <xsl:apply-templates mode="html"/>
                   <xsl:text>&lt;/a&gt;</xsl:text>
-
                   <xsl:text>&lt;/span&gt;</xsl:text>
-
                </xsl:when>
-
                <xsl:otherwise>
-
                   <xsl:text>&lt;a class=&apos;popup&apos; href=&apos;</xsl:text>
                   <xsl:value-of select="normalize-space(@target)"/>
                   <xsl:text>&apos;&gt;</xsl:text>
                   <xsl:apply-templates mode="html"/>
                   <xsl:text>&lt;/a&gt;</xsl:text>
-
-
                </xsl:otherwise>
-
-
             </xsl:choose>
-
          </xsl:when>
          <xsl:otherwise>
             <xsl:apply-templates mode="html"/>
          </xsl:otherwise>
       </xsl:choose>
-
    </xsl:template>
-
-
-   <xsl:template match="*:locus" mode="html">
-      
-
+   
+   <xsl:template match="tei:locus" mode="html">
       <xsl:variable name="from" select="normalize-space(@from)"/>
-
-
       <xsl:variable name="page">
          <xsl:variable name="context-root" select="ancestor::*[last()]"/>
          <xsl:choose>
-            <xsl:when test="$context-root[not(self::*:TEI|self::*:teiCorpus)]">
+            <xsl:when test="$context-root[not(self::tei:TEI|self::tei:teiCorpus)]">
                <xsl:text>1</xsl:text>
             </xsl:when>
             <xsl:when test="key('surfaceNs', $from, $context-root)">
@@ -4884,7 +3422,6 @@
                <xsl:text>1</xsl:text>
             </xsl:otherwise>
          </xsl:choose>
-
       </xsl:variable>
 
       <xsl:text>&lt;a href=&apos;&apos; onclick=&apos;store.loadPage(</xsl:text>
@@ -4892,30 +3429,22 @@
       <xsl:text>);return false;&apos;&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/a&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:graphic[not(@url)]" mode="html">
-
+   <xsl:template match="tei:graphic[not(@url)]" mode="html">
       <xsl:text>&lt;i class=&apos;graphic&apos; style=&apos;font-style:italic;&apos;&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/i&gt;</xsl:text>
-
    </xsl:template>
-
-
-   <xsl:template match="*:graphic[@url]" mode="html">
-
-
+   
+   <xsl:template match="tei:graphic[@url]" mode="html">
       <xsl:variable name="float">
          <xsl:choose>
             <xsl:when test="@rend='right'">
                <xsl:text>float:right</xsl:text>
-
             </xsl:when>
             <xsl:when test="@rend='left'">
                <xsl:text>float:left</xsl:text>
-
             </xsl:when>
             <xsl:otherwise> </xsl:otherwise>
          </xsl:choose>
@@ -4926,12 +3455,9 @@
       <xsl:text>&quot; src=&quot;</xsl:text>
       <xsl:value-of select="@url"/>
       <xsl:text>&quot; /&gt;</xsl:text>
-
    </xsl:template>
-
-
-   <xsl:template match="*:damage" mode="html">
-
+   
+   <xsl:template match="tei:damage" mode="html">
       <xsl:text>&lt;i class=&apos;delim&apos;</xsl:text>
       <xsl:text> style=&apos;font-style:normal; color:red&apos;&gt;</xsl:text>
       <xsl:text>[</xsl:text>
@@ -4945,11 +3471,9 @@
       <xsl:text> style=&apos;font-style:normal; color:red&apos;&gt;</xsl:text>
       <xsl:text>]</xsl:text>
       <xsl:text>&lt;/i&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:sic" mode="html">
-
+   <xsl:template match="tei:sic" mode="html">
       <xsl:text>&lt;i class=&apos;error&apos;</xsl:text>
       <xsl:text> style=&apos;font-style:normal;&apos;</xsl:text>
       <xsl:text> title=&apos;This text in error in source&apos;&gt;</xsl:text>
@@ -4959,11 +3483,9 @@
       <xsl:text> style=&apos;font-style:normal; color:red&apos;&gt;</xsl:text>
       <xsl:text>(!)</xsl:text>
       <xsl:text>&lt;/i&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:term/*:sic" mode="html">
-
+   <xsl:template match="tei:term/tei:sic" mode="html">
       <xsl:text>&lt;i class=&apos;error&apos;</xsl:text>
       <xsl:text> title=&apos;This text in error in source&apos;&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
@@ -4972,11 +3494,9 @@
       <xsl:text> style=&apos;color:red&apos;&gt;</xsl:text>
       <xsl:text>(!)</xsl:text>
       <xsl:text>&lt;/i&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:unclear" mode="html">
-
+   <xsl:template match="tei:unclear" mode="html">
       <xsl:text>&lt;i class=&apos;delim&apos;</xsl:text>
       <xsl:text> style=&apos;font-style:normal; color:red&apos;&gt;</xsl:text>
       <xsl:text>[</xsl:text>
@@ -4990,21 +3510,17 @@
       <xsl:text> style=&apos;font-style:normal; color:red&apos;&gt;</xsl:text>
       <xsl:text>]</xsl:text>
       <xsl:text>&lt;/i&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:supplied" mode="html">
-
+   <xsl:template match="tei:supplied" mode="html">
       <xsl:text>&lt;i class=&apos;supplied&apos;</xsl:text>
       <xsl:text> style=&apos;font-style:normal;&apos;</xsl:text>
       <xsl:text> title=&apos;This text supplied by transcriber&apos;&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/i&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:add" mode="html">
-
+   <xsl:template match="tei:add" mode="html">
       <xsl:text>&lt;i class=&apos;delim&apos;</xsl:text>
       <xsl:text> style=&apos;font-style:normal; color:red&apos;&gt;</xsl:text>
       <xsl:text>\</xsl:text>
@@ -5018,11 +3534,9 @@
       <xsl:text> style=&apos;font-style:normal; color:red&apos;&gt;</xsl:text>
       <xsl:text>/</xsl:text>
       <xsl:text>&lt;/i&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:del[@type='illegible']" mode="html">
-
+   <xsl:template match="tei:del[@type='illegible']" mode="html">
       <xsl:text>&lt;i class=&apos;delim&apos;</xsl:text>
       <xsl:text> style=&apos;font-style:normal; color:red&apos;&gt;</xsl:text>
       <xsl:text>&#x301A;</xsl:text>
@@ -5036,11 +3550,9 @@
       <xsl:text> style=&apos;font-style:normal; color:red&apos;&gt;</xsl:text>
       <xsl:text>&#x301B;</xsl:text>
       <xsl:text>&lt;/i&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:del" mode="html">
-
+   <xsl:template match="tei:del" mode="html">
       <xsl:text>&lt;i class=&apos;delim&apos;</xsl:text>
       <xsl:text> style=&apos;font-style:normal; color:red&apos;&gt;</xsl:text>
       <xsl:text>&#x301A;</xsl:text>
@@ -5054,17 +3566,13 @@
       <xsl:text> style=&apos;font-style:normal; color:red&apos;&gt;</xsl:text>
       <xsl:text>&#x301B;</xsl:text>
       <xsl:text>&lt;/i&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:subst" mode="html">
-
+   <xsl:template match="tei:subst" mode="html">
       <xsl:apply-templates mode="html"/>
-
    </xsl:template>
 
-   <xsl:template match="*:gap" mode="html">
-
+   <xsl:template match="tei:gap" mode="html">
       <xsl:text>&lt;i class=&apos;delim&apos;</xsl:text>
       <xsl:text> style=&apos;font-style:normal; color:red&apos;&gt;</xsl:text>
       <xsl:text>&gt;-</xsl:text>
@@ -5077,352 +3585,205 @@
       <xsl:text> style=&apos;font-style:normal; color:red&apos;&gt;</xsl:text>
       <xsl:text>-&lt;</xsl:text>
       <xsl:text>&lt;/i&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:desc" mode="html">
-
+   <xsl:template match="tei:desc" mode="html">
       <xsl:apply-templates mode="html"/>
-
    </xsl:template>
 
-   <xsl:template match="*:choice[*:orig][*:reg[@type='hyphenated']]" mode="html">
-
+   <xsl:template match="tei:choice[tei:orig][tei:reg[@type='hyphenated']]" mode="html">
       <xsl:text>&lt;i class=&apos;reg&apos;</xsl:text>
       <xsl:text> style=&apos;font-style:normal;&apos;</xsl:text>
       <xsl:text> title=&apos;String hyphenated for display. Original: </xsl:text>
-      <xsl:value-of select="normalize-space(*:orig)"/>
+      <xsl:value-of select="normalize-space(tei:orig)"/>
       <xsl:text>&apos;&gt;</xsl:text>
-      <xsl:apply-templates select="*:reg[@type='hyphenated']" mode="html"/>
+      <xsl:apply-templates select="tei:reg[@type='hyphenated']" mode="html"/>
       <xsl:text>&lt;/i&gt;</xsl:text>
-
    </xsl:template>
-
-
-
-
-   <xsl:template match="*:reg" mode="html">
-
+   
+   <xsl:template match="tei:reg" mode="html">
       <xsl:apply-templates mode="html"/>
-
    </xsl:template>
-
-   <!-- <xsl:template match="*:reg[@type='hyphenated']" mode="html">
-      
-      <xsl:value-of select="replace(., '-', '')"/> 
-     
-   </xsl:template>-->
-
-
-
+   
    <xsl:template match="text()" mode="html">
-
       <xsl:variable name="translated" select="translate(., '^&#x00A7;', '&#x00A0;&#x30FB;')"/>
-      <!--      <xsl:variable name="replaced" select="replace($translated, '&#x005F;&#x005F;&#x005F;', '&#x2014;&#x2014;&#x2014;')" /> -->
       <xsl:variable name="replaced"
          select="replace($translated, '_ _ _', '&#x2014;&#x2014;&#x2014;')"/>
       <xsl:value-of select="$replaced"/>
-
    </xsl:template>
-
-
-   <!--************************************BIBLIOGRAPHY PROCESSING-->
-   <xsl:template name="get-doc-biblio">
-
-      <xsl:if test="*:additional//*:listBibl">
-
-         <bibliographies>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <bibliography>
-
-               <xsl:attribute name="display" select="'true'"/>
-
-               <xsl:variable name="bibliography">
-                  <xsl:apply-templates select="*:additional//*:listBibl" mode="html"/>
+   
+   <xsl:template name="get-biblio">
+      <xsl:param name="level" select="'doc'"/>
+      
+      <xsl:variable name="target" as="item()*">
+         <xsl:choose>
+            <xsl:when test="$level = 'item'">
+               <xsl:copy-of select="tei:listBibl"/>
+            </xsl:when>
+            <xsl:when test="$level = 'doc-and-item'">
+               <xsl:copy-of select="tei:additional//tei:listBibl|tei:msContents/tei:msItem[1]/tei:listBibl"/>
+            </xsl:when>
+            <xsl:otherwise>
+               <!-- doc -->
+               <xsl:copy-of select="tei:additional//tei:listBibl"/>
+            </xsl:otherwise>
+         </xsl:choose>
+      </xsl:variable>
+      
+      <xsl:if test="$target">
+         <xsl:call-template name="write-container-lg">
+            <xsl:with-param name="type" select="'bibliographies'"/>
+            <xsl:with-param name="displayFormIter">
+               <xsl:variable name="t">
+                  <xsl:apply-templates select="$target" mode="html"/>
                </xsl:variable>
-
-               <xsl:attribute name="displayForm" select="normalize-space($bibliography)"/>
-               <!-- <xsl:value-of select="normalize-space($bibliography)" /> -->
-               <xsl:value-of
-                  select="normalize-space(replace($bibliography, '&lt;[^&gt;]+&gt;', ''))"/>
-
-            </bibliography>
-
-         </bibliographies>
-
+               <xsl:value-of select="normalize-space($t)"/>
+            </xsl:with-param>
+            <xsl:with-param name="label" select="'Bibliography'"/>
+            <xsl:with-param name="seq" select="1"/>
+            <xsl:with-param name="seq2" select="2"/>
+         </xsl:call-template>
       </xsl:if>
-
    </xsl:template>
-
-
-   <xsl:template name="get-doc-and-item-biblio">
-
-      <xsl:if test="*:additional//*:listBibl|*:msContents/*:msItem[1]/*:listBibl">
-
-         <bibliographies>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <bibliography>
-
-               <xsl:attribute name="display" select="'true'"/>
-
-               <xsl:variable name="bibliography">
-                  <xsl:apply-templates
-                     select="*:additional//*:listBibl|*:msContents/*:msItem[1]/*:listBibl"
-                     mode="html"/>
-               </xsl:variable>
-
-               <xsl:attribute name="displayForm" select="normalize-space($bibliography)"/>
-               <!-- <xsl:value-of select="normalize-space($bibliography)" /> -->
-               <xsl:value-of
-                  select="normalize-space(replace($bibliography, '&lt;[^&gt;]+&gt;', ''))"/>
-
-            </bibliography>
-
-         </bibliographies>
-
-      </xsl:if>
-
-   </xsl:template>
-
-
-   <xsl:template name="get-item-biblio">
-
-      <xsl:if test="*:listBibl">
-
-         <!--         <bibliographies> -->
-         <bibliographies>
-
-            <xsl:attribute name="display" select="'true'"/>
-
-            <bibliography>
-
-               <xsl:attribute name="display" select="'true'"/>
-               <xsl:variable name="bibliography">
-                  <xsl:apply-templates select="*:listBibl" mode="html"/>
-               </xsl:variable>
-
-               <xsl:attribute name="displayForm" select="normalize-space($bibliography)"/>
-               <!-- <xsl:value-of select="normalize-space($bibliography)" /> -->
-               <xsl:value-of
-                  select="normalize-space(replace($bibliography, '&lt;[^&gt;]+&gt;', ''))"/>
-
-            </bibliography>
-
-         </bibliographies>
-
-      </xsl:if>
-
-   </xsl:template>
-
-   <xsl:template match="*:head" mode="html">
-
-      <!-- <xsl:text>&lt;br /&gt;</xsl:text> -->
-
+   
+   
+   <xsl:template match="tei:head" mode="html">
       <xsl:text>&lt;p&gt;&lt;b&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/b&gt;&lt;/p&gt;</xsl:text>
-
    </xsl:template>
 
-   <xsl:template match="*:listBibl" mode="html">
-
-
-      <xsl:apply-templates select="*:head" mode="html"/>
-
+   <xsl:template match="tei:listBibl" mode="html">
+      <xsl:apply-templates select="tei:head" mode="html"/>
       <xsl:text>&lt;div style=&apos;list-style-type: disc;&apos;&gt;</xsl:text>
-      <xsl:apply-templates select=".//*:bibl|.//*:biblStruct" mode="html"/>
+      <xsl:apply-templates select=".//tei:bibl|.//tei:biblStruct" mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
-
       <xsl:text>&lt;br /&gt;</xsl:text>
-
    </xsl:template>
-
-
-   <xsl:template match="*:listBibl//*:bibl" mode="html">
-
+   
+   <xsl:template match="tei:listBibl//tei:bibl" mode="html">
       <xsl:text>&lt;div style=&apos;display: list-item; margin-left: 20px;&apos;&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
-
    </xsl:template>
-
-
-   <xsl:template match="*:listBibl//*:biblStruct[not(*)]" mode="html">
-
+   
+   <xsl:template match="tei:listBibl//tei:biblStruct[not(*)]" mode="html">
       <!-- Template to catch biblStruct w no child elements and treat like bibl - shouldn't really happen but frequently does, so prob easiest to handle it -->
-
       <xsl:text>&lt;div style=&apos;display: list-item; margin-left: 20px;&apos;&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
-
    </xsl:template>
-
-
-   <xsl:template match="*:listBibl//*:biblStruct[*:analytic]" mode="html">
-
+   
+   <xsl:template match="tei:listBibl//tei:biblStruct[tei:analytic]" mode="html">
       <xsl:text>&lt;div style=&apos;display: list-item; margin-left: 20px;&apos;</xsl:text>
-
       <xsl:choose>
          <xsl:when test="@xml:id">
             <xsl:text> id=&quot;</xsl:text>
             <xsl:value-of select="normalize-space(@xml:id)"/>
             <xsl:text>&quot;</xsl:text>
          </xsl:when>
-         <xsl:when test="*:idno[@type='callNumber']">
+         <xsl:when test="tei:idno[@type='callNumber']">
             <xsl:text> id=&quot;</xsl:text>
-            <xsl:value-of select="normalize-space(*:idno)"/>
+            <xsl:value-of select="normalize-space(tei:idno)"/>
             <xsl:text>&quot;</xsl:text>
          </xsl:when>
       </xsl:choose>
-
       <xsl:text>&gt;</xsl:text>
-
+      
       <xsl:choose>
-         <xsl:when
-            test="@type='bookSection' or @type='encyclopaediaArticle' or @type='encyclopediaArticle'">
-
-            <xsl:for-each select="*:analytic">
-
-               <xsl:for-each select="*:author|*:editor">
-
+         <xsl:when test="@type='bookSection' or @type='encyclopaediaArticle' or @type='encyclopediaArticle'">
+            <xsl:for-each select="tei:analytic">
+               <xsl:for-each select="tei:author|tei:editor">
                   <xsl:call-template name="get-names-first-surname-first"/>
-
                </xsl:for-each>
 
                <xsl:text>, </xsl:text>
 
-               <xsl:for-each select="*:title">
-
+               <xsl:for-each select="tei:title">
                   <xsl:text>&quot;</xsl:text>
                   <xsl:value-of select="normalize-space(.)"/>
                   <xsl:text>&quot;</xsl:text>
-
                </xsl:for-each>
-
             </xsl:for-each>
 
             <xsl:text>, in </xsl:text>
 
-            <xsl:for-each select="*:monogr">
+            <xsl:for-each select="tei:monogr">
 
                <xsl:choose>
-                  <xsl:when test="*:author">
-
-                     <xsl:for-each select="*:author">
-
+                  <xsl:when test="tei:author">
+                     <xsl:for-each select="tei:author">
                         <xsl:call-template name="get-names-all-forename-first"/>
-
                      </xsl:for-each>
 
                      <xsl:text>, </xsl:text>
 
-                     <xsl:for-each select="*:title[not (@type='short')]">
-
+                     <xsl:for-each select="tei:title[not (@type='short')]">
                         <xsl:text>&lt;i&gt;</xsl:text>
                         <xsl:value-of select="normalize-space(.)"/>
                         <xsl:text>&lt;/i&gt;</xsl:text>
-
                      </xsl:for-each>
 
-                     <xsl:if test="*:editor">
-
+                     <xsl:if test="tei:editor">
                         <xsl:text>, ed. </xsl:text>
-
-                        <xsl:for-each select="*:editor">
-
+                        <xsl:for-each select="tei:editor">
                            <xsl:call-template name="get-names-all-forename-first"/>
-
                         </xsl:for-each>
-
                      </xsl:if>
-
                   </xsl:when>
 
-                  <xsl:when test="*:editor">
-
-                     <xsl:for-each select="*:editor">
-
+                  <xsl:when test="tei:editor">
+                     <xsl:for-each select="tei:editor">
                         <xsl:call-template name="get-names-all-forename-first"/>
-
                      </xsl:for-each>
 
-
                      <xsl:choose>
-                        <xsl:when test="(count(*:editor) &gt; 1)">
+                        <xsl:when test="(count(tei:editor) &gt; 1)">
                            <xsl:text> (eds)</xsl:text>
                         </xsl:when>
                         <xsl:otherwise>
                            <xsl:text> (ed.)</xsl:text>
                         </xsl:otherwise>
                      </xsl:choose>
-
                      <xsl:text>, </xsl:text>
 
-                     <xsl:for-each select="*:title[not(@type='short')]">
-
+                     <xsl:for-each select="tei:title[not(@type='short')]">
                         <xsl:text>&lt;i&gt;</xsl:text>
                         <xsl:value-of select="normalize-space(.)"/>
                         <xsl:text>&lt;/i&gt;</xsl:text>
-
                      </xsl:for-each>
-
                   </xsl:when>
-
                   <xsl:otherwise>
-
-                     <xsl:for-each select="*:title[not(@type='short')]">
-
+                     <xsl:for-each select="tei:title[not(@type='short')]">
                         <xsl:text>&lt;i&gt;</xsl:text>
                         <xsl:value-of select="normalize-space(.)"/>
                         <xsl:text>&lt;/i&gt;</xsl:text>
-
                      </xsl:for-each>
-
                   </xsl:otherwise>
-
                </xsl:choose>
 
-               <xsl:if test="*:edition">
+               <xsl:if test="tei:edition">
                   <xsl:text> </xsl:text>
-                  <xsl:value-of select="*:edition"/>
+                  <xsl:value-of select="tei:edition"/>
                </xsl:if>
 
-               <xsl:if test="*:respStmt">
-
-                  <xsl:for-each select="*:respStmt">
-
+               <xsl:if test="tei:respStmt">
+                  <xsl:for-each select="tei:respStmt">
                      <xsl:text> </xsl:text>
-
                      <xsl:call-template name="get-respStmt"/>
-
                   </xsl:for-each>
-
                </xsl:if>
 
-
-
-               <xsl:if test="../*:series">
-
-                  <xsl:for-each select="../*:series">
-
+               <xsl:if test="../tei:series">
+                  <xsl:for-each select="../tei:series">
                      <xsl:text>, </xsl:text>
 
-                     <xsl:for-each select="*:title">
-
-                        <!-- <xsl:text>&lt;i&gt;</xsl:text> -->
+                     <xsl:for-each select="tei:title">
                         <xsl:value-of select="normalize-space(.)"/>
-                        <!-- <xsl:text>&lt;/i&gt;</xsl:text> -->
-
                      </xsl:for-each>
 
-                     <xsl:if test=".//*:biblScope">
-
-                        <xsl:for-each select=".//*:biblScope">
-
+                     <xsl:if test=".//tei:biblScope">
+                        <xsl:for-each select=".//tei:biblScope">
                            <xsl:text> </xsl:text>
 
                            <xsl:if test="@type">
@@ -5431,32 +3792,22 @@
                            </xsl:if>
 
                            <xsl:value-of select="normalize-space(.)"/>
-
                         </xsl:for-each>
-
                      </xsl:if>
-
                   </xsl:for-each>
-
                </xsl:if>
 
-               <xsl:if test="*:imprint">
-
+               <xsl:if test="tei:imprint">
                   <xsl:text> </xsl:text>
 
-                  <xsl:for-each select="*:imprint">
-
+                  <xsl:for-each select="tei:imprint">
                      <xsl:call-template name="get-imprint"/>
-
                   </xsl:for-each>
-
                </xsl:if>
 
 
-               <xsl:if test=".//*:biblScope">
-
-                  <xsl:for-each select=".//*:biblScope">
-
+               <xsl:if test=".//tei:biblScope">
+                  <xsl:for-each select=".//tei:biblScope">
                      <xsl:text> </xsl:text>
 
                      <xsl:if test="@type">
@@ -5465,86 +3816,59 @@
                      </xsl:if>
 
                      <xsl:value-of select="normalize-space(.)"/>
-
                   </xsl:for-each>
-
                </xsl:if>
-
             </xsl:for-each>
 
             <xsl:text>.</xsl:text>
-
          </xsl:when>
 
          <xsl:when test="@type='journalArticle'">
-
-            <xsl:for-each select="*:analytic">
-
-               <xsl:for-each select="*:author|*:editor">
-
+            <xsl:for-each select="tei:analytic">
+               <xsl:for-each select="tei:author|tei:editor">
                   <xsl:call-template name="get-names-first-surname-first"/>
-
                </xsl:for-each>
 
                <xsl:text>, </xsl:text>
 
-               <xsl:for-each select="*:title">
-
+               <xsl:for-each select="tei:title">
                   <xsl:text>&quot;</xsl:text>
                   <xsl:value-of select="normalize-space(.)"/>
                   <xsl:text>&quot;</xsl:text>
-
                </xsl:for-each>
-
             </xsl:for-each>
 
             <xsl:text>, </xsl:text>
 
-            <xsl:for-each select="*:monogr">
-
-               <xsl:for-each select="*:title[not(@type='short')]">
-
+            <xsl:for-each select="tei:monogr">
+               <xsl:for-each select="tei:title[not(@type='short')]">
                   <xsl:text>&lt;i&gt;</xsl:text>
                   <xsl:value-of select="normalize-space(.)"/>
                   <xsl:text>&lt;/i&gt;</xsl:text>
-
                </xsl:for-each>
 
-               <xsl:if test=".//*:biblScope">
-
-                  <xsl:for-each select=".//*:biblScope">
-
+               <xsl:if test=".//tei:biblScope">
+                  <xsl:for-each select=".//tei:biblScope">
                      <xsl:text> </xsl:text>
-
                      <xsl:if test="@type">
                         <xsl:value-of select="normalize-space(@type)"/>
                         <xsl:text>. </xsl:text>
                      </xsl:if>
 
                      <xsl:value-of select="normalize-space(.)"/>
-
                   </xsl:for-each>
-
                </xsl:if>
 
-               <xsl:if test="../*:series">
-
-                  <xsl:for-each select="../*:series">
-
+               <xsl:if test="../tei:series">
+                  <xsl:for-each select="../tei:series">
                      <xsl:text>, </xsl:text>
 
-                     <xsl:for-each select="*:title">
-
-                        <!-- <xsl:text>&lt;i&gt;</xsl:text> -->
+                     <xsl:for-each select="tei:title">
                         <xsl:value-of select="normalize-space(.)"/>
-                        <!-- <xsl:text>&lt;/i&gt;</xsl:text> -->
-
                      </xsl:for-each>
 
-                     <xsl:if test=".//*:biblScope">
-
-                        <xsl:for-each select=".//*:biblScope">
-
+                     <xsl:if test=".//tei:biblScope">
+                        <xsl:for-each select=".//tei:biblScope">
                            <xsl:text>. </xsl:text>
 
                            <xsl:if test="@type">
@@ -5553,333 +3877,210 @@
                            </xsl:if>
 
                            <xsl:value-of select="normalize-space(.)"/>
-
                         </xsl:for-each>
-
                      </xsl:if>
-
                   </xsl:for-each>
-
                </xsl:if>
 
-               <xsl:if test="*:imprint">
-
+               <xsl:if test="tei:imprint">
                   <xsl:text> </xsl:text>
 
-                  <xsl:for-each select="*:imprint">
-
+                  <xsl:for-each select="tei:imprint">
                      <xsl:call-template name="get-imprint"/>
-
                   </xsl:for-each>
-
                </xsl:if>
-
             </xsl:for-each>
-
             <xsl:text>.</xsl:text>
-
          </xsl:when>
-
-         <xsl:otherwise> </xsl:otherwise>
-
+         <xsl:otherwise/>
       </xsl:choose>
 
       <xsl:text>&lt;/div&gt;</xsl:text>
-
    </xsl:template>
-
-
-
-   <xsl:template match="*:listBibl//*:biblStruct[*:monogr and not(*:analytic)]" mode="html">
-
+   
+   <xsl:template match="tei:listBibl//tei:biblStruct[tei:monogr and not(tei:analytic)]" mode="html">
       <xsl:text>&lt;div style=&apos;display: list-item; margin-left: 20px;&apos;</xsl:text>
-
       <xsl:choose>
          <xsl:when test="@xml:id">
             <xsl:text> id=&quot;</xsl:text>
             <xsl:value-of select="normalize-space(@xml:id)"/>
             <xsl:text>&quot;</xsl:text>
          </xsl:when>
-         <xsl:when test="*:idno[@type='callNumber']">
+         <xsl:when test="tei:idno[@type='callNumber']">
             <xsl:text> id=&quot;</xsl:text>
-            <xsl:value-of select="normalize-space(*:idno)"/>
+            <xsl:value-of select="normalize-space(tei:idno)"/>
             <xsl:text>&quot;</xsl:text>
          </xsl:when>
       </xsl:choose>
-
       <xsl:text>&gt;</xsl:text>
-
       <xsl:choose>
-         <xsl:when
-            test="@type='book' or @type='document' or @type='thesis' or @type='manuscript' or @type='webpage'">
-
-            <xsl:for-each select="*:monogr">
-
+         <xsl:when test="@type='book' or @type='document' or @type='thesis' or @type='manuscript' or @type='webpage'">
+            <xsl:for-each select="tei:monogr">
                <xsl:choose>
-                  <xsl:when test="*:author">
-
-                     <xsl:for-each select="*:author">
-
+                  <xsl:when test="tei:author">
+                     <xsl:for-each select="tei:author">
                         <xsl:call-template name="get-names-first-surname-first"/>
-
                      </xsl:for-each>
-
                      <xsl:text>, </xsl:text>
-
-                     <xsl:for-each select="*:title[not(@type='short')]">
-
+                     <xsl:for-each select="tei:title[not(@type='short')]">
                         <xsl:text>&lt;i&gt;</xsl:text>
                         <xsl:value-of select="normalize-space(.)"/>
                         <xsl:text>&lt;/i&gt;</xsl:text>
-
                      </xsl:for-each>
 
-                     <xsl:if test="*:editor">
-
+                     <xsl:if test="tei:editor">
                         <xsl:text>, ed. </xsl:text>
-
-                        <xsl:for-each select="*:editor">
-
+                        <xsl:for-each select="tei:editor">
                            <xsl:call-template name="get-names-all-forename-first"/>
-
                         </xsl:for-each>
-
                      </xsl:if>
-
                   </xsl:when>
-
-                  <xsl:when test="*:editor">
-
-                     <xsl:for-each select="*:editor">
-
+                  <xsl:when test="tei:editor">
+                     <xsl:for-each select="tei:editor">
                         <xsl:call-template name="get-names-first-surname-first"/>
-
                      </xsl:for-each>
-
-
                      <xsl:choose>
-                        <xsl:when test="(count(*:editor) &gt; 1)">
+                        <xsl:when test="(count(tei:editor) &gt; 1)">
                            <xsl:text> (eds)</xsl:text>
                         </xsl:when>
                         <xsl:otherwise>
                            <xsl:text> (ed.)</xsl:text>
                         </xsl:otherwise>
                      </xsl:choose>
-
                      <xsl:text>, </xsl:text>
-
-                     <xsl:for-each select="*:title[not(@type='short')]">
-
+                     <xsl:for-each select="tei:title[not(@type='short')]">
                         <xsl:text>&lt;i&gt;</xsl:text>
                         <xsl:value-of select="normalize-space(.)"/>
                         <xsl:text>&lt;/i&gt;</xsl:text>
-
                      </xsl:for-each>
-
                   </xsl:when>
-
                   <xsl:otherwise>
-
-                     <xsl:for-each select="*:title[not(@type='short')]">
-
+                     <xsl:for-each select="tei:title[not(@type='short')]">
                         <xsl:text>&lt;i&gt;</xsl:text>
                         <xsl:value-of select="normalize-space(.)"/>
                         <xsl:text>&lt;/i&gt;</xsl:text>
-
                      </xsl:for-each>
-
                   </xsl:otherwise>
-
                </xsl:choose>
 
-               <xsl:if test="*:edition">
+               <xsl:if test="tei:edition">
                   <xsl:text> </xsl:text>
-                  <xsl:value-of select="*:edition"/>
+                  <xsl:value-of select="tei:edition"/>
                </xsl:if>
 
-               <xsl:if test="*:respStmt">
-
-                  <xsl:for-each select="*:respStmt">
-
+               <xsl:if test="tei:respStmt">
+                  <xsl:for-each select="tei:respStmt">
                      <xsl:text> </xsl:text>
-
                      <xsl:call-template name="get-respStmt"/>
-
                   </xsl:for-each>
-
                </xsl:if>
-
-
-
-               <xsl:if test="../*:series">
-
-                  <xsl:for-each select="../*:series">
-
+               
+               <xsl:if test="../tei:series">
+                  <xsl:for-each select="../tei:series">
                      <xsl:text>, </xsl:text>
-
-                     <xsl:for-each select="*:title">
-
-                        <!-- <xsl:text>&lt;i&gt;</xsl:text> -->
+                     <xsl:for-each select="tei:title">
                         <xsl:value-of select="normalize-space(.)"/>
-                        <!-- <xsl:text>&lt;/i&gt;</xsl:text> -->
-
                      </xsl:for-each>
 
-                     <xsl:if test=".//*:biblScope">
-
-                        <xsl:for-each select=".//*:biblScope">
-
-
+                     <xsl:if test=".//tei:biblScope">
+                        <xsl:for-each select=".//tei:biblScope">
                            <xsl:text> </xsl:text>
-
                            <xsl:if test="@type">
                               <xsl:value-of select="normalize-space(@type)"/>
                               <xsl:text>. </xsl:text>
                            </xsl:if>
-
                            <xsl:value-of select="normalize-space(.)"/>
-
                         </xsl:for-each>
-
                      </xsl:if>
-
                   </xsl:for-each>
-
                </xsl:if>
 
-               <xsl:if test="*:extent">
-
-                  <xsl:for-each select="*:extent">
-
+               <xsl:if test="tei:extent">
+                  <xsl:for-each select="tei:extent">
                      <xsl:text>, </xsl:text>
-
                      <xsl:value-of select="normalize-space(.)"/>
-
                   </xsl:for-each>
-
                </xsl:if>
-
-
-               <xsl:if test="*:imprint">
-
-                  <xsl:for-each select="*:imprint">
-
+               
+               <xsl:if test="tei:imprint">
+                  <xsl:for-each select="tei:imprint">
                      <xsl:text> </xsl:text>
-
                      <xsl:call-template name="get-imprint"/>
-
                   </xsl:for-each>
-
                </xsl:if>
 
-
-               <xsl:if test=".//*:biblScope">
-
-                  <xsl:for-each select=".//*:biblScope">
-
+               <xsl:if test=".//tei:biblScope">
+                  <xsl:for-each select=".//tei:biblScope">
                      <xsl:text> </xsl:text>
-
                      <xsl:if test="@type">
                         <xsl:value-of select="normalize-space(@type)"/>
                         <xsl:text>. </xsl:text>
                      </xsl:if>
-
                      <xsl:value-of select="normalize-space(.)"/>
-
                   </xsl:for-each>
-
                </xsl:if>
-
-
-
             </xsl:for-each>
 
-            <xsl:if test="*:idno[@type='ISBN']">
-
-               <xsl:for-each select="*:idno[@type='ISBN']">
-
+            <xsl:if test="tei:idno[@type='ISBN']">
+               <xsl:for-each select="tei:idno[@type='ISBN']">
                   <xsl:text> ISBN: </xsl:text>
                   <xsl:value-of select="normalize-space(.)"/>
-
                </xsl:for-each>
-
             </xsl:if>
-
-
-
+            
             <xsl:text>.</xsl:text>
-
          </xsl:when>
-
-         <xsl:otherwise> </xsl:otherwise>
+         <xsl:otherwise/> 
       </xsl:choose>
-
-
       <xsl:text>&lt;/div&gt;</xsl:text>
-
    </xsl:template>
-
-
+   
    <!--names processing for bibliography-->
    <xsl:template name="get-names-first-surname-first">
-
       <xsl:choose>
          <xsl:when test="position() = 1">
             <!-- first author = surname first -->
-
             <xsl:choose>
-               <xsl:when test=".//*:surname">
+               <xsl:when test=".//tei:surname">
                   <!-- surname explicitly present -->
-
-                  <xsl:for-each select=".//*:surname">
+                  <xsl:for-each select=".//tei:surname">
                      <xsl:value-of select="normalize-space(.)"/>
                      <xsl:if test="not(position()=last())">
                         <xsl:text> </xsl:text>
                      </xsl:if>
                   </xsl:for-each>
-
-                  <xsl:if test=".//*:forename">
+                  <xsl:if test=".//tei:forename">
                      <xsl:text>, </xsl:text>
-
-                     <xsl:for-each select=".//*:forename">
+                     <xsl:for-each select=".//tei:forename">
                         <xsl:value-of select="normalize-space(.)"/>
                         <xsl:if test="not(position()=last())">
                            <xsl:text> </xsl:text>
                         </xsl:if>
                      </xsl:for-each>
-
                   </xsl:if>
-
                </xsl:when>
-               <xsl:when test="*:name[not(*)]">
+               <xsl:when test="tei:name[not(*)]">
                   <!-- just a name, not surname/forename -->
-
-                  <xsl:for-each select=".//*:name[not(*)]">
+                  <xsl:for-each select=".//tei:name[not(*)]">
                      <xsl:value-of select="normalize-space(.)"/>
                      <xsl:if test="not(position()=last())">
                         <xsl:text> </xsl:text>
                      </xsl:if>
                   </xsl:for-each>
-
                </xsl:when>
-
                <xsl:otherwise>
                   <!-- forenames only? not sure what else to do but render them -->
-
-                  <xsl:for-each select=".//*:forename">
+                  <xsl:for-each select=".//tei:forename">
                      <xsl:value-of select="normalize-space(.)"/>
                      <xsl:if test="not(position()=last())">
                         <xsl:text> </xsl:text>
                      </xsl:if>
                   </xsl:for-each>
-
                </xsl:otherwise>
             </xsl:choose>
-
          </xsl:when>
          <xsl:otherwise>
             <!-- not first author = forenames first -->
-
             <xsl:choose>
                <xsl:when test="position()=last()">
                   <xsl:text> and </xsl:text>
@@ -5888,64 +4089,50 @@
                   <xsl:text>, </xsl:text>
                </xsl:otherwise>
             </xsl:choose>
-
             <xsl:choose>
-               <xsl:when test=".//*:surname">
+               <xsl:when test=".//tei:surname">
                   <!-- surname explicitly present -->
-
-                  <xsl:if test=".//*:forename">
-
-                     <xsl:for-each select=".//*:forename">
+                  <xsl:if test=".//tei:forename">
+                     <xsl:for-each select=".//tei:forename">
                         <xsl:value-of select="normalize-space(.)"/>
                         <xsl:if test="not(position()=last())">
                            <xsl:text> </xsl:text>
                         </xsl:if>
                      </xsl:for-each>
-
                      <xsl:text> </xsl:text>
-
                   </xsl:if>
 
-                  <xsl:for-each select=".//*:surname">
+                  <xsl:for-each select=".//tei:surname">
                      <xsl:value-of select="normalize-space(.)"/>
                      <xsl:if test="not(position()=last())">
                         <xsl:text> </xsl:text>
                      </xsl:if>
                   </xsl:for-each>
-
                </xsl:when>
-               <xsl:when test="*:name[not(*)]">
+               <xsl:when test="tei:name[not(*)]">
                   <!-- just a name, not forename/surname -->
-
-                  <xsl:for-each select=".//*:name[not(*)]">
+                  <xsl:for-each select=".//tei:name[not(*)]">
                      <xsl:value-of select="normalize-space(.)"/>
                      <xsl:if test="not(position()=last())">
                         <xsl:text> </xsl:text>
                      </xsl:if>
                   </xsl:for-each>
-
                </xsl:when>
                <xsl:otherwise>
                   <!-- forenames only? not sure what else to do but render them -->
-
-                  <xsl:for-each select=".//*:forename">
+                  <xsl:for-each select=".//tei:forename">
                      <xsl:value-of select="normalize-space(.)"/>
                      <xsl:if test="not(position()=last())">
                         <xsl:text> </xsl:text>
                      </xsl:if>
                   </xsl:for-each>
-
                </xsl:otherwise>
-
             </xsl:choose>
-
          </xsl:otherwise>
       </xsl:choose>
-
    </xsl:template>
 
    <xsl:template name="get-names-all-forename-first">
-
       <xsl:choose>
          <xsl:when test="position() = 1"/>
          <xsl:when test="position()=last()">
@@ -5955,119 +4142,100 @@
             <xsl:text>, </xsl:text>
          </xsl:otherwise>
       </xsl:choose>
-
-      <xsl:for-each select=".//*:name[not(*)]">
+      <xsl:for-each select=".//tei:name[not(*)]">
          <xsl:value-of select="normalize-space(.)"/>
          <xsl:if test="not(position()=last())">
             <xsl:text> </xsl:text>
          </xsl:if>
       </xsl:for-each>
-
-      <xsl:for-each select=".//*:forename">
+      <xsl:for-each select=".//tei:forename">
          <xsl:value-of select="normalize-space(.)"/>
          <xsl:if test="not(position()=last())">
             <xsl:text> </xsl:text>
          </xsl:if>
       </xsl:for-each>
-
       <xsl:text> </xsl:text>
-
-      <xsl:for-each select=".//*:surname">
+      <xsl:for-each select=".//tei:surname">
          <xsl:value-of select="normalize-space(.)"/>
          <xsl:if test="not(position()=last())">
             <xsl:text> </xsl:text>
          </xsl:if>
       </xsl:for-each>
-
    </xsl:template>
 
    <xsl:template name="get-imprint">
-
-
       <xsl:variable name="pubText">
-
-         <xsl:if test="*:note[@type='thesisType']">
-            <xsl:for-each select="*:note[@type='thesisType']">
+         <xsl:if test="tei:note[@type='thesisType']">
+            <xsl:for-each select="tei:note[@type='thesisType']">
                <xsl:value-of select="normalize-space(.)"/>
                <xsl:text> thesis</xsl:text>
             </xsl:for-each>
             <xsl:text> </xsl:text>
          </xsl:if>
 
-         <xsl:if test="*:pubPlace">
-            <xsl:for-each select="*:pubPlace">
+         <xsl:if test="tei:pubPlace">
+            <xsl:for-each select="tei:pubPlace">
                <xsl:value-of select="normalize-space(.)"/>
             </xsl:for-each>
             <xsl:text>: </xsl:text>
          </xsl:if>
 
-         <xsl:if test="*:publisher">
-            <xsl:for-each select="*:publisher">
+         <xsl:if test="tei:publisher">
+            <xsl:for-each select="tei:publisher">
                <xsl:value-of select="normalize-space(.)"/>
             </xsl:for-each>
-            <xsl:if test="*:date">
+            <xsl:if test="tei:date">
                <xsl:text>, </xsl:text>
             </xsl:if>
          </xsl:if>
 
-         <xsl:if test="*:date">
-            <xsl:for-each select="*:date">
+         <xsl:if test="tei:date">
+            <xsl:for-each select="tei:date">
                <xsl:value-of select="normalize-space(.)"/>
             </xsl:for-each>
          </xsl:if>
-
-
-
-
       </xsl:variable>
-
-
+      
       <xsl:if test="normalize-space($pubText)">
-
          <xsl:text>(</xsl:text>
          <xsl:value-of select="$pubText"/>
          <xsl:text>)</xsl:text>
-
       </xsl:if>
-
-
-
-      <xsl:if test="*:note[@type='url']">
+      
+      <xsl:if test="tei:note[@type='url']">
          <xsl:text> &lt;a target=&apos;_blank&apos; class=&apos;externalLink&apos; href=&apos;</xsl:text>
-         <xsl:value-of select="*:note[@type='url']"/>
+         <xsl:value-of select="tei:note[@type='url']"/>
          <xsl:text>&apos;&gt;</xsl:text>
-         <xsl:value-of select="*:note[@type='url']"/>
+         <xsl:value-of select="tei:note[@type='url']"/>
          <xsl:text>&lt;/a&gt;</xsl:text>
       </xsl:if>
 
-      <xsl:if test="*:note[@type='accessed']">
+      <xsl:if test="tei:note[@type='accessed']">
          <xsl:text> Accessed: </xsl:text>
-         <xsl:for-each select="*:note[@type='accessed']">
+         <xsl:for-each select="tei:note[@type='accessed']">
             <xsl:value-of select="normalize-space(.)"/>
          </xsl:for-each>
       </xsl:if>
-
    </xsl:template>
 
    <xsl:template name="get-respStmt">
-
       <xsl:choose>
          <xsl:when test="*">
-            <xsl:for-each select="*:resp">
+            <xsl:for-each select="tei:resp">
                <xsl:value-of select="."/>
                <xsl:text>: </xsl:text>
             </xsl:for-each>
-            <xsl:for-each select=".//*:forename">
+            <xsl:for-each select=".//tei:forename">
                <xsl:value-of select="."/>
                <xsl:text> </xsl:text>
             </xsl:for-each>
-            <xsl:for-each select=".//*:surname">
+            <xsl:for-each select=".//tei:surname">
                <xsl:value-of select="."/>
                <xsl:if test="not(position()=last())">
                   <xsl:text> </xsl:text>
                </xsl:if>
             </xsl:for-each>
-            <xsl:for-each select=".//*:name[not(*)]">
+            <xsl:for-each select=".//tei:name[not(*)]">
                <xsl:value-of select="."/>
                <xsl:if test="not(position()=last())">
                   <xsl:text> </xsl:text>
@@ -6078,471 +4246,724 @@
             <xsl:value-of select="."/>
          </xsl:otherwise>
       </xsl:choose>
-
    </xsl:template>
 
    <xsl:template name="output-date-elems">
       <xsl:param name="date_elem"/>
-
-      <xsl:choose>
-         <xsl:when test="$date_elem/@from">
-            <dateStart>
-               <xsl:value-of select="$date_elem/@from"/>
-            </dateStart>
-         </xsl:when>
-         <xsl:when test="$date_elem/@notBefore">
-            <dateStart>
-               <xsl:value-of select="$date_elem/@notBefore"/>
-            </dateStart>
-         </xsl:when>
-         <xsl:when test="$date_elem/@when">
-            <dateStart>
-               <xsl:value-of select="$date_elem/@when"/>
-            </dateStart>
-         </xsl:when>
-         <xsl:otherwise/>
-      </xsl:choose>
-
-      <xsl:choose>
-         <xsl:when test="$date_elem/@to">
-            <dateEnd>
-               <xsl:value-of select="$date_elem/@to"/>
-            </dateEnd>
-         </xsl:when>
-         <xsl:when test="$date_elem/@notAfter">
-            <dateEnd>
-               <xsl:value-of select="$date_elem/@notBefore"/>
-            </dateEnd>
-         </xsl:when>
-         <xsl:when test="$date_elem/@when">
-            <dateEnd>
-               <xsl:value-of select="$date_elem/@when"/>
-            </dateEnd>
-         </xsl:when>
-         <xsl:otherwise/>
-      </xsl:choose>
-
-      <dateDisplay display="true">
+      <xsl:param name="label" select="'Date of Creation'"/>
+      <xsl:param name="output_empty" select="false()"/><!-- SHIM COMPAT -->
+      <xsl:param name="output_centuries" select="false()"/>
+      
+      <xsl:variable name="dateStart" select="cudl:get-date-start($date_elem)" as="xsd:string*"/>
+      <xsl:if test="exists($date_elem/(@from, @notBefore, @when)[1]) and ($dateStart !='' or $output_empty)"><!-- SHIM COMPAT -->
+         <string key="dateStart" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="$dateStart"/>
+         </string>
+      </xsl:if>
+      
+      <xsl:variable name="dateEnd" select="cudl:get-date-end($date_elem)" as="xsd:string*"/>
+      <xsl:if test="exists($date_elem/(@to, @notAfter, @when)[1]) and ($dateEnd !='' or $output_empty)"><!-- SHIM COMPAT -->
+         <string key="dateEnd" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="$dateEnd"/>
+         </string>
+      </xsl:if>
+      
+      <xsl:if test="$output_centuries eq true() and $dateStart !=''">
+         <array key="century" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:for-each select="cudl:get-century($dateStart, $dateEnd)">
+               <string xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="."/>
+               </string>
+            </xsl:for-each>
+         </array>
+      </xsl:if>
+      
+      <map key="dateDisplay" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:copy-of select="cudl:display(true())"/>
          <xsl:variable name="dateDisplay">
             <xsl:apply-templates select="$date_elem" mode="html"/>
          </xsl:variable>
-
-         <xsl:attribute name="displayForm" select="normalize-space($dateDisplay)"/>
-         <xsl:value-of select="normalize-space($dateDisplay)"/>
-      </dateDisplay>
+         <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="normalize-space($dateDisplay)"/>
+         </string>
+         <string key="linktype" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:text>keyword search</xsl:text>
+         </string>
+         <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="$label"/>
+         </string>
+         <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="1"/>
+         </number>
+      </map>
    </xsl:template>
 
    <xsl:template name="get-calendarnum">
-      <!--CHANGE-->
-      <!--<xsl:variable name="dcpID" select="(ancestor-or-self::tei:teiHeader//tei:idno[@type='calendarnum'],root(.)/*/@xml:id)[normalize-space(.)][1]"/>-->
-      <xsl:variable name="dcpID"
-         select="ancestor-or-self::tei:teiHeader//tei:idno[@type='calendarnum']"/>
+      <xsl:variable name="dcpID" select="ancestor-or-self::tei:teiHeader//tei:idno[@type='calendarnum']"/>
       <xsl:if test="$dcpID">
-         <calendarnum display="true" displayForm="{$dcpID}">
-            <xsl:value-of select="$dcpID"/>
-         </calendarnum>
+         <map key="calendarnum" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:call-template name="write-data-obj-flat">
+               <xsl:with-param name="displayForm" select="$dcpID"/>
+               <xsl:with-param name="label" select="'Letter Number'"/>
+            </xsl:call-template>
+         </map>
       </xsl:if>
    </xsl:template>
-
-   <xsl:template name="get-correspDesc-details">
-      <!-- This template returns the author, date and recipient -->
-      <xsl:message>correspDesc</xsl:message>
-      <xsl:variable name="correspDesc" select="//tei:correspDesc" as="item()*"/>
-
-      <xsl:if
-         test="exists($correspDesc) and exists(//tei:publicationStmt/tei:authority[lower-case(normalize-space(.)) = 'darwin correspondence project'])">
-         <xsl:message>DCP file</xsl:message>
-
-         <xsl:if test="//tei:note[@type='physdesc'][normalize-space(.)]">
-            <!-- TODO: physdesc is not just extent, it's also all manner of abbreviate to indicate whether it's an
-                       autograph signed letter, etc. We either display it all as it is or suppress 
-            -->
-            <xsl:variable name="physdesc" as="xsd:string*">
-               <xsl:for-each select="//tei:note[@type='physdesc'][normalize-space(.)]">
-                  <xsl:apply-templates select="." mode="html"/>
-                  <xsl:if test="position() ne last()">
-                     <xsl:text>, </xsl:text>
-                  </xsl:if>
-               </xsl:for-each>
-            </xsl:variable>
-            <extent display="true" displayForm="{normalize-space(string-join($physdesc,''))}">
-               <xsl:value-of select="normalize-space(string-join($physdesc,''))"/>
-            </extent>
-         </xsl:if>
-         <xsl:if
-            test="/tei:TEI/tei:teiHeader/tei:fileDesc/tei:seriesStmt/tei:biblScope[@unit='vol'][normalize-space(.)]">
-            <dataSources display="true">
-               <xsl:variable name="vol-nums"
-                  select="distinct-values(/tei:TEI/tei:teiHeader/tei:fileDesc/tei:seriesStmt/tei:biblScope[@unit='vol'][normalize-space(.)]/normalize-space(.))"/>
-               <xsl:variable name="dsStatement" as="xsd:string*">
-                  <xsl:variable name="volume" as="xsd:string*">
-                     <xsl:variable name="t" as="xsd:string*">
-                        <xsl:for-each select="$vol-nums">
-                           <xsl:value-of select="normalize-space(.)"/>
-                           <xsl:choose>
-                              <xsl:when test="position() lt last() -1">
-                                 <xsl:text>, </xsl:text>
-                              </xsl:when>
-                              <xsl:when test="position() eq last() -1">
-                                 <xsl:text> &amp; </xsl:text>
-                              </xsl:when>
-                              <xsl:otherwise/>
-                           </xsl:choose>
-                        </xsl:for-each>
-                     </xsl:variable>
-                     <xsl:value-of select="normalize-space(string-join($t,''))"/>
-                  </xsl:variable>
-                  <xsl:choose>
-                     <xsl:when test="$volume !=''">
-                        <xsl:variable name="inflected-vol-label"
-                           select="if (count($vol-nums) gt 1) then 'volumes' else 'volume'"
-                           as="xsd:string"/>
-                        <xsl:value-of
-                           select="concat('Published in ',$inflected-vol-label,' ', $volume, ' of the Correspondence of Charles Darwin, Cambridge University Press')"
-                        />
-                     </xsl:when>
-                     <xsl:otherwise>
-                        <xsl:text>Darwin Correspondence Project</xsl:text>
-                     </xsl:otherwise>
-                  </xsl:choose>
-               </xsl:variable>
-
-               <dataSource display="true" displayForm="{normalize-space($dsStatement)}">
-                  <xsl:value-of
-                     select="normalize-space(replace($dsStatement, '&lt;[^&gt;]+&gt;', ''))"/>
-               </dataSource>
-            </dataSources>
-         </xsl:if>
-      </xsl:if>
-      <xsl:message
-         select="exists($correspDesc//tei:correspAction[@type='sent']/(tei:persName|tei:orgName|tei:name)[normalize-space(.)])"/>
-
-      <xsl:if
-         test="$correspDesc//tei:correspAction[@type='sent']/(tei:persName|tei:orgName|tei:name)[normalize-space(.)]">
-
-         <authors display="true">
-            <xsl:apply-templates
-               select="$correspDesc//tei:correspAction[@type='sent']/(tei:persName|tei:orgName|tei:name)[normalize-space(.)]"
-            />
-         </authors>
-
-      </xsl:if>
-
-      <xsl:if
-         test="$correspDesc//tei:correspAction[@type='received']/(tei:persName|tei:orgName|tei:name)[normalize-space(.)]">
-         <recipients display="true">
-            <xsl:apply-templates
-               select="$correspDesc//tei:correspAction[@type='received']/(tei:persName|tei:orgName|tei:name)[normalize-space(.)]"
-            />
-         </recipients>
-
-      </xsl:if>
-
-      <!-- placeName and date for the sender are both picked up in the event coding in get-doc-events -->
-   </xsl:template>
-
-   <xsl:function name="lambda:write-tei-services-link" as="xsd:string*">
-      <xsl:param name="node" as="item()"/>
-      <xsl:param name="type" as="xsd:string"/>
-
-      <xsl:variable name="fileID" select="lambda:construct-output-filename-path($node)"/>
-
+   
+   <xsl:template match="tei:surface" mode="count">
+        <xsl:number count="//tei:facsimile/tei:surface" level="any"/>
+    </xsl:template>
+   
+   <xsl:function name="cudl:get-date-start" as="xsd:string*">
+   <xsl:param name="node"/>
+   
+   <xsl:choose>
+      <xsl:when test="$node/@from">
+         <xsl:value-of select="$node/@from"/>
+      </xsl:when>
+      <xsl:when test="$node/@notBefore">
+         <xsl:value-of select="$node/@notBefore"/>
+      </xsl:when>
+      <xsl:when test="$node/@when">
+         <xsl:value-of select="$node/@when"/>
+      </xsl:when>
+      <xsl:otherwise/>
+   </xsl:choose>
+</xsl:function>
+   
+   <xsl:function name="cudl:get-date-end" as="xsd:string*">
+      <xsl:param name="node"/>
+      
       <xsl:choose>
-         <xsl:when
-            test="namespace-uri($node) = 'http://www.tei-c.org/ns/1.0' and $type = ('', 'transcription')">
-            <xsl:value-of select="concat('/v1/transcription/tei/diplomatic/internal/',$fileID)"/>
+         <xsl:when test="$node/@to">
+            <xsl:value-of select="$node/@to"/>
          </xsl:when>
-         <xsl:when
-            test="namespace-uri($node) = 'http://www.tei-c.org/ns/1.0' and $type = ('translation')">
-            <!-- Can it be /EN/tei/...? The tei/... is part of fileID -->
-            <xsl:value-of
-               select="concat('/v1/translation/tei/',lambda:get-translation-lang-code($node),'/',$fileID)"
-            />
+         <xsl:when test="$node/@notAfter">
+            <xsl:value-of select="$node/@notAfter"/><!-- TODO: Shouldn't this be notAfter?-->
          </xsl:when>
-         <xsl:when
-            test="namespace-uri($node) = 'http://www.tei-c.org/ns/1.0' and $type = ('metadata')">
-            <xsl:value-of
-               select="concat('/v1/metadata/tei/',replace(tokenize($fileID,'/')[last()],'\.xml$',''),'/')"
-            />
+         <xsl:when test="$node/@when">
+            <xsl:value-of select="$node/@when"/>
          </xsl:when>
          <xsl:otherwise/>
       </xsl:choose>
    </xsl:function>
-
-   <xsl:function name="lambda:construct-output-filename-path" as="xsd:string">
+   
+   <xsl:function name="cudl:display" as="item()">
+      <xsl:param name="bool" as="xsd:boolean"/>
+      
+      <boolean key="display" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:value-of select="$bool"/>
+      </boolean>
+   </xsl:function>
+   
+   <xsl:template match="*[@key='seq']" priority="1" mode="updateSeq">
+      <xsl:variable name="position" select="cudl:get-pos(.)"/>
+      <xsl:copy>
+         <xsl:copy-of select="@* except @parent"/>
+         <xsl:value-of select="$position"/>
+      </xsl:copy>
+   </xsl:template>
+   
+   <xsl:template match="@*|node()"  mode="updateSeq">
+      <xsl:copy>
+         <xsl:apply-templates select="@*|node()" mode="#current"/>
+      </xsl:copy>
+   </xsl:template>
+   
+   <xsl:variable name="layout">
+         <!--
+            <cudl:element name="itemType" jsontype="array" >
+            <cudl:element name="type" jsontype="string" />         
+            </cudl:element>
+         -->
+         <cudl:element name="itemType" jsontype="string" />
+         <cudl:element name="descriptiveMetadata" jsontype="array">
+            <cudl:element name="part" jsontype="object">
+               <cudl:element name="ID" jsontype="string" />
+               <cudl:element name="physicalLocation" label="Physical Location" jsontype="string" />
+               <cudl:element name="shelfLocator"  label="Classmark" jsontype="string" />
+               <cudl:element name="altIdentifiers" label="Alternative Identifier(s)" jsontype="array">
+                  <cudl:element name="altIdentifier" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="calendarnum"  label="Letter Number" jsontype="string" />
+               <cudl:element name="reference"  label="Reference" jsontype="string" />
+               <cudl:element name="title" label="Title" jsontype="string" />
+               <cudl:element name="abstract" label="Abstract" jsontype="string" />
+               <cudl:element name="relatedResources" label="Featured in" jsontype="array">
+                  <cudl:element name="relatedResource" jsontype="object">
+                     <cudl:element name="resourceTitle" jsontype="string"/>
+                     <cudl:element name="resourceUrl" jsontype="string"/>
+                  </cudl:element>
+               </cudl:element>
+               <cudl:element name="alternativeTitles" label="Alternative Title(s)" jsontype="array">
+                  <cudl:element name="alternativeTitle" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="descriptiveTitles" label="Descriptive Title(s)" jsontype="array">
+                  <cudl:element name="descriptiveTitle" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="uniformTitle" label="Uniform Title" jsontype="string" />
+               <cudl:element name="level"  label="Level of Description" jsontype="string" />
+               <cudl:element name="subjects" label="Subject(s)" jsontype="array" listDisplay="inline" >
+                  <cudl:element name="subject" jsontype="object" linktype="keyword search" >
+                     <cudl:element name="fullForm" jsontype="string" />
+                     <cudl:element name="shortForm" jsontype="string" />
+                     <cudl:element name="authority" jsontype="string" />
+                     <cudl:element name="authorityURI" jsontype="string" />
+                     <cudl:element name="valueURI" jsontype="string" />
+                     <cudl:element name="type" jsontype="string" />
+                     <cudl:element name="components" jsontype="array">
+                        <cudl:element name="component" jsontype="object">
+                           <cudl:element name="fullForm" jsontype="string" />
+                           <cudl:element name="shortForm" jsontype="string" />
+                           <cudl:element name="authority" jsontype="string" />
+                           <cudl:element name="authorityURI" jsontype="string" />
+                           <cudl:element name="valueURI" jsontype="string" />
+                           <cudl:element name="type" jsontype="string" />
+                        </cudl:element>
+                     </cudl:element>
+                  </cudl:element>
+               </cudl:element>
+               <cudl:element name="authors" label="Author(s)" jsontype="array" listDisplay="unordered">
+                  <cudl:element name="name" linktype="keyword search"  jsontype="object">
+                     <cudl:element name="fullForm" jsontype="string" />
+                     <cudl:element name="shortForm" jsontype="string" />
+                     <cudl:element name="authority" jsontype="string" />
+                     <cudl:element name="authorityURI" jsontype="string" />
+                     <cudl:element name="valueURI" jsontype="string" />
+                     <cudl:element name="type" jsontype="string" />
+                     <cudl:element name="role" jsontype="string" />
+                  </cudl:element>
+               </cudl:element>
+               <cudl:element name="scribes" label="Scribe(s)" jsontype="array" listDisplay="unordered">
+                  <cudl:element name="name" linktype="keyword search"  jsontype="object">
+                     <cudl:element name="fullForm" jsontype="string" />
+                     <cudl:element name="shortForm" jsontype="string" />
+                     <cudl:element name="authority" jsontype="string" />
+                     <cudl:element name="authorityURI" jsontype="string" />
+                     <cudl:element name="valueURI" jsontype="string" />
+                     <cudl:element name="type" jsontype="string" />
+                     <cudl:element name="role" jsontype="string" />
+                  </cudl:element>
+               </cudl:element>
+               <cudl:element name="creators" label="Creator(s)" jsontype="array" listDisplay="unordered">
+                  <cudl:element name="name" linktype="keyword search"  jsontype="object">
+                     <cudl:element name="fullForm" jsontype="string" />
+                     <cudl:element name="shortForm" jsontype="string" />
+                     <cudl:element name="authority" jsontype="string" />
+                     <cudl:element name="authorityURI" jsontype="string" />
+                     <cudl:element name="valueURI" jsontype="string" />
+                     <cudl:element name="type" jsontype="string" />
+                     <cudl:element name="role" jsontype="string" />
+                  </cudl:element>
+               </cudl:element>
+               <cudl:element name="creations" jsontype="array">
+                  <cudl:element name="event" jsontype="object">
+                     <cudl:element name="type" jsontype="string" />
+                     <cudl:element name="publishers" label="Publisher" jsontype="array" >
+                        <cudl:element name="publisher" jsontype="string" />
+                     </cudl:element>
+                     <cudl:element name="places" label="Origin Place" jsontype="array" >
+                        <cudl:element name="place" linktype="keyword search" jsontype="object">
+                           <cudl:element name="fullForm" jsontype="string" />
+                           <cudl:element name="shortForm" jsontype="string" />
+                           <cudl:element name="authority" jsontype="string" />
+                           <cudl:element name="authorityURI" jsontype="string" />
+                           <cudl:element name="valueURI" jsontype="string" />
+                        </cudl:element>
+                     </cudl:element>
+                     <cudl:element name="dateStart" jsontype="string" />
+                     <cudl:element name="dateEnd" jsontype="string" />
+                     <cudl:element name="dateDisplay" label="Date of Creation" jsontype="string" linktype="keyword search" />
+                  </cudl:element>
+               </cudl:element>
+               <cudl:element name="publications" jsontype="array">
+                  <cudl:element name="event" jsontype="object">
+                     <cudl:element name="type" jsontype="string" />
+                     <cudl:element name="publishers" label="Publisher" jsontype="array" >
+                        <cudl:element name="publisher" jsontype="string" />
+                     </cudl:element>
+                     <cudl:element name="places" label="Place of Publication" jsontype="array" >
+                        <cudl:element name="place" linktype="keyword search" jsontype="object">
+                           <cudl:element name="fullForm" jsontype="string" />
+                           <cudl:element name="shortForm" jsontype="string" />
+                           <cudl:element name="authority" jsontype="string" />
+                           <cudl:element name="authorityURI" jsontype="string" />
+                           <cudl:element name="valueURI" jsontype="string" />
+                        </cudl:element>
+                     </cudl:element>
+                     <cudl:element name="dateStart" jsontype="string" />
+                     <cudl:element name="dateEnd" jsontype="string" />
+                     <cudl:element name="dateDisplay" label="Date of Publication" jsontype="string" linktype="keyword search" />
+                  </cudl:element>
+               </cudl:element>
+               <cudl:element name="temporalCoverage" jsontype="array">
+                  <cudl:element name="period" jsontype="object">
+                     <cudl:element name="dateStart" jsontype="string" />
+                     <cudl:element name="dateEnd" jsontype="string" />
+                     <cudl:element name="dateDisplay" jsontype="string" />
+                  </cudl:element>
+               </cudl:element>
+               <cudl:element name="recipients" label="Recipient(s)" jsontype="array" listDisplay="unordered">
+                  <cudl:element name="name" linktype="keyword search"  jsontype="object">
+                     <cudl:element name="fullForm" jsontype="string" />
+                     <cudl:element name="shortForm" jsontype="string" />
+                     <cudl:element name="authority" jsontype="string" />
+                     <cudl:element name="authorityURI" jsontype="string" />
+                     <cudl:element name="valueURI" jsontype="string" />
+                     <cudl:element name="type" jsontype="string" />
+                     <cudl:element name="role" jsontype="string" />
+                  </cudl:element>
+               </cudl:element>
+               <cudl:element name="destinations" label="Destination" jsontype="array" >
+                  <cudl:element name="place" linktype="keyword search" jsontype="object">
+                     <cudl:element name="fullForm" jsontype="string" />
+                     <cudl:element name="shortForm" jsontype="string" />
+                     <cudl:element name="authority" jsontype="string" />
+                     <cudl:element name="authorityURI" jsontype="string" />
+                     <cudl:element name="valueURI" jsontype="string" />
+                  </cudl:element>
+               </cudl:element>
+               <cudl:element name="filiations" label="Filiations" jsontype="string" />
+               <cudl:element name="languageCodes" jsontype="array">
+                  <cudl:element name="languageCode" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="languageStrings" label="Language(s)" jsontype="array">
+                  <cudl:element name="languageString" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="donors" label="Donor(s)" jsontype="array" >
+                  <cudl:element name="name" linktype="keyword search"  jsontype="object">
+                     <cudl:element name="fullForm" jsontype="string" />
+                     <cudl:element name="shortForm" jsontype="string" />
+                     <cudl:element name="authority" jsontype="string" />
+                     <cudl:element name="authorityURI" jsontype="string" />
+                     <cudl:element name="valueURI" jsontype="string" />
+                     <cudl:element name="type" jsontype="string" />
+                     <cudl:element name="role" jsontype="string" />
+                  </cudl:element>
+               </cudl:element>
+               <cudl:element name="formerOwners" label="Former Owner(s)" jsontype="array" >
+                  <cudl:element name="name" linktype="keyword search"  jsontype="object">
+                     <cudl:element name="fullForm" jsontype="string" />
+                     <cudl:element name="shortForm" jsontype="string" />
+                     <cudl:element name="authority" jsontype="string" />
+                     <cudl:element name="authorityURI" jsontype="string" />
+                     <cudl:element name="valueURI" jsontype="string" />
+                     <cudl:element name="type" jsontype="string" />
+                     <cudl:element name="role" jsontype="string" />
+                  </cudl:element>
+               </cudl:element>
+               <cudl:element name="associated" label="Associated Name(s)" jsontype="array" listDisplay="unordered" >
+                  <cudl:element name="name" linktype="keyword search"  jsontype="object">
+                     <cudl:element name="fullForm" jsontype="string" />
+                     <cudl:element name="shortForm" jsontype="string" />
+                     <cudl:element name="authority" jsontype="string" />
+                     <cudl:element name="authorityURI" jsontype="string" />
+                     <cudl:element name="valueURI" jsontype="string" />
+                     <cudl:element name="type" jsontype="string" />
+                     <cudl:element name="role" jsontype="string" />
+                  </cudl:element>
+               </cudl:element>
+               <cudl:element name="associatedCorps" label="Associated Organisation(s)" jsontype="array" listDisplay="unordered" >
+                  <cudl:element name="name" linktype="keyword search"  jsontype="object">
+                     <cudl:element name="fullForm" jsontype="string" />
+                     <cudl:element name="shortForm" jsontype="string" />
+                     <cudl:element name="authority" jsontype="string" />
+                     <cudl:element name="authorityURI" jsontype="string" />
+                     <cudl:element name="valueURI" jsontype="string" />
+                     <cudl:element name="type" jsontype="string" />
+                     <cudl:element name="role" jsontype="string" />
+                  </cudl:element>
+               </cudl:element>
+               <cudl:element name="places" label="Associated Place(s)" jsontype="array" >
+                  <cudl:element name="place" linktype="keyword search" jsontype="object">
+                     <cudl:element name="fullForm" jsontype="string" />
+                     <cudl:element name="shortForm" jsontype="string" />
+                     <cudl:element name="authority" jsontype="string" />
+                     <cudl:element name="authorityURI" jsontype="string" />
+                     <cudl:element name="valueURI" jsontype="string" />
+                  </cudl:element>
+               </cudl:element>
+               <cudl:element name="notes" label="Note(s)" jsontype="array" >
+                  <cudl:element name="note" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="originals" label="Existence/location of Originals" jsontype="array" >
+                  <cudl:element name="origin" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="altforms" label="Existence/location of Copies" jsontype="array" >
+                  <cudl:element name="altform" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="relatedmaterials" label="Related Materials" jsontype="array" >
+                  <cudl:element name="relatedmaterial" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="physdesc" label="Physical Description" jsontype="string"/>
+               <cudl:element name="extent" label="Extent" jsontype="string"/>
+               <cudl:element name="collation" label="Collation" jsontype="string" />
+               <cudl:element name="supports" label="Support" jsontype="array">
+                  <cudl:element name="support" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="material" label="Material" jsontype="string" />
+               <cudl:element name="form" label="Format" jsontype="string" />
+               <cudl:element name="conditions" label="Condition"  jsontype="array">
+                  <cudl:element name="condition" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="bindings" label="Binding" jsontype="array">
+                  <cudl:element name="binding" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="accMats" label="Accompanying Material" jsontype="array">
+                  <cudl:element name="accMat" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="scripts" label="Script"  jsontype="array">
+                  <cudl:element name="script" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="musicNotations" label="Music notation" jsontype="array">
+                  <cudl:element name="musicNotation" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="foliation" label="Foliation" jsontype="string" />
+               <cudl:element name="layouts" label="Layout" jsontype="array">
+                  <cudl:element name="layout" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="decorations" label="Decoration" jsontype="array">
+                  <cudl:element name="decoration" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="additions" label="Additions"  jsontype="array">
+                  <cudl:element name="addition" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="provenances" label="Provenance"  jsontype="array">
+                  <cudl:element name="provenance" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="origins" label="Origin"  jsontype="array">
+                  <cudl:element name="origin" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="acquisitionTexts" label="Acquisition"  jsontype="array">
+                  <cudl:element name="acquisitionText" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="acquisitions"  jsontype="array">
+                  <cudl:element name="event" jsontype="object">
+                     <cudl:element name="type" jsontype="string" />
+                     <cudl:element name="dateStart" jsontype="string" />
+                     <cudl:element name="dateEnd" jsontype="string" />
+                     <cudl:element name="dateDisplay" label="Date of Acquisition" jsontype="string" />
+                  </cudl:element>
+               </cudl:element>
+               <cudl:element name="fundings" label="Funding" jsontype="array">
+                  <cudl:element name="funding" jsontype="string" />
+               </cudl:element>
+               <cudl:element name="dataSources" label="Data Source(s)" jsontype="array"  >
+                  <cudl:element name="dataSource" jsontype="string"  />
+               </cudl:element>
+               <cudl:element name="dataRevisions" label="Author(s) of the Record" jsontype="string" />
+               <cudl:element name="excerpts" label="Excerpts" jsontype="string"/>
+               <cudl:element name="bibliographies" label="Bibliography" jsontype="array">
+                  <cudl:element name="bibliography" jsontype="string"/>
+               </cudl:element>
+               <!-- Non-display data: used by viewer but not displayed in metadata block -->
+               <cudl:element name="thumbnailUrl" jsontype="string" />
+               <cudl:element name="thumbnailOrientation" jsontype="string" />
+               <cudl:element name="displayImageRights" jsontype="string" />
+               <cudl:element name="downloadImageRights" jsontype="string" />
+               <cudl:element name="imageReproPageURL" jsontype="string" />
+               <cudl:element name="metadataRights" jsontype="string" />
+               <cudl:element name="pdfRights" jsontype="string" />
+               <cudl:element name="watermarkStatement" jsontype="string" />
+               <cudl:element name="docAuthority" jsontype="string" />
+               <cudl:element name="type" jsontype="string" />
+               <cudl:element name="manuscript" jsontype="boolean" />
+               <cudl:element name="itemReferences" jsontype="array" >
+                  <cudl:element name="item" jsontype="object">
+                     <cudl:element name="ID" jsontype="string" />
+                  </cudl:element>
+               </cudl:element>
+               <!-- <cudl:element name="content" jsontype="string" /> -->
+            </cudl:element>
+         </cudl:element>
+         <cudl:element name="numberOfPages" jsontype="number"/>
+         <cudl:element name="embeddable" jsontype="boolean"/>
+         <cudl:element name="textDirection" jsontype="string"/>
+         <cudl:element name="sourceData" jsontype="string"/>
+         <cudl:element name="useTranscriptions" jsontype="boolean"/>
+         <cudl:element name="useNormalisedTranscriptions" jsontype="boolean"/>
+         <cudl:element name="useDiplomaticTranscriptions" jsontype="boolean"/>
+         <cudl:element name="allTranscriptionDiplomaticURL" jsontype="string"/>
+         <cudl:element name="useTranslations" jsontype="boolean"/>
+         <cudl:element name="completeness" jsontype="string" />
+         <cudl:element name="pages" jsontype="array">
+            <cudl:element name="page" jsontype="object">
+               <cudl:element name="label" jsontype="string" />
+               <cudl:element name="physID" jsontype="string" />
+               <cudl:element name="sequence" jsontype="number" />
+               <cudl:element name="displayImageURL" jsontype="string" />
+               <cudl:element name="downloadImageURL" jsontype="string" />
+               <cudl:element name="IIIFImageURL" jsontype="string" />
+               <cudl:element name="thumbnailImageURL" jsontype="string" />
+               <cudl:element name="thumbnailImageOrientation" jsontype="string" />
+               <cudl:element name="imageWidth" jsontype="number" />
+               <cudl:element name="imageHeight" jsontype="number" />
+               <cudl:element name="transcriptionNormalisedURL" jsontype="string" />
+               <cudl:element name="transcriptionDiplomaticURL" jsontype="string" />
+               <cudl:element name="translationURL" jsontype="string" />
+               <cudl:element name="content" jsontype="string" />
+               <cudl:element name="pageType" jsontype="string" />
+            </cudl:element>
+         </cudl:element>
+         <cudl:element name="listItemPages" jsontype="array">
+            <cudl:element name="listItemPage" jsontype="object">
+               <cudl:element name="fileID" jsontype="string" />
+               <cudl:element name="dmdID" jsontype="string" />
+               <cudl:element name="startPageLabel" jsontype="string" />
+               <cudl:element name="startPage" jsontype="number" />
+               <cudl:element name="title" jsontype="string" />
+               <cudl:element name="listItemText" jsontype="string" />
+            </cudl:element>
+         </cudl:element>
+         <cudl:element name="logicalStructures" jsontype="array">
+            <cudl:element name="logicalStructure" jsontype="object">
+               <cudl:element name="label" jsontype="string" />
+               <cudl:element name="descriptiveMetadataID" jsontype="string" />
+               <cudl:element name="startPageLabel" jsontype="string" />
+               <cudl:element name="startPageID" jsontype="string" />
+               <cudl:element name="startPagePosition" jsontype="number" />
+               <cudl:element name="endPageLabel" jsontype="string" />
+               <cudl:element name="endPageID" jsontype="string" />
+               <cudl:element name="endPagePosition" jsontype="number" />
+               <cudl:element name="children" jsontype="array">
+                  <cudl:element name="logicalStructure" jsontype="object">
+                     <cudl:element name="label" jsontype="string" />
+                     <cudl:element name="descriptiveMetadataID" jsontype="string" />
+                     <cudl:element name="startPageLabel" jsontype="string" />
+                     <cudl:element name="startPageID" jsontype="string" />
+                     <cudl:element name="startPagePosition" jsontype="number" />
+                     <cudl:element name="endPageLabel" jsontype="string" />
+                     <cudl:element name="endPageID" jsontype="string" />
+                     <cudl:element name="endPagePosition" jsontype="number" />
+                     <cudl:element name="children" jsontype="array">
+                        <cudl:element name="logicalStructure" jsontype="object">
+                           <cudl:element name="label" jsontype="string" />
+                           <cudl:element name="descriptiveMetadataID" jsontype="string" />
+                           <cudl:element name="startPageLabel" jsontype="string" />
+                           <cudl:element name="startPageID" jsontype="string" />
+                           <cudl:element name="startPagePosition" jsontype="number" />
+                           <cudl:element name="endPageLabel" jsontype="string" />
+                           <cudl:element name="endPageID" jsontype="string" />
+                           <cudl:element name="endPagePosition" jsontype="number" />
+                           <cudl:element name="children" jsontype="array">
+                              <cudl:element name="logicalStructure" jsontype="object">
+                                 <cudl:element name="label" jsontype="string" />
+                                 <cudl:element name="descriptiveMetadataID" jsontype="string" />
+                                 <cudl:element name="startPageLabel" jsontype="string" />
+                                 <cudl:element name="startPageID" jsontype="string" />
+                                 <cudl:element name="startPagePosition" jsontype="number" />
+                                 <cudl:element name="endPageLabel" jsontype="string" />
+                                 <cudl:element name="endPageID" jsontype="string" />
+                                 <cudl:element name="endPagePosition" jsontype="number" />
+                                 <cudl:element name="children" jsontype="array">
+                                    <cudl:element name="logicalStructure" jsontype="object">
+                                       <cudl:element name="label" jsontype="string" />
+                                       <cudl:element name="descriptiveMetadataID" jsontype="string" />
+                                       <cudl:element name="startPageLabel" jsontype="string" />
+                                       <cudl:element name="startPageID" jsontype="string" />
+                                       <cudl:element name="startPagePosition" jsontype="number" />
+                                       <cudl:element name="endPageLabel" jsontype="string" />
+                                       <cudl:element name="endPageID" jsontype="string" />
+                                       <cudl:element name="endPagePosition" jsontype="number" />
+                                       <cudl:element name="children" jsontype="array">
+                                          <cudl:element name="logicalStructure" jsontype="object">
+                                             <cudl:element name="label" jsontype="string" />
+                                             <cudl:element name="descriptiveMetadataID" jsontype="string" />
+                                             <cudl:element name="startPageLabel" jsontype="string" />
+                                             <cudl:element name="startPageID" jsontype="string" />
+                                             <cudl:element name="startPagePosition" jsontype="number" />
+                                             <cudl:element name="endPageLabel" jsontype="string" />
+                                             <cudl:element name="endPageID" jsontype="string" />
+                                             <cudl:element name="endPagePosition" jsontype="number" />
+                                             <cudl:element name="children" jsontype="array">
+                                             </cudl:element>
+                                          </cudl:element>
+                                       </cudl:element>
+                                    </cudl:element>
+                                 </cudl:element>
+                              </cudl:element>
+                           </cudl:element>
+                        </cudl:element>
+                     </cudl:element>
+                  </cudl:element>
+               </cudl:element>
+            </cudl:element>
+         </cudl:element>
+      </xsl:variable>
+   
+   <!-- Calculate cdl seq value -->
+   <xsl:key name="test" match="//cudl:element" use="@name"/>
+   
+   <xsl:function name="cudl:get-pos" as="xsd:int*">
+      <xsl:param name="node" />
+      
+      <xsl:variable name="containing_named_object" select="$node/ancestor::json:map[normalize-space(@key)][1]"/>
+      <xsl:variable name="offset" select="if (not($node/parent::json:map[normalize-space(@key)])) then 1 else 0"/>
+      
+      <xsl:variable name="container_name" select="$containing_named_object/@key"/>
+      
+      <xsl:variable name="matches" select="key('test', $container_name, $layout)"/>
+      
+      <xsl:choose>
+         <xsl:when test="count($matches) eq 1">
+            <xsl:for-each select="$matches">
+               <xsl:value-of select="sum((count(ancestor::cudl:element), count(preceding::cudl:element))) + $offset" />
+            </xsl:for-each>
+         </xsl:when>
+         <xsl:when test="count($matches) gt 1">
+            <xsl:variable name="containing-object" select="$containing_named_object/ancestor::json:map[normalize-space(@key)][1]"/>
+            <xsl:variable name="key" select="($node[normalize-space(@parent)]/string(@parent), $containing-object/@key, 'descriptiveMetadata')[normalize-space(.)][1]"/><!-- dscriptive metadata is an array - so add in a trap to catch it -->
+            <xsl:variable name="ancestors" select="key('test', $key, $layout)//cudl:element[@name = $container_name]/ancestor::cudl:element[not(@jsontype='object')][not(@name=($key, 'descriptiveMetadata'))]/@name"/>
+            <xsl:variable name="proposed_target" select="key('test', $key, $layout)//cudl:element[@name = $container_name][not(ancestor::cudl:element[@name=$ancestors])]"/>
+            <xsl:for-each select="$proposed_target">
+               <xsl:value-of select="sum((count(ancestor::cudl:element), count(preceding::cudl:element))) + $offset" />
+            </xsl:for-each>
+         </xsl:when>
+      </xsl:choose>
+      
+   </xsl:function>
+   
+   <xsl:function name="cudl:path-to-directory" as="xsd:string">
+      <xsl:param name="dir"/>
+      <xsl:param name="build_dir"/>
+      
+      <xsl:variable name="directory" select="replace(normalize-space($dir),'/$','')"/>
+      
+      <xsl:choose>
+         <xsl:when test="normalize-space($build_dir) !=''">
+            <xsl:choose>
+               <xsl:when test="$directory != ''">
+                  <xsl:choose>
+                     <xsl:when test="matches($directory,'^/')">
+                        <!-- directory is absolute path -->
+                        <xsl:value-of select="$directory"/>
+                     </xsl:when>
+                     <xsl:otherwise>
+                        <!-- Directory is set in build file and relative to build file -->
+                        <xsl:value-of select="replace(resolve-uri(concat(normalize-space($build_dir),'/',$directory)),'^file:','')"/>
+                     </xsl:otherwise>
+                  </xsl:choose>
+               </xsl:when>
+            </xsl:choose>
+         </xsl:when>
+         <xsl:otherwise>
+            <xsl:value-of select="$directory"/>
+         </xsl:otherwise>
+      </xsl:choose>
+   </xsl:function>
+   
+   
+   <xsl:function name="cudl:construct-output-filename-path" as="xsd:string">
       <xsl:param name="node" as="item()*"/>
-
-      <xsl:variable name="surfaceID" select="key('surfaceIDs',$node/@facs, root($node))/@xml:id"
-         as="xsd:string*"/>
-
-      <xsl:variable name="filename-root"
-         select="replace(normalize-space(tokenize(document-uri(root($node)), '/')[last()]),'\..*$','')"
-         as="xsd:string"/>
-      <xsl:variable name="path-to-filename"
-         select="string-join(tokenize(replace(document-uri(root($node)),'^file:',''), '/')[position() lt last()],'/')"
-         as="xsd:string"/>
-      <xsl:variable name="is_unpaginated"
-         select="exists($node[ancestor::tei:div[tokenize(@decls,'\s+') = '#unpaginated']])"
-         as="xsd:boolean"/>
-
+      <xsl:param name="type" as="xsd:string*" />
+      <xsl:param name="surfaceID" as="xsd:string*"/>
+      <xsl:param name="supplemental" as="xsd:string*"/>
+      
+      <!-- The only @type value that's accepted into the filename 
+            at this time is 'translation' -->
+      <xsl:variable name="type_cleaned" select="$type[. = 'translation']" as="xsd:string*"/>
+      
+      <xsl:variable name="document-uri" select="document-uri(root($node))"/>
+      <xsl:variable name="filename-root" select="replace(normalize-space(tokenize(document-uri(root($node)), '/')[last()]),'\..*$','')" as="xsd:string"/>
+      <xsl:variable name="path-to-filename" select="string-join(tokenize(replace(document-uri(root($node)),'^file:',''), '/')[position() lt last()],'/')" as="xsd:string"/>
       <xsl:variable name="output-filename" as="xsd:string">
-
-         <xsl:variable name="surfaceID_final" as="xsd:string*">
+         <xsl:value-of select="concat(string-join(($filename-root,distinct-values(($surfaceID, $supplemental)),$type_cleaned)[.!=''],'-'),'.xml')"/>
+      </xsl:variable>
+      
+      
+      <xsl:variable name="hierarchy" as="xsd:string">
+         <xsl:choose>
+            <xsl:when test="$clean_data_dir != ''">
+               <xsl:value-of select="replace($path-to-filename,concat('^',$clean_data_dir),'')"/>
+            </xsl:when>
+            <xsl:otherwise>
+               <xsl:value-of select="$path-to-filename"/>
+            </xsl:otherwise>
+         </xsl:choose>
+      </xsl:variable>
+      
+      <xsl:value-of select="replace(concat(string-join(($clean_dest_dir,$hierarchy)[.!=''],'/'),'/',$output-filename),'//','/')"/>
+   </xsl:function>
+   
+   <xsl:function name="cudl:get-century">
+      <xsl:param name="dateStart"/>
+      <xsl:param name="dateEnd"/>
+      
+      <xsl:variable name="century-key" as="item()*">
+         <cudl:century key="-10">0900s B.C.E.</cudl:century>
+         <cudl:century key="-9">0800s B.C.E.</cudl:century>
+         <cudl:century key="-8">0700s B.C.E.</cudl:century>
+         <cudl:century key="-7">0600s B.C.E.</cudl:century>
+         <cudl:century key="-6">0500s B.C.E.</cudl:century>
+         <cudl:century key="-5">0400s B.C.E.</cudl:century>
+         <cudl:century key="-4">0300s B.C.E.</cudl:century>
+         <cudl:century key="-3">0200s B.C.E.</cudl:century>
+         <cudl:century key="-2">0100s B.C.E.</cudl:century>
+         <cudl:century key="-1">0000s B.C.E.</cudl:century>
+         <cudl:century key="0">0000s C.E.</cudl:century>
+         <cudl:century key="1">0100s C.E.</cudl:century>
+         <cudl:century key="2">0200s C.E.</cudl:century>
+         <cudl:century key="3">0300s C.E.</cudl:century>
+         <cudl:century key="4">0400s C.E.</cudl:century>
+         <cudl:century key="5">0500s C.E.</cudl:century>
+         <cudl:century key="6">0600s C.E.</cudl:century>
+         <cudl:century key="7">0700s C.E.</cudl:century>
+         <cudl:century key="8">0800s C.E.</cudl:century>
+         <cudl:century key="9">0900s C.E.</cudl:century>
+         <cudl:century key="10">1000s C.E.</cudl:century>
+         <cudl:century key="11">1100s C.E.</cudl:century>
+         <cudl:century key="12">1200s C.E.</cudl:century>
+         <cudl:century key="13">1300s C.E.</cudl:century>
+         <cudl:century key="14">1400s C.E.</cudl:century>
+         <cudl:century key="15">1500s C.E.</cudl:century>
+         <cudl:century key="16">1600s C.E.</cudl:century>
+         <cudl:century key="17">1700s C.E.</cudl:century>
+         <cudl:century key="18">1800s C.E.</cudl:century>
+         <cudl:century key="19">1900s C.E.</cudl:century>
+         <cudl:century key="20">2000s C.E.</cudl:century>
+         <cudl:century key="21">2100s C.E.</cudl:century>
+      </xsl:variable>
+      
+      <xsl:variable name="start_num" select="cudl:_get_century_num($dateStart)" as="xsd:integer*"/>
+      <xsl:variable name="end_num" select="cudl:_get_century_num($dateEnd)" as="xsd:integer*"/>
+      
+      <xsl:if test="$start_num castable as xsd:integer">
+         <xsl:variable name="end_num_final" as="xsd:integer">
             <xsl:choose>
-               <xsl:when test="$is_unpaginated">
-                  <xsl:sequence
-                     select="distinct-values(($node//ancestor::tei:div[tokenize(@decls,'\s+') = '#unpaginated']//tei:pb[replace(@facs,'^#','')= root($node)//tei:surface/@xml:id]/replace(@facs,'^#',''))[position() = (1, last())])"
-                  />
+               <xsl:when test="$end_num castable as xsd:integer">
+                  <xsl:value-of select="$end_num"/>
                </xsl:when>
                <xsl:otherwise>
-                  <xsl:sequence select="$surfaceID"/>
+                  <xsl:value-of select="$start_num"/>
                </xsl:otherwise>
             </xsl:choose>
          </xsl:variable>
-
-         <xsl:value-of select="string-join(($filename-root, $surfaceID_final)[.!=''],'/')"/>
-
-      </xsl:variable>
-
-      <!--<xsl:variable name="hierarchy" as="xsd:string">
-         <xsl:variable name="tmp" as="xsd:string*">
-            <xsl:variable name="clean_data_dir" select="doc('../../../conf/textIndexer.conf')//*:index[@*:name='index-cudl']//*:src/@*:path" as="xsd:string"/>
-            <xsl:choose>
-               <xsl:when test="$clean_data_dir != ''">
-                  <xsl:value-of select="replace($path-to-filename,concat('^',$clean_data_dir),'')"/>
-               </xsl:when>
-               <xsl:otherwise>
-                  <xsl:value-of select="$path-to-filename"/>
-               </xsl:otherwise>
-            </xsl:choose>
-         </xsl:variable>
-         <xsl:value-of select="replace($tmp,'^/','')"/>
-      </xsl:variable>
-      
-      <xsl:value-of select="concat(replace($hierarchy,'tei/',''),'/',$output-filename)"/>-->
-      <xsl:value-of select="$output-filename"/>
-
-   </xsl:function>
-
-   <xsl:function name="lambda:get-translation-lang-code" as="xsd:string*">
-      <xsl:param name="node"/>
-      <xsl:sequence
-         select="('EN',$node/ancestor::tei:div[@type='translation']/upper-case(@xml:lang))[.!=''][1]"
-      />
-   </xsl:function>
-
-   <xsl:function name="lambda:has-valid-context" as="xsd:boolean">
-      <xsl:param name="context"/>
-
-      <!-- Presume that if @next contains content that it's accurate to increase excecution speed of script -->
-      <xsl:sequence
-         select="exists($context[normalize-space(@next)!=''])
-         or exists($context[normalize-space(@prev)!=''])
-         or exists($context[not(ancestor::tei:add | ancestor::tei:note)
-         and
-         not(preceding::tei:addSpan/replace(normalize-space(@spanTo), '#', '')
-         = following::tei:anchor/@xml:id)])"
-      />
-   </xsl:function>
-
-   <xsl:function name="lambda:page-has-content" as="xsd:boolean">
-      <xsl:param name="node" as="item()"/>
-
-      <xsl:sequence select="exists($node[normalize-space(.) or self::tei:graphic or self::tei:gap])"
-      />
-   </xsl:function>
-
-    <xsl:template match="tei:surface" mode="count">
-        <xsl:number count="//tei:facsimile/tei:surface" level="any"/>
-    </xsl:template>
-
-
-   <!--SIMILARITY STUFF - DITCH?-->
-
-   <!-- Currently transcriptions are not indexed as XTF runs out of memory
-         while indexing. They'll get duplicated quite a bit for nested
-         documents... -->
-   <xsl:variable name="sim:INDEX_TRANSCRIPTIONS" select="false()"/>
-   
-   <!-- If false, similarity-* fields will be marked xtf:store="false"
-         It appears that moreLike queries don't work unless the similarity
-         fields are stored as well as indexed, which is annoying because they
-         never need to be fetched... -->
-   <xsl:variable name="sim:STORE_SIMILARITY" select="true()"/>
-   
-   <!-- Index transcriptionPage elements by dmdID -->
-   <xsl:key
-      name="sim:transcription-pages-by-dmd"
-      match="/xtf-converted/xtf:meta/transcriptionPage"
-      use="dmdID"/>
-   
-   <!-- Index descriptive metadat sections by their ID -->
-   <xsl:key
-      name="sim:dmd-sections"
-      match="/xtf-converted/xtf:meta/descriptiveMetadata/part"
-      use="ID"/>
-   
-   <!-- Keep everything as-is unless we explicitly change anything -->
-   <xsl:template match="@*|node()" mode="similarity">
-      <xsl:copy>
-         <xsl:apply-templates select="@*|node()" mode="similarity"/>
-      </xsl:copy>
-   </xsl:template>
-   
-   <!-- Add our new similarity subdocuments to the meta block alongside the
-         other data. -->
-   <xsl:template match="xtf:meta" mode="similarity">
-      <xsl:call-template name="sim:copy-with-extra-content">
-         <xsl:with-param name="extra-content">
-            
-            <!-- Introduce a new set of subdocuments to index similarity
-                     info. We'll need to exclude these from the regular search
-                     results... -->
-            <xsl:apply-templates select=".//logicalStructure" mode="similarity-subdoc"/>
-            
-         </xsl:with-param>
-      </xsl:call-template>
-   </xsl:template>
-   
-   <!-- Each logical structure node is indexed for similarity.
-         When querying for similarity, the index of the most specific structure
-         (narowest & deepest) node for a given page is used to obtain the
-         similarity ID for a page.
-          -->
-   <xsl:template match="logicalStructure" mode="similarity-subdoc">
-      <!-- The 0-based position of the logical structure item is the
-             similarity ID. -->
-      <xsl:variable name="similarityID" select="position() - 1"/>
-      <!-- $fileID is defined in preFilterCommon.xsl -->
-      <xsl:variable name="qualifiedSimID" select="concat($fileID, '/', $similarityID)"/>
-      
-      <similarity-match-candidate xtf:subDocument="similarity-{$similarityID}">
          
-         <!-- The identifier field is used by XTF to identify the starting
-                 point for similarity (moreLike) queries. -->
-         <identifier xtf:meta="true" xtf:tokenize="no">
-            <xsl:value-of select="$qualifiedSimID"/>
-         </identifier>
-         
-         <itemId xtf:meta="true" xtf:index="true" xtf:tokenize="no" xtf:store="true">
-            <xsl:value-of select="$fileID"/>
-         </itemId>
-         
-         <structureNodeId xtf:meta="true" xtf:index="false" xtf:store="true">
-            <xsl:value-of select="$similarityID"/>
-         </structureNodeId>
-         
-         <!-- Generate similarity fields for each dmd section associated with
-                 this logical structure. e.g. this structure node and its
-                 ancestors. -->
-         <xsl:for-each select="reverse(ancestor-or-self::logicalStructure)">
-            <!-- TODO: Could modify the xtf:wordBoost value for similarity
-                     fields from different depths in the logical structure tree.
-                     e.g. boost deeper (more specific) fields or unboost less
-                     specific fields (closer to the top). -->
-            <xsl:apply-templates
-               select="key('sim:dmd-sections', descriptiveMetadataID)"
-               mode="similarity-subdoc"/>
+         <xsl:for-each select="($start_num to $end_num_final)">
+            <xsl:variable name="key_num" select="."/>
+            <xsl:sequence select="$century-key[@key=$key_num]"/>
          </xsl:for-each>
-         
-      </similarity-match-candidate>
-   </xsl:template>
+      </xsl:if>
+   </xsl:function>
    
-   <!-- Add similarity fields to descriptive metadata.  -->
-   <xsl:template match="descriptiveMetadata/part" mode="similarity-subdoc">
+   <xsl:function name="cudl:_get_century_num" as="xsd:integer*">
+      <xsl:param name="date"/>
       
-      <similarity-fields for="descriptive-metadata {ID}">
-         
-         <xsl:apply-templates select="title" mode="similarity-field"/>
-         
-         <xsl:apply-templates
-            select="authors/name|recipients/name|associated/name"
-            mode="similarity-field"/>
-         
-         <xsl:apply-templates select="abstract|content" mode="similarity-field"/>
-         
-         <xsl:if test="$sim:INDEX_TRANSCRIPTIONS">
-            <xsl:apply-templates
-               select="key('sim:transcription-pages-by-dmd', ID)"
-               mode="similarity-field"/>
-         </xsl:if>
-         
-         <xsl:apply-templates
-            select="subjects/subject" mode="similarity-field"/>
-         
-         <xsl:apply-templates
-            select="creations/event/places/place"
-            mode="similarity-field"/>
-         
-      </similarity-fields>
-   </xsl:template>
-   
-   <!-- These are the possible similarity fields which can be created: -->
-   
-   <!-- similarity-titile contains the title of the subdocument -->
-   <xsl:template match="title[normalize-space()]" mode="similarity-field">
-      <similarity-title xtf:meta="true" xtf:index="true" xtf:store="{$sim:STORE_SIMILARITY}">
-         <xsl:value-of select="normalize-space()"/>
-      </similarity-title>
-   </xsl:template>
-   
-   <!-- similarity-name contains any names of people associated with the
-         subDocument. -->
-   <xsl:template match="name[@displayForm]" mode="similarity-field">
-      <similarity-name xtf:meta="true" xtf:index="true" xtf:store="{$sim:STORE_SIMILARITY}">
-         <!-- FIXME: strip date ranges from names -->
-         <xsl:value-of select="@displayForm"/>
-      </similarity-name>
-   </xsl:template>
-   
-   <!-- similarity-text contains any available full-text fields -->
-   <xsl:template match="abstract|content" mode="similarity-field">
-      <similarity-text xtf:meta="true" xtf:index="true" xtf:store="{$sim:STORE_SIMILARITY}">
-         <xsl:value-of select="normalize-space()"/>
-      </similarity-text>
-   </xsl:template>
-   
-   <xsl:template match="transcriptionPage[normalize-space(transcriptionText)]"
-      mode="similarity-field">
-      <similarity-text xtf:meta="true" xtf:index="true" xtf:store="{$sim:STORE_SIMILARITY}">
-         <xsl:value-of select="normalize-space(transcriptionText)"/>
-      </similarity-text>
-   </xsl:template>
-   
-   <!-- similarity-subject contains a subject/topic associated with the
-         item -->
-   <xsl:template match="subject[@displayForm]" mode="similarity-field">
-      <similarity-subject xtf:meta="true" xtf:index="true" xtf:store="{$sim:STORE_SIMILARITY}">
-         <xsl:value-of select="@displayForm"/>
-      </similarity-subject>
-   </xsl:template>
-   
-   <!-- similarity-place contains the name of a location associated with the
-         item -->
-   <xsl:template match="place[@displayForm]" mode="similarity-field">
-      <similarity-place xtf:meta="true" xtf:index="true" xtf:store="{$sim:STORE_SIMILARITY}">
-         <xsl:value-of select="@displayForm"/>
-      </similarity-place>
-   </xsl:template>
-   
-   <!-- Utilities -->
-   <xsl:template name="sim:copy-with-extra-content">
-      <xsl:param name="extra-content"/>
+      <xsl:variable name="tmp">
+         <xsl:choose>
+            <xsl:when test="starts-with($date, '-')">
+               <xsl:value-of select="substring($date, 1,3)"/>
+            </xsl:when>
+            <xsl:otherwise>
+               <xsl:value-of select="substring($date, 1,2)"/>
+            </xsl:otherwise>
+         </xsl:choose>
+      </xsl:variable>
       
-      <xsl:copy>
-         <!-- Copy attributes unchanged -->
-         <xsl:apply-templates select="@*" mode="similarity"/>
-         
-         <!-- Insert the extra content before the existing elements. -->
-         <xsl:copy-of select="$extra-content"/>
-         
-         <!-- Copy all the other nodes -->
-         <xsl:apply-templates select="node()" mode="similarity"/>
-      </xsl:copy>
-   </xsl:template>
-
-
-
-
+      <xsl:choose>
+         <xsl:when test="$tmp castable as xsd:integer">
+            <xsl:value-of select="number($tmp)"/>
+         </xsl:when>
+      </xsl:choose>
+   </xsl:function>
 </xsl:stylesheet>
-
