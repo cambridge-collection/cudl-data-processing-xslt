@@ -993,10 +993,10 @@
                <xsl:when test="normalize-space(*:title[@type='supplied'][1])">
                   <xsl:value-of select="normalize-space(*:title[@type='supplied'][1])"/>
                </xsl:when>
-               <xsl:when test="normalize-space(*:rubric)">
+               <xsl:when test="normalize-space(*:rubric[1])">
                   <xsl:variable name="rubric_title">
 
-                     <xsl:apply-templates select="*:rubric" mode="title"/>
+                     <xsl:apply-templates select="*:rubric[1]" mode="title"/>
 
                   </xsl:variable>
 
@@ -4319,10 +4319,10 @@
                <xsl:when test="normalize-space(*:title[@type='supplied'][1])">
                   <xsl:value-of select="normalize-space(*:title[@type='supplied'][1])"/>
                </xsl:when>
-               <xsl:when test="normalize-space(*:rubric)">
+               <xsl:when test="normalize-space(*:rubric[1])">
                   <xsl:variable name="rubric_title">
 
-                     <xsl:apply-templates select="*:rubric" mode="title"/>
+                     <xsl:apply-templates select="*:rubric[1]" mode="title"/>
 
                   </xsl:variable>
 
