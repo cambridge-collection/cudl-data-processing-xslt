@@ -1,64 +1,66 @@
 # XSLT for item TEI -> JSON processing
 
-This is used for processing TEI item data into JSON format for the cudl-viewer.
-It is used in the cudl data processing workflow, as a layer on the lambda function that converts item data.
+The code in this repository is used for processing TEI item data into all the formats used by the Cambridge Digital Collections Platform, namely:
 
-IT IS IMPORTANT THAT THE DIRECTORY STRUCTURE IS PRESERVED as this is referenced in the lambda code.
+1. The `www` directory contains html files for every page transcription or translation along with associated UI resources (inline diagrams, css, javascript)
+1. `collection-xml` contains collection information grouped by classmark
+1. `core-xml` version of processed metadata (including html page files and collection information)
+1. `json-viewer` contains the JSON files required for the viewer to function
+1. `json-solr` contains the JSON files that contain the metadata and textual content for indexing in solr.
 
-## Publishing the new XSLT 
-
-First ensure that you have committed and pushed any changed to git.
-
-Then install the required modules:
-
-    pip install -r requirements.txt
-
-To publish the version to s3 run the following script
-
-Required: Python3.8, AWS credentials configured for use.
-
-    python3 publish_xslt_to_s3.py
-
-This script will zip up the xslt and uploads to s3.
-
-Once done remember the commit the new version with
-
-    git add VERSION
-    git commit -m "Releasing new version"
-    git push
-
-Once complete you can deploy the new version by editing the configuration in
-<https://github.com/cambridge-collection/cudl-terraform>
-
-## Building locally using Apache ant:
+It's recommended that you use the Dockerised version to build the data, but it can be done locally or even within a CI system if you install the required prerequisites.
 
 ### Prerequisites
 
-#### Download and install
+#### [ALL]: Add cudl-data-source and cudl-data-releases
+
+Place the relevant environment's versions of cudl-data-source and cudl-data-releases at the root level of this repository.
+
+**N.B:** If you are building using the Dockerised version, you **cannot** use symlinks for these items.
+
+#### [LOCAL] Local Install Download and install
 - Java JDK
 - Saxon JAR (<https://www.saxonica.com/download/download_page.xml>)
 - Apache Ant (<https://ant.apache.org/>)
 
-#### Link the data 
+#### [DOCKER]
+- Docker [https://docs.docker.com/get-docker/]
 
-Link a local checkout of the TEI data into the 'data' folder under the root level,
-*e.g.*
+### Building the data
 
-    ln -s ~/projects/cudl-data-source/data/items data
+#### Docker
 
-### Building page extracts in dist
+`docker run -d  -v ./staging-cudl-data-releases:/opt/cdcp/cudl-data-releases -v ./staging-cudl-data-source:/opt/cdcp/cudl-data-source -v ./dist:/opt/cdcp/dist cdcp-data-build ant -buildfile /opt/cdcp/bin/build.xml`
 
-Page transcripts and json can be built locally using:
+**NB:** Whatever the releases, source and dist directories are called locally, it's **vital** that they map to `/opt/cdcp/cudl-data-releases` and `/opt/cdcp/cudl-data-source` and `/opt/cdcp/dist`a within the container.
 
-    ant -buildfile ./bin/build.xml
-    
-To only build transcripts use:
+#### Locally
 
-    ant -buildfile ./bin/build.xml "transcripts"
+Place Saxon's JAR on your CLASSPATH (*e.g.* `export CLASSPATH=/path/to/saxon-he-12.3.jar`)
 
-To only build json use:
+`ant -buildfile bin/build.xml -Ddata.dir=$(pwd)/staging-cudl-data-source -Dcollection.json.dir=$(pwd)/staging-cudl-data-releases/collections -Ddist.dir=${pwd}/dist`
 
-    ant -buildfile ./bin/build.xml "json"
+**N.B:** Absolute paths to these directories are required. Relative paths will not work.
+
+### Ant Targets
+
+If you run ant without specifying a target, it will build all the relevant resources in the output directory, namely: `collection-xml`, `www`, `core-xml`, `json-viewer`, `json-solr`
+
+It is possible to call each discrete phase of the process, which, in order, are:
+
+1. `collection-update` builds `collection-xml` into `./dist/collection-xml`
+1. `transcripts` builds html page transcriptions/translations and associated resources into `./dist/www`
+1. `core-xml` builds the core-xml metadata files into `./dist/core-xml` (**NB:** requires the results of collection-update and transcripts)
+1. `viewer-json` builds the viewer json into `./dist/json-viewer` (**NB:** requires core-xml)
+1. `solr-json` builds the solr json into `./dist/json-solr` (**NB:** requires json-solr)
+
+Each phase requires the previous ones to have been completed successfully. However, these dependencies are not hard-coded into the build file so that they can be call independantly (say in an AWS Step function).
+
+By default, ant will create all outputs for all the XML files contained within the source directory. You can, however, pass a file glob (or individual filename) to ant using `-Dfiles-to-process` so that only they are processed. For example, 
+
+`ant -buildfile bin/build.xml -Ddata.dir=$(pwd)/staging-cudl-data-source -Dcollection.json.dir=$(pwd)/staging-cudl-data-releases/collections -Ddist.dir=${pwd}/dist -Dfiles-to-process=MS-ADD-04004.xml` will only process Newton’s Waste Book (Ms Add 4004).
+
+`ant -buildfile bin/build.xml -Ddata.dir=$(pwd)/staging-cudl-data-source -Dcollection.json.dir=$(pwd)/staging-cudl-data-releases/collections -Ddist.dir=${pwd}/dist -Dfiles-to-process=MS-DAR*.xml` will only process Darwin manuscripts.
     
 ### Tests
 

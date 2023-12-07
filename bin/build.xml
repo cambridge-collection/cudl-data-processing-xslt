@@ -1,21 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
     <project name="TranformXml" default="all">
         <dirname property="buildfile.dir" file="${ant.file}"/>
-
+        
+        <!-- The following switches can be passed when invoking ant to provide custom values -->
         <property name="data.dir"  value="../cudl-data-source"/><!-- Source of the original data files -->
         <property name="collection.json.dir"  value="../cudl-data-releases/collections"/><!-- Source of the collection json files -->
+        <property name="dist.dir"  value="../dist"/><!-- Target directory for all reuseable resources -->
+        <property name="files-to-process" value="*.xml"/><!-- File(s) to build -->
         
+        <!-- Internal directories used during the build process -->
         <property name="chunk.dir"  value="../chunk"/><!-- Chunk directory: target of the chunking process; source of data for the pagify process -->
         <property name="tmp.dir"  value="../tmp"/><!-- Target directory for the TEI XML page extract files -->
         <property name="dev.null"  value="../dev.null"/><!-- Destination directory for empty junk files created by ant's xslt task when running pagify.xsl -->
-        <property name="dist.dir"  value="../dist"/><!-- Target directory for all reuseable resources -->
+        
+        <!-- Output subdirectories contained within $dist.dir -->
         <property name="www.dir"  value="${dist.dir}/www"/><!-- Target directory for web resources -->
         <property name="core_xml.dir"  value="${dist.dir}/core-xml"/><!-- target of the xtf indexing results. Source for json xslt -->
         <property name="collection_xml.dir" value="${dist.dir}/collection-xml"/><!-- collection info broken down by file -->
         <property name="viewer-json.dir"  value="${dist.dir}/json-viewer"/><!-- Destination dir for json xslt -->
         <property name="solr-json.dir"  value="${dist.dir}/json-solr"/>
         
-        <property name="files-to-process" value="*.xml"/>
+       
         
         <!--<taskdef resource="net/sf/antcontrib/antlib.xml"/>-->
         
@@ -32,7 +37,7 @@
             </retry>
         </target>
         
-        <target name="core-xml" depends="_create-pages, _transform-pages">
+        <target name="core-xml">
             <echo message="Generating core xml files"/>
             
             <retry retrycount="6">
@@ -65,13 +70,7 @@
             </xslt>
         </target>
         
-        <target name="json" depends="transcripts, core-xml, _viewer-json, _solr-json">
-            <retry retrycount="6">
-                <delete dir="${dev.null}" />
-            </retry>
-        </target>
-        
-        <target name="_viewer-json">
+        <target name="viewer-json">
             <echo message="Generating viewer json files"/>
             
             <property name="json-tmp.dir"  value="../json-tmp"/>
@@ -108,7 +107,7 @@
             </retry>
         </target>
         
-        <target name="_solr-json">
+        <target name="solr-json">
             <echo message="Generating solr json files"/>
             
             <property name="json-tmp.dir"  value="../json-tmp"/>
@@ -287,7 +286,7 @@
             <delete file="../catalog.out"/>
         </target>
         
-        <target name="collection-update" depends="_update-core-xml,_viewer-json,_solr-json"/>
+        <target name="collection-update" depends="_update-core-xml,viewer-json,solr-json"/>
         
         <target name="_update-core-xml">
             <echo message="Updating core-xml collection info"/>
@@ -326,5 +325,5 @@
             </condition>
         </target>
 
-        <target name="all" depends="itemise-collection,json" />
+        <target name="all" depends="itemise-collection, transcripts, core-xml, viewer-json, solr-json" />
     </project>
