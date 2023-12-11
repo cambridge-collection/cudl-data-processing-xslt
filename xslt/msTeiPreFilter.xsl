@@ -47,7 +47,7 @@
      <xsl:message select="concat($clean_collection_xml_dir,'/', $fileID, '.xml')"/>
      
      <xsl:if test="doc-available(concat($clean_collection_xml_dir,'/', $fileID, '.xml'))">
-        <xsl:copy-of select="doc(concat($clean_collection_xml_dir,'/', $fileID, '.xml'))/*"/>
+        <xsl:copy-of select="doc(concat($clean_collection_xml_dir,'/', $fileID, '.xml'))/json:map/json:*"/>
      </xsl:if>
   </xsl:template>
    

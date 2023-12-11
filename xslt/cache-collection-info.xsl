@@ -31,7 +31,7 @@
         <xsl:for-each-group select="$collection_information/json:array/json:map" group-by="json:array[@key='items']/json:map/json:string[@key='@id']">
             <xsl:variable name="filename" select="replace(tokenize(current-grouping-key(),'/')[last()], '\.json$', '')"/>
             <xsl:result-document href="{concat($clean_dest_dir, '/', $filename, '.xml')}">
-                <map>
+                <map xmlns="http://www.w3.org/2005/xpath-functions">
                     <array key="collection">
                         <xsl:for-each select="current-group()/json:map[@key='name']">
                             <string>
@@ -42,9 +42,9 @@
                     <xsl:for-each select="current-group()">
                         <xsl:variable name="count" select="key('filenames', current-grouping-key(), json:array[@key='items'])/count(preceding-sibling::*) + 1" />
                         <xsl:variable name="collection_name" select="cudl:get-collection-name(json:map[@key='name'])"/>
-                        <json:string key="{replace($collection_name,'\s','_')}_sort">
+                        <string key="{replace($collection_name,'\s','_')}_sort">
                             <xsl:value-of select="format-number($count, '0000')"/>
-                        </json:string>
+                        </string>
                     </xsl:for-each>
                 </map>
             </xsl:result-document>
