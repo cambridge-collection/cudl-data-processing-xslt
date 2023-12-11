@@ -26,6 +26,7 @@
          <!--<xsl:variable name="nodes-to-flatten" select="key('part_metadata','DOCUMENT')[1]//json:map[normalize-space(@key)][not(descendant::json:map[normalize-space(@key)])][descendant::json:string[@key='displayForm']][not(@key=$data_obj_excluded)]" as="item()*"/>
          <xsl:message select="concat('Ignore objects ',string-join(@key, ', '))"/>-->
          <xsl:apply-templates select="json:array[@key='descriptiveMetadata']/json:map[1]//json:array[@key='century']" mode="flatten"/>
+         <xsl:copy-of select="json:array[@key='descriptiveMetadata']/json:map[1]//json:string[@key=('yearStart', 'yearEnd')]"/>
          <xsl:apply-templates select="*"/>
       </xsl:copy>
    </xsl:template>
@@ -61,12 +62,22 @@
                      <xsl:apply-templates select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:array[@key='century']" mode="flatten"/>
                   </xsl:otherwise>
                </xsl:choose>
+               
+               <xsl:choose>
+                  <xsl:when test="$part_metadata[1]//json:string[@key=('yearStart','yearEnd')]">
+                     <xsl:copy-of select="$part_metadata[1]//json:string[@key=('yearStart','yearEnd')]"/>
+                  </xsl:when>
+                  <xsl:otherwise>
+                     <xsl:copy-of select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:string[@key=('yearStart', 'yearEnd')]"/>
+                  </xsl:otherwise>
+               </xsl:choose>
                <xsl:if test="not($part_metadata[1]//json:map[@key='subjects'])">
                   <xsl:apply-templates select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:map[@key='subjects'][descendant::json:string[@key='displayForm']]" mode="flatten"/>
                </xsl:if>
             </xsl:when>
             <xsl:otherwise>
                <xsl:apply-templates select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:array[@key='century'][descendant::json:string[@key='displayForm']]" mode="flatten"/>
+               <xsl:copy-of select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]/json:array[@key='descriptiveMetadata']/json:map[1]//json:string[@key=('yearStart', 'yearEnd')]"/>
             </xsl:otherwise>
          </xsl:choose>
          <!--<xsl:apply-templates select="$logical_structure/json:string[@key='label']" mode="convert_to_title"/>-->

@@ -4259,12 +4259,18 @@
          <string key="dateStart" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="$dateStart"/>
          </string>
+         <string key="yearStart" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="tokenize($dateStart,'-')[1]"/>
+         </string>
       </xsl:if>
       
       <xsl:variable name="dateEnd" select="cudl:get-date-end($date_elem)" as="xsd:string*"/>
       <xsl:if test="exists($date_elem/(@to, @notAfter, @when)[1]) and ($dateEnd !='' or $output_empty)"><!-- SHIM COMPAT -->
          <string key="dateEnd" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="$dateEnd"/>
+         </string>
+         <string key="yearEnd" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="tokenize($dateEnd,'-')[1]"/>
          </string>
       </xsl:if>
       
