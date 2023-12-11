@@ -15,30 +15,47 @@
     
     <xsl:variable name="clean_dest_dir" select="cudl:path-to-directory($dest_dir,$path_to_buildfile)"/>
     
+    <xsl:key name="filenames" match="json:map" use="json:string[@key='@id']"/>
+    
     <xsl:template match="/*">
-        <xsl:variable name="collection_information" as="item()*">
-            <array xmlns="http://www.w3.org/2005/xpath-functions">
+        <xsl:variable name="collection_information" as="document-node()">
+            <xsl:document>
+                <array xmlns="http://www.w3.org/2005/xpath-functions">
                 <xsl:for-each select="uri-collection(concat($data_dir,'?select=*.json'))!unparsed-text(.)">
                     <xsl:copy-of select="json-to-xml(.)"/>
                 </xsl:for-each>
             </array>
+            </xsl:document>
         </xsl:variable>
-        <xsl:message select="$collection_information/json:map/json:array/string(@key)"/>
-        <xsl:for-each-group select="$collection_information/json:map" group-by="json:array[@key='items']/json:map/json:string[@key='@id']">
+        
+        <xsl:for-each-group select="$collection_information/json:array/json:map" group-by="json:array[@key='items']/json:map/json:string[@key='@id']">
             <xsl:variable name="filename" select="replace(tokenize(current-grouping-key(),'/')[last()], '\.json$', '')"/>
-            <xsl:message select="concat($clean_dest_dir, '/', $filename, '.xml')"></xsl:message>
             <xsl:result-document href="{concat($clean_dest_dir, '/', $filename, '.xml')}">
-                <array key="collection">
-                    <xsl:for-each select="current-group()/json:map[@key='name']">
-                        <string>
-                            <xsl:value-of select="(json:string[@key='full'], json:string[@key='short'])[normalize-space(.)][1]"/>
-                        </string>
+                <map>
+                    <array key="collection">
+                        <xsl:for-each select="current-group()/json:map[@key='name']">
+                            <string>
+                                <xsl:value-of select="cudl:get-collection-name(.)"/>
+                            </string>
+                        </xsl:for-each>
+                    </array>
+                    <xsl:for-each select="current-group()">
+                        <xsl:variable name="count" select="key('filenames', current-grouping-key(), json:array[@key='items'])/count(preceding-sibling::*) + 1" />
+                        <xsl:variable name="collection_name" select="cudl:get-collection-name(json:map[@key='name'])"/>
+                        <json:string key="{replace($collection_name,'\s','_')}_sort">
+                            <xsl:value-of select="format-number($count, '0000')"/>
+                        </json:string>
                     </xsl:for-each>
-                </array>
+                </map>
             </xsl:result-document>
         </xsl:for-each-group>
-        
     </xsl:template>
+    
+    <xsl:function name="cudl:get-collection-name" as="xsd:string*">
+        <xsl:param name="context"/>
+        
+        <xsl:value-of select="$context/(json:string[@key='full'], json:string[@key='short'])[normalize-space(.)][1]"/>
+    </xsl:function>
     
     <xsl:function name="cudl:path-to-directory" as="xsd:string">
         <xsl:param name="dir"/>
