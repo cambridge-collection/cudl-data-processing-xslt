@@ -4,7 +4,7 @@
         
         <!-- The following switches can be passed when invoking ant to provide custom values -->
         <property name="data.dir"  value="../cudl-data-source"/><!-- Source of the original data files -->
-        <property name="collection.json.dir"  value="../cudl-data-releases/collections"/><!-- Source of the collection json files -->
+        <property name="collection.json.dir"  value="${data.dir}/collections"/><!-- Source of the collection json files -->
         <property name="dist.dir"  value="../dist"/><!-- Target directory for all reuseable resources -->
         <property name="files-to-process" value="*.xml"/><!-- File(s) to build -->
         
