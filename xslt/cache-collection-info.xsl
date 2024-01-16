@@ -29,7 +29,7 @@
         </xsl:variable>
         
         <xsl:for-each-group select="$collection_information/json:array/json:map" group-by="json:array[@key='items']/json:map/json:string[@key='@id']">
-            <xsl:variable name="filename" select="replace(tokenize(current-grouping-key(),'/')[last()], '\.json$', '')"/>
+            <xsl:variable name="filename" select="replace(tokenize(current-grouping-key(),'/')[last()], '\.xml', '')"/>
             <xsl:result-document href="{concat($clean_dest_dir, '/', $filename, '.xml')}">
                 <map xmlns="http://www.w3.org/2005/xpath-functions">
                     <array key="collection">
