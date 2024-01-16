@@ -30,9 +30,16 @@ Place the relevant environment's versions of cudl-data-source and cudl-data-rele
 
 #### Docker
 
-`docker run -d  -v ./staging-cudl-data-releases:/opt/cdcp/cudl-data-releases -v ./staging-cudl-data-source:/opt/cdcp/cudl-data-source -v ./dist:/opt/cdcp/dist cdcp-data-build ant -buildfile /opt/cdcp/bin/build.xml`
+```
+docker build . -f ./ant/Dockerfile -t cdcp-data-build
+docker run -d --name cdl-ant -v ./staging-cudl-data-source:/opt/cdcp/cudl-data-source -v ./dist:/opt/cdcp/dist cdcp-data-build ant -buildfile /opt/cdcp/bin/build.xml
+```
 
-**NB:** Whatever the releases, source and dist directories are called locally, it's **vital** that they map to `/opt/cdcp/cudl-data-releases` and `/opt/cdcp/cudl-data-source` and `/opt/cdcp/dist`a within the container.
+You can also pass a file, or file glob, to selectively build resources. The following will rebuild files for MS-ADD-04000 to MS-ADD-04009:
+
+`docker run -d --name cdl-ant -v ./staging-cudl-data-source:/opt/cdcp/cudl-data-source -v ./dist:/opt/cdcp/dist cdcp-data-build ant -buildfile /opt/cdcp/bin/build.xml -Dfiles-to-process="MS-ADD-0400*"`
+
+**NB:** Whatever the source and dist directories are called locally, it's **vital** that they map to `/opt/cdcp/cudl-data-source` and `/opt/cdcp/dist`a within the container.
 
 #### Locally
 
