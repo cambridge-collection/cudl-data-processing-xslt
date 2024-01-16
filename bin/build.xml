@@ -15,6 +15,7 @@
         
         <!-- Output subdirectories contained within $dist.dir -->
         <property name="www.dir"  value="${dist.dir}/www"/><!-- Target directory for web resources -->
+        <property name="checksum-src.dir"  value="${dist.dir}/checksum-src"/>
         <property name="core_xml.dir"  value="${dist.dir}/core-xml"/><!-- target of the xtf indexing results. Source for json xslt -->
         <property name="collection_xml.dir" value="${dist.dir}/collection-xml"/><!-- collection info broken down by file -->
         <property name="viewer-json.dir"  value="${dist.dir}/json-viewer"/><!-- Destination dir for json xslt -->
@@ -316,6 +317,29 @@
                     <include name="**/*.xml"/>
                 </fileset>
             </copy>
+        </target>
+        
+        <target name="checksum-sources">
+            <echo>Writing checksum sources</echo>
+            
+            <retry retrycount="6">
+                <delete dir="${checksum-src.dir}" failonerror="no" />
+            </retry>
+            
+            <mkdir dir="${checksum-src.dir}"/>
+            
+            <fileset id="original_xml" dir="${data.dir}" includes="**/${files-to-process}" />
+            
+            <xslt destdir="${dev.null}" style="../xslt/transcription/checksum-source.xsl" force="true" useimplicitfileset="false" reloadstylesheet="true">
+                <fileset refid="original_xml"/>
+                <factory name="net.sf.saxon.TransformerFactoryImpl">
+                    <attribute name="http://saxon.sf.net/feature/xinclude-aware"
+                        value="true"/>
+                </factory>
+                <param name="path_to_buildfile" expression="${buildfile.dir}"/>
+                <param name="data_dir" expression="${data.dir}"/>
+                <param name="dest_dir" expression="${checksum-src.dir}"/>
+            </xslt>
         </target>
         
         <target name="if.chunks.exist">
