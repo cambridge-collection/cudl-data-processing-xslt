@@ -21,6 +21,10 @@
    
    <xsl:template match="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]">
       
+      <json:string key="cam:restriction">
+         <xsl:text>access_closed</xsl:text>
+      </json:string>
+      
       <json:string key="filename">
          <xsl:value-of select="replace(tokenize(document-uri(/), '/')[last()], '\.xml', '', 'i')"/>
       </json:string>
