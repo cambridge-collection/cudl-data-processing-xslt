@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-    <project name="TranformXml" default="all">
+    <project name="TranformXml" default="extended">
         <dirname property="buildfile.dir" file="${ant.file}"/>
         
         <!-- The following switches can be passed when invoking ant to provide custom values -->
@@ -348,6 +348,14 @@
             </resourcecount>
             </condition>
         </target>
+        
+        <target name="doc" depends="transcripts, core-xml, viewer-json, solr-json">
+            <echo>Building doc</echo>
+        </target>
+        
+        <target name="doc-no-pages" depends="core-xml, viewer-json, solr-json" >
+            <echo>Building doc metadata</echo>
+        </target>
 
-        <target name="all" depends="itemise-collection, transcripts, core-xml, viewer-json, solr-json" />
+        <target name="extended" depends="itemise-collection, transcripts, core-xml, viewer-json, solr-json" />
     </project>
