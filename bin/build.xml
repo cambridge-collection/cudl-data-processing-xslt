@@ -20,6 +20,7 @@
         <property name="collection_xml.dir" value="${dist.dir}/collection-xml"/><!-- collection info broken down by file -->
         <property name="viewer-json.dir"  value="${dist.dir}/json-viewer"/><!-- Destination dir for json xslt -->
         <property name="solr-json.dir"  value="${dist.dir}/json-solr"/>
+        <property name="dp-json.dir"  value="${dist.dir}/json-dp"/>
         
        
         
@@ -71,6 +72,10 @@
             </xslt>
         </target>
         
+        <target name="json" depends="viewer-json, solr-json, dp-json">
+            <echo>Generate json files</echo>
+        </target>
+        
         <target name="viewer-json">
             <echo message="Generating viewer json files"/>
             
@@ -98,6 +103,39 @@
             </xslt>
             
             <move todir="${viewer-json.dir}" flatten="true">
+                <fileset dir="${json-tmp.dir}">
+                    <include name="**/*.json"/>
+                </fileset>
+            </move>
+            
+            <retry retrycount="6">
+                <delete dir="${json-tmp.dir}" failonerror="no" />
+            </retry>
+        </target>
+        
+        <target name="dp-json">
+            <echo message="Generating DP json file"/>
+            
+            <property name="json-tmp.dir"  value="../json-tmp"/>
+            
+            <retry retrycount="6">
+                <delete dir="${json-tmp.dir}" failonerror="no" />
+            </retry>
+            
+            <mkdir dir="${json-tmp.dir}"/>
+            <mkdir dir="${dp-json.dir}"/>
+            
+            <fileset id="indexed_files" dir="${core_xml.dir}" includes="**/${files-to-process}" />
+            
+            <xslt destdir="${json-tmp.dir}" style="../xslt/dp-json.xsl" force="true" useimplicitfileset="false" extension=".json" reloadstylesheet="true">
+                <fileset refid="indexed_files"/>
+                <factory name="net.sf.saxon.TransformerFactoryImpl">
+                    <attribute name="http://saxon.sf.net/feature/xinclude-aware"
+                        value="true"/>
+                </factory>
+            </xslt>
+            
+            <move todir="${dp-json.dir}" flatten="true">
                 <fileset dir="${json-tmp.dir}">
                     <include name="**/*.json"/>
                 </fileset>
