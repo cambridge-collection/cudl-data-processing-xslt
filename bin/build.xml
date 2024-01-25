@@ -22,9 +22,15 @@
         <property name="solr-json.dir"  value="${dist.dir}/json-solr"/>
         <property name="dp-json.dir"  value="${dist.dir}/json-dp"/>
         
-       
+        <!-- Comprehensive builds -->
         
-        <!--<taskdef resource="net/sf/antcontrib/antlib.xml"/>-->
+        <target name="extended" depends="_itemise-collection, full"/>
+        
+        <target name="full" depends="metadata-and-transcripts, json"/>
+        
+        <target name="full-metadata-update" depends="metadata, json"/>
+        
+        <target name="metadata-and-transcripts" depends="transcripts, metadata"/>
         
         <target name="transcripts" depends="_create-pages, _transform-pages">
             
@@ -39,25 +45,10 @@
             </retry>
         </target>
         
-        <target name="core-xml">
-            <echo message="Generating core xml files"/>
+        <target name="metadata">
+            <mkdir dir="${core_xml.dir}"/>
             
-            <retry retrycount="6">
-                <delete dir="${chunk.dir}" failonerror="no" />
-            </retry>
-            <retry retrycount="6">
-                <delete dir="${tmp.dir}" failonerror="no" />
-            </retry>
-            <retry retrycount="6">
-                <delete dir="${dev.null}" />
-            </retry>
-            <!--<retry retrycount="6">
-                <delete dir="${core_xml.dir}" failonerror="no" />
-            </retry>-->
-            
-            <mkdir dir="${viewer-json.dir}"/>
-            
-            <fileset id="original_xml" dir="${data.dir}" includes="**/${files-to-process}" />
+            <fileset id="original_xml" dir="${data.dir}" includes="${files-to-process}" />
             
             <xslt destdir="${core_xml.dir}" style="../xslt/msTeiPreFilter.xsl" force="true" useimplicitfileset="false" extension=".xml" reloadstylesheet="true">
                 <fileset refid="original_xml"/>
@@ -72,9 +63,7 @@
             </xslt>
         </target>
         
-        <target name="json" depends="viewer-json, solr-json, dp-json">
-            <echo>Generate json files</echo>
-        </target>
+        <target name="json" depends="viewer-json, solr-json, dp-json"/>
         
         <target name="viewer-json">
             <echo message="Generating viewer json files"/>
@@ -84,10 +73,6 @@
             <retry retrycount="6">
                 <delete dir="${json-tmp.dir}" failonerror="no" />
             </retry>
-            
-            <!--<retry retrycount="6">
-                <delete dir="${viewer-json.dir}" failonerror="no" />
-            </retry>-->
             
             <mkdir dir="${json-tmp.dir}"/>
             <mkdir dir="${viewer-json.dir}"/>
@@ -155,10 +140,6 @@
                 <delete dir="${json-tmp.dir}" failonerror="no" />
             </retry>
             
-            <!--<retry retrycount="6">
-                <delete dir="${solr-json.dir}" failonerror="no" />
-            </retry>-->
-            
             <mkdir dir="${json-tmp.dir}"/>
             <mkdir dir="${solr-json.dir}"/>
             
@@ -214,7 +195,7 @@
             <mkdir dir="${www.dir}"/>
             <mkdir dir="${tmp.dir}"/>
             
-            <fileset id="original_xml" dir="${data.dir}" includes="**/${files-to-process}" />
+            <fileset id="original_xml" dir="${data.dir}" includes="${files-to-process}" />
             
             <echo>Breaking files into smaller chunks</echo>
             <!-- pagify.xsl creates multiple output files from each document passed to it using xsl:result-document. It replicates the hierarchy of the 
@@ -294,7 +275,7 @@
             </retry>
         </target>
         
-        <target name="itemise-collection">
+        <target name="_itemise-collection">
             <echo message="Generating item collection xml files"/>
             
             <!-- Concurrency issue:   Any item removed from collection must be removed from collection_xml.dir.
@@ -387,13 +368,7 @@
             </condition>
         </target>
         
-        <target name="doc" depends="transcripts, core-xml, viewer-json, solr-json">
-            <echo>Building doc</echo>
-        </target>
         
-        <target name="doc-no-pages" depends="core-xml, viewer-json, solr-json" >
-            <echo>Building doc metadata</echo>
-        </target>
 
-        <target name="extended" depends="itemise-collection, transcripts, core-xml, viewer-json, solr-json" />
+        
     </project>
