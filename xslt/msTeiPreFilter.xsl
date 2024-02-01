@@ -375,11 +375,15 @@
 
    <!-- ********************************* embeddable -->
    <xsl:template name="get-embeddable">
-
+      
+      <xsl:if test="count(//*:facsimile) gt 1">
+         <xsl:message select="concat('WARN: More than one facsimile block in ', tokenize(document-uri(/), '/')[last()])"/>
+      </xsl:if>
+      
       <xsl:variable name="downloadImageRights"
          select="normalize-space(//*:publicationStmt/*:availability[@xml:id='downloadImageRights'])"/>
       <xsl:variable name="images"
-         select="normalize-space(//*:facsimile/*:surface[1]/*:graphic[1]/@url)"/>
+         select="normalize-space((//*:facsimile/*:surface[1]/*:graphic[1])[1]/@url)"/>
 
 
 
@@ -1820,8 +1824,11 @@
    <!--THUMBNAIL-->
    <xsl:template name="get-doc-thumbnail">
 
-
-      <xsl:variable name="graphic" select="//*:graphic[@decls='#document-thumbnail']"/>
+      <xsl:if test="count(//*:graphic[@decls='#document-thumbnail']) gt 1">
+         <xsl:message select="concat('WARN: More than one #document-thumbnail block in ', tokenize(document-uri(/), '/')[last()])"/>
+      </xsl:if>
+      
+      <xsl:variable name="graphic" select="(//*:graphic[@decls='#document-thumbnail'])[1]"/>
 
       <xsl:if test="$graphic">
 
