@@ -3125,18 +3125,6 @@
       <xsl:apply-templates mode="#current"/>
       <xsl:text>&lt;/p&gt;</xsl:text>
    </xsl:template>
-
-   <xsl:template match="tei:list" mode="html">
-      <xsl:text>&lt;ul&gt;</xsl:text>
-      <xsl:apply-templates mode="#current"/>
-      <xsl:text>&lt;/ul&gt;</xsl:text>
-   </xsl:template>
-
-   <xsl:template match="tei:item" mode="html">
-      <xsl:text>&lt;li&gt;</xsl:text>
-      <xsl:apply-templates mode="#current"/>
-      <xsl:text>&lt;/li&gt;</xsl:text>
-   </xsl:template>
    
    <xsl:template match="tei:table" mode="html">
       <xsl:text>&lt;table border='1'&gt;</xsl:text>
@@ -3169,15 +3157,15 @@
    </xsl:template>
    
    <xsl:template match="*[not(self::tei:additions)]/tei:list" mode="html">
-      <xsl:text>&lt;div&gt;</xsl:text>
-      <xsl:apply-templates mode="html"/>
-      <xsl:text>&lt;/div&gt;</xsl:text>
-      <xsl:text>&lt;br /&gt;</xsl:text>
+      <xsl:text>&lt;ul&gt;</xsl:text>
+      <xsl:apply-templates mode="#current"/>
+      <xsl:text>&lt;/ul&gt;</xsl:text>
    </xsl:template>
 
    <xsl:template match="*[not(self::tei:additions)]/tei:list/tei:item" mode="html">
-      <xsl:apply-templates mode="html"/>
-      <xsl:text>&lt;br /&gt;</xsl:text>
+      <xsl:text>&lt;li&gt;</xsl:text>
+      <xsl:apply-templates mode="#current"/>
+      <xsl:text>&lt;/li&gt;</xsl:text>
    </xsl:template>
 
    <xsl:template match="tei:additions/tei:list" mode="html">
