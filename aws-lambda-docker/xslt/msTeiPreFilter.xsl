@@ -1076,7 +1076,11 @@
    
    <xsl:template name="get-doc-thumbnail">
       
-      <xsl:variable name="graphic" select="//tei:graphic[@decls='#document-thumbnail']"/>
+      <xsl:if test="count(//tei:graphic[@decls='#document-thumbnail']) gt 1">
+         <xsl:message select="concat('WARN: More than one #document-thumbnail block in ', tokenize(document-uri(/), '/')[last()])"/>
+      </xsl:if>
+      
+      <xsl:variable name="graphic" select="(//tei:graphic[@decls='#document-thumbnail'])[1]"/>
 
       <xsl:if test="$graphic">
          <string key="thumbnailUrl" xmlns="http://www.w3.org/2005/xpath-functions">
