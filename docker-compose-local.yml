@@ -1,0 +1,26 @@
+version: "3"
+services:
+  cudl-tei-processing:
+    extends:
+      file: docker-compose-common.yml
+      service: cudl-tei-processing
+    environment:
+      ENVIRONMENT: local
+      TEI_FILE: ${TEI_FILE}
+    volumes:
+      - dist:/tmp/opt/cdcp/dist
+      - source:/tmp/opt/cdcp/cudl-data-source
+    entrypoint: ["bash", "-c", "-l", "/var/task/local.sh"]
+volumes:
+  dist:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: ./dist
+  source:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: ./staging-cudl-data-source

@@ -1,17 +1,15 @@
-FROM eclipse-temurin:17-jdk-jammy
+FROM public.ecr.aws/lambda/provided:al2
 
 ENV ANT_VERSION=1.10.14
 ENV ANT_HOME=/opt/ant
 
+RUN yum install -y wget tar gzip unzip java jq aws-cli
 
-# Install unzip
-RUN apt-get update -y && apt-get upgrade -y
-RUN apt-get install -y unzip
+ENV JAVA_HOME=/usr/lib/jvm
 
-# change to tmp folder
 WORKDIR /tmp
 
-# Download and extract apache ant to opt folder
+# Download and extract apache ant to /opt
 RUN wget --no-check-certificate --no-cookies "https://dlcdn.apache.org//ant/binaries/apache-ant-${ANT_VERSION}-bin.tar.gz" \
     && wget --no-check-certificate --no-cookies "https://dlcdn.apache.org//ant/binaries/apache-ant-${ANT_VERSION}-bin.tar.gz.sha512" \
     && echo "$(cat apache-ant-${ANT_VERSION}-bin.tar.gz.sha512) apache-ant-${ANT_VERSION}-bin.tar.gz" | sha512sum -c \
@@ -20,11 +18,7 @@ RUN wget --no-check-certificate --no-cookies "https://dlcdn.apache.org//ant/bina
     && rm -f "apache-ant-${ANT_VERSION}-bin.tar.gz" \
     && rm -f "apache-ant-${ANT_VERSION}-bin.tar.gz.sha512"
 
-# add ant executables to path
-RUN update-alternatives --install "/usr/bin/ant" "ant" "/opt/ant/bin/ant" 1 && \
-    update-alternatives --set "ant" "/opt/ant/bin/ant"
-
-# Download Saxon XSLT
+# Download Saxon jar -- can't find checksum files for releases
 RUN mkdir saxon \
     && wget --no-check-certificate --no-cookies "https://github.com/Saxonica/Saxon-HE/releases/download/SaxonHE12-4/SaxonHE12-4J.zip" \
     && unzip SaxonHE12-4J.zip -d saxon \
@@ -32,7 +26,17 @@ RUN mkdir saxon \
 
 ENV CLASSPATH=/opt/saxon/saxon-he-12.4.jar
 
-RUN mkdir -p /opt/cdcp/
-COPY ./bin /opt/cdcp/bin
-COPY ./xslt /opt/cdcp/xslt
-    #&& cp ./xslt /opt/cdcp/xslt
+COPY bootstrap ${LAMBDA_RUNTIME_DIR}
+RUN chmod 755 ${LAMBDA_RUNTIME_DIR}/bootstrap
+
+RUN mkdir -p /opt/cdcp
+
+WORKDIR /opt/cdcp
+RUN mkdir -p dist && mkdir -p transcriptions && mkdir -p cudl-data-source
+COPY ./bin bin
+COPY ./*.sh ${LAMBDA_TASK_ROOT}
+COPY ./xslt xslt
+
+RUN chmod a+x ${LAMBDA_TASK_ROOT}/*.sh
+
+CMD [ "aws.sh.handler" ]

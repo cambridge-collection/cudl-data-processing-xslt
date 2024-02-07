@@ -200,7 +200,7 @@
   </xsl:template>
 
   <xsl:template match="tei:choice[not(tei:unclear)]" mode="#default diplomatic normalised">
-    <xsl:apply-templates mode="#current"/>
+    <xsl:apply-templates select="*" mode="#current"/>
   </xsl:template>
 
   <xsl:template match="tei:choice[tei:unclear][count(child::*[local-name()!='unclear'])=0]" mode="#default diplomatic normalised">

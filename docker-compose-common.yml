@@ -1,0 +1,9 @@
+version: "3"
+services:
+  cudl-tei-processing:
+    build:
+      context: ./aws-lambda-docker
+      dockerfile: Dockerfile
+    container_name: cudl-tei-processing
+    env_file:
+      - .env

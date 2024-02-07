@@ -71,7 +71,7 @@
                             <xsl:message
                                 select="concat('Creating ', util:construct-output-filename-path($context, $type, $current_surface_elems[1]/@xml:id, ''))" />
                             <xsl:result-document method="xml" encoding="UTF-8" indent="no"
-                                href="{util:construct-output-filename-path($context,$type,$current_surface_elems[1]/@xml:id, '')}">
+                                href="{util:construct-output-filename-path($context, $type, $current_surface_elems[1]/@xml:id, '')}">
                                 
                                 <xsl:copy-of select="$page_xml" />
                             </xsl:result-document>
@@ -123,7 +123,7 @@
                                     
                                     <xsl:if test="$page_xml[descendant::tei:text[normalize-space(.) or descendant::tei:*[self::tei:gap|self::tei:figure|self::tei:graphic|self::tei:g]] or descendant::tei:sourceDoc[normalize-space(.) or descendant::tei:*[self::tei:gap|self::tei:figure|self::tei:graphic|self::tei:g]]]">
                                         <xsl:result-document method="xml" encoding="UTF-8" indent="no"
-                                            href="{util:construct-output-filename-path($context,$type,$surfaceID, '')}">
+                                            href="{util:construct-output-filename-path($context, $type, $surfaceID, '')}">
                                             <xsl:message
                                                 select="concat('Creating ', util:construct-output-filename-path($context, $type, $surfaceID, ''))" />
                                             <xsl:copy-of select="$page_xml" />
@@ -396,14 +396,14 @@
         <xsl:variable name="hierarchy" as="xs:string">
             <xsl:choose>
                 <xsl:when test="$clean_data_dir != ''">
-                    <xsl:value-of select="replace($path-to-filename,concat('^',$clean_data_dir),'')"/>
+                    <xsl:value-of select="replace(replace($path-to-filename,concat('^',$clean_data_dir),''), '^/', '')"/>
                 </xsl:when>
                 <xsl:otherwise>
                     <xsl:value-of select="$path-to-filename"/>
                 </xsl:otherwise>
             </xsl:choose>
         </xsl:variable>
-        <xsl:value-of select="concat(string-join(($clean_dest_dir,$hierarchy)[.!=''],'/'),'/',$output-filename)"/>
+        <xsl:value-of select="string-join(($clean_dest_dir,$hierarchy,$output-filename)[.!=''],'/')"/>
 
     </xsl:function>
     
