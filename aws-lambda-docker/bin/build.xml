@@ -19,7 +19,8 @@
     <property name="dev.null"  value="../dev.null"/><!-- Destination directory for empty junk files created by ant's xslt task when running pagify.xsl -->
     
     <!-- Initial output subdirectories within $dist-pending.dir -->
-    <property name="www.dir"  value="${dist-pending.dir}/www"/><!-- Target directory for web resources -->
+    <property name="www.dir"  value="${dist-pending.dir}/www"/><!-- Target directory for www resources -->
+    <property name="page-xml.dir"  value="${dist-pending.dir}/page-xml"/><!-- Target directory for TEI XML page files -->
     <property name="checksum-src.dir"  value="${dist-pending.dir}/checksum-src"/>
     <property name="core_xml.dir"  value="${dist-pending.dir}/core-xml"/><!-- target of the xtf indexing results. Source for json xslt -->
     <property name="collection_xml.dir" value="${dist-pending.dir}/collection-xml"/><!-- collection info broken down by file -->
@@ -199,13 +200,9 @@
         <retry retrycount="6">
             <delete dir="${dev.null}" />
         </retry>
-        <retry retrycount="6">
-            <delete dir="${tmp.dir}" />
-        </retry>
         
         <mkdir dir="${chunk.dir}"/>
         <mkdir dir="${www.dir}"/>
-        <mkdir dir="${tmp.dir}"/>
         
         <fileset id="original_xml" dir="${data.dir}" includes="${files-to-process}" />
         
@@ -253,7 +250,7 @@
                     value="true"/>
             </factory>
             <param name="path_to_buildfile" expression="${buildfile.dir}"/>
-            <param name="dest_dir" expression="${tmp.dir}"/>
+            <param name="dest_dir" expression="${page-xml.dir}"/>
             <param name="data_dir" expression="${chunk.dir}"/>
             <param name="num_chunks" expression="1"/>
         </xslt>
@@ -264,7 +261,7 @@
         
         <echo>Transforming page xml into html</echo>
         
-        <fileset id="page_files" dir="${tmp.dir}" includes="**/*.xml" />
+        <fileset id="page_files" dir="${page-xml.dir}" includes="**/*.xml" />
         
         <xslt destdir="${www.dir}" style="../xslt/transcription/msTeiTrans.xsl" force="true" useimplicitfileset="false" extension=".html" reloadstylesheet="true">
             <fileset refid="page_files"/>
@@ -278,9 +275,6 @@
         
         <retry retrycount="6">
             <delete dir="${chunk.dir}" failonerror="no" />
-        </retry>
-        <retry retrycount="6">
-            <delete dir="${tmp.dir}" failonerror="no" />
         </retry>
     </target>
 
