@@ -20,22 +20,41 @@
     
     <!-- Initial output subdirectories within $dist-pending.dir -->
     <property name="www.pending.dir"  value="${dist-pending.dir}/www"/><!-- Target directory for www resources -->
-    <property name="page-xml.pending.dir"  value="${dist-pending.dir}/page-xml"/><!-- Target directory for TEI XML page files -->
-    <property name="core_xml.pending.dir"  value="${dist-pending.dir}/core-xml"/><!-- target of the xtf indexing results. Source for json xslt -->
+
+    <!-- Target directory for TEI XML page files -->
+    <property unless:blank="${env.PAGE_XML_SOURCE}" name="page-xml.pending.dir" value="${env.PAGE_XML_SOURCE}"/>
+    <property if:blank="${env.PAGE_XML_SOURCE}" name="page-xml.pending.dir" value="${dist-pending.dir}/page-xml"/>
+
+    <property name="default.core_xml.pending.dir"  value="${dist-pending.dir}/core-xml"/><!-- target of the xtf indexing results. Source for json xslt -->
+
     <property name="viewer-json.pending.dir"  value="${dist-pending.dir}/json-viewer"/><!-- Destination dir for json viewer -->
     <property name="solr-json.pending.dir"  value="${dist-pending.dir}/json-solr"/><!-- Destination dir for json solr -->
     <property name="dp-json.pending.dir"  value="${dist-pending.dir}/json-dp"/><!-- Destination dir for json digital preservation -->
 
     <property name="checksum-src.dir"  value="${dist-pending.dir}/checksum-src"/>
-    <property name="collection_xml.dir" value="${dist-pending.dir}/collection-xml"/><!-- collection info broken down by file -->
-    
+
     <!-- Final S3 Destinations -->
-    <property name="core_xml-s3-dest" value="${env.CORE-XML-S3-DEST}"/>
-    <property name="www-s3-dest" value="${env.WWW-S3-DEST}"/>
-    <property name="page-xml-s3-dest" value="${env.PAGE-XML-S3-DEST}"/>
-    <property name="dp-json-s3-dest" value="${env.DP-S3-DEST}"/>
-    <property name="solr-json-s3-dest" value="${env.SOLR-S3-DEST}"/>
-    <property name="viewer-json-s3-dest" value="${env.VIEWER-S3-DEST}"/>
+    <property name="core_xml-s3-dest" value="${env.CORE_XML_S3_DEST}"/>
+    <property name="www-s3-dest" value="${env.WWW_S3_DEST}"/>
+    <property name="page-xml-s3-dest" value="${env.PAGE_XML_S3_DEST}"/>
+    <property name="dp-json-s3-dest" value="${env.DP_S3_DEST}"/>
+    <property name="solr-json-s3-dest" value="${env.SOLR_S3_DEST}"/>
+    <property name="viewer-json-s3-dest" value="${env.VIEWER_S3_DEST}"/>
+
+    <property name="collection_xml.dir" value="${env.COLLECTION_XML_SOURCE}"/><!-- collection info broken down by file -->
+
+    <condition property="no.copy.xml" value="true" else="false">
+        <contains string="json,solr,dp,viewer" substring="${env.ANT_TARGET}"/>
+    </condition>
+
+    <condition property="no.copy.page-xml" value="true" else="false">
+        <equals arg1="${env.ANT_TARGET}" arg2="html" />
+    </condition>
+    
+    <target name="if.core.source.overide">
+        <property unless:blank="${env.CORE_XML_SOURCE}" name="core_xml.pending.dir" value="${env.CORE_XML_SOURCE}"/>
+        <property if:blank="${env.CORE_XML_SOURCE}" name="core_xml.pending.dir" value="${dist-pending.dir}/core-xml"/>
+    </target>
     
     <!-- Comprehensive builds -->
     
@@ -43,17 +62,17 @@
         <antcall target="release-outputs"/>
     </target>
     
-    <target name="full" depends="metadata-and-transcripts, json">
+    <target name="full" depends="if.core.source.overide, metadata-and-transcripts, _json">
         <antcall target="release-outputs"/>
     </target>
-    
-    <target name="full-metadata-update" depends="metadata, json">
+
+    <target name="full-metadata-update" depends="if.core.source.overide, metadata, _json">
         <antcall target="release-outputs"/>
     </target>
-    
+
     <target name="metadata-and-transcripts" depends="transcripts, metadata"/>
-    
-    
+
+
     <target name="transcripts" depends="_create-pages, _transform-pages">
 
         <retry retrycount="6">
@@ -66,12 +85,12 @@
             <delete dir="${dev.null}" />
         </retry>
     </target>
-    
+
     <target name="metadata">
         <mkdir dir="${core_xml.pending.dir}"/>
-        
+
         <fileset id="original_xml" dir="${data.dir}" includes="${files-to-process}" />
-        
+
         <xslt destdir="${core_xml.pending.dir}" style="../xslt/msTeiPreFilter.xsl" force="true" useimplicitfileset="false" extension=".xml" reloadstylesheet="true">
             <fileset refid="original_xml"/>
             <factory name="net.sf.saxon.TransformerFactoryImpl">
@@ -84,23 +103,29 @@
             <param name="collection_xml_dir" expression="${collection_xml.dir}"/>
         </xslt>
     </target>
-    
-    <target name="json" depends="viewer-json, solr-json, dp-json"/>
-    
-    <target name="viewer-json">
+
+    <target name="_json" depends="_viewer-json, _solr-json, _dp-json"/>
+
+    <target name="solr" depends="_solr-json, release-outputs"/>
+    <target name="viewer" depends="_viewer-json, release-outputs"/>
+    <target name="dp" depends="_dp-json, release-outputs"/>
+    <target name="json" depends="_json, release-outputs"/>
+    <target name="html" depends="_html, if.core.source.overide, metadata, _json, release-outputs"/>
+
+    <target name="_viewer-json" depends="if.core.source.overide">
         <echo message="Generating viewer json files"/>
-        
+
         <property name="json-tmp.dir"  value="../json-tmp"/>
-        
+
         <retry retrycount="6">
             <delete dir="${json-tmp.dir}" failonerror="no" />
         </retry>
-        
+
         <mkdir dir="${json-tmp.dir}"/>
         <mkdir dir="${viewer-json.pending.dir}"/>
-        
+
         <fileset id="indexed_files" dir="${core_xml.pending.dir}" includes="${files-to-process}" />
-        
+
         <xslt destdir="${json-tmp.dir}" style="../xslt/viewer-json.xsl" force="true" useimplicitfileset="false" extension=".json" reloadstylesheet="true">
             <fileset refid="indexed_files"/>
             <factory name="net.sf.saxon.TransformerFactoryImpl">
@@ -108,32 +133,32 @@
                     value="true"/>
             </factory>
         </xslt>
-        
+
         <move todir="${viewer-json.pending.dir}" flatten="true">
             <fileset dir="${json-tmp.dir}">
                 <include name="**/*.json"/>
             </fileset>
         </move>
-        
+
         <retry retrycount="6">
             <delete dir="${json-tmp.dir}" failonerror="no" />
         </retry>
     </target>
-    
-    <target name="dp-json">
+
+    <target name="_dp-json" depends="if.core.source.overide">
         <echo message="Generating DP json file"/>
-        
+
         <property name="json-tmp.dir"  value="../json-tmp"/>
-        
+
         <retry retrycount="6">
             <delete dir="${json-tmp.dir}" failonerror="no" />
         </retry>
-        
+
         <mkdir dir="${json-tmp.dir}"/>
         <mkdir dir="${dp-json.pending.dir}"/>
-        
+
         <fileset id="indexed_files" dir="${core_xml.pending.dir}" includes="${files-to-process}" />
-        
+
         <xslt destdir="${json-tmp.dir}" style="../xslt/dp-json.xsl" force="true" useimplicitfileset="false" extension=".json" reloadstylesheet="true">
             <fileset refid="indexed_files"/>
             <factory name="net.sf.saxon.TransformerFactoryImpl">
@@ -141,19 +166,19 @@
                     value="true"/>
             </factory>
         </xslt>
-        
+
         <move todir="${dp-json.pending.dir}" flatten="true">
             <fileset dir="${json-tmp.dir}">
                 <include name="**/*.json"/>
             </fileset>
         </move>
-        
+
         <retry retrycount="6">
             <delete dir="${json-tmp.dir}" failonerror="no" />
         </retry>
     </target>
-    
-    <target name="solr-json">
+
+    <target name="_solr-json" depends="if.core.source.overide">
         <echo message="Generating solr json files"/>
         
         <property name="json-tmp.dir"  value="../json-tmp"/>
@@ -268,9 +293,23 @@
             <delete dir="${dev.null}" />
         </retry>
         
+        <antcall target="_html"/>
+
+    </target>
+    
+    <target name="_html">
         <echo>Transforming page xml into html</echo>
         
-        <fileset id="page_files" dir="${page-xml.pending.dir}" includes="**/*.xml" />
+        <loadresource property="page_xml_items.dir">
+            <propertyresource name="files-to-process"/>
+            <filterchain>
+                <tokenfilter>
+                    <replaceregex pattern="/[^/]+$" replace="" flags="g"/>
+                </tokenfilter>
+            </filterchain>
+        </loadresource>
+        
+        <fileset id="page_files" dir="${page-xml.pending.dir}" includes="${page_xml_items.dir}/*.xml" />
         
         <xslt destdir="${www.pending.dir}" style="../xslt/transcription/msTeiTrans.xsl" force="true" useimplicitfileset="false" extension=".html" reloadstylesheet="true">
             <fileset refid="page_files"/>
@@ -286,14 +325,13 @@
             <delete dir="${chunk.dir}" failonerror="no" />
         </retry>
     </target>
-
+    
     <target name="_copy_web_resources" depends="if.local.environment">
-
+        
         <copy if:true="${is.local.environment}" todir="${www.pending.dir}">
             <fileset dir="../xslt/transcription/web/">
             </fileset>
         </copy>
-
     </target>
     
     <target name="_itemise-collection">
@@ -312,8 +350,6 @@
         
         <mkdir dir="${collection_xml.dir}"/>
         
-        <fileset id="core_xml" dir="${data.dir}" includes="${files-to-process}" />
-        
         <xslt out="../catalog.out" in="../xslt/cache-collection-info.xsl" style="../xslt/cache-collection-info.xsl" force="true" useimplicitfileset="false" extension=".xml" reloadstylesheet="true">
             <factory name="net.sf.saxon.TransformerFactoryImpl">
                 <attribute name="http://saxon.sf.net/feature/xinclude-aware"
@@ -327,7 +363,7 @@
         <delete file="../catalog.out"/>
     </target>
     
-    <target name="collection-update" depends="_update-core-xml,viewer-json,solr-json"/>
+    <target name="collection-update" depends="_update-core-xml, _viewer-json, _solr-json"/>
     
     <target name="_update-core-xml">
         <echo message="Updating core-xml collection info"/>
@@ -399,6 +435,51 @@
     </target>
 
     <target name="_copy_to_s3">
+        
+        <antcall unless:true="${no.copy.xml}" target="_copy_xml_derivs_to_s3"/>
+
+        <condition property="www.exists" value="true" else="false"><available file="${www.pending.dir}/items" type="dir"/></condition>
+        <echo if:true="${www.exists}" message="Copying ${www.pending.dir}/items/ to S3://${www-s3-dest}"/>
+        <exec if:true="${www.exists}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="sync"/>
+            <arg value="--quiet"/>
+            <arg value="${www.pending.dir}/items/"/>
+            <arg value="s3://${www-s3-dest}"/>
+        </exec>
+
+        <condition property="viewer-json.exists" value="true" else="false"><available file="${viewer-json.pending.dir}" type="dir"/></condition>
+        <echo if:true="${viewer-json.exists}" message="Copying ${viewer-json.pending.dir} to S3://${viewer-json-s3-dest}"/>
+        <exec if:true="${viewer-json.exists}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="sync"/>
+            <arg value="--quiet"/>
+            <arg value="${viewer-json.pending.dir}"/>
+            <arg value="s3://${viewer-json-s3-dest}"/>
+        </exec>
+
+        <condition property="dp-json.exists" value="true" else="false"><available file="${dp-json.pending.dir}" type="dir"/></condition>
+        <echo if:true="${dp-json.exists}" message="Copying ${dp-json.pending.dir} to S3://${dp-json-s3-dest}"/>
+        <exec if:true="${dp-json.exists}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="sync"/>
+            <arg value="--quiet"/>
+            <arg value="${dp-json.pending.dir}"/>
+            <arg value="s3://${dp-json-s3-dest}"/>
+        </exec>
+
+        <condition property="solr-json.exists" value="true" else="false"><available file="${solr-json.pending.dir}" type="dir"/></condition>
+        <echo if:true="${solr-json.exists}" message="Copying ${solr-json.pending.dir} to S3://${solr-json-s3-dest}"/>
+        <exec if:true="${solr-json.exists}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="sync"/>
+            <arg value="--quiet"/>
+            <arg value="${solr-json.pending.dir}"/>
+            <arg value="s3://${solr-json-s3-dest}"/>
+        </exec>
+    </target>
+    
+    <target name="_copy_xml_derivs_to_s3">
         <echo message="Copying ${core_xml.pending.dir} to S3://${core_xml-s3-dest}"/>
         <exec executable="aws" resolveexecutable="true">
             <arg value="s3"/>
@@ -408,8 +489,8 @@
             <arg value="s3://${core_xml-s3-dest}"/>
         </exec>
         
-        <echo message="Copying ${page-xml.pending.dir} to S3://${page-xml-s3-dest}"/>
-        <exec executable="aws" resolveexecutable="true">
+        <echo unless:true="${no.copy.page-xml}" message="Copying ${page-xml.pending.dir} to S3://${page-xml-s3-dest}"/>
+        <exec unless:true="${no.copy.page-xml}" executable="aws" resolveexecutable="true">
             <arg value="s3"/>
             <arg value="sync"/>
             <arg value="--quiet"/>
@@ -417,45 +498,9 @@
             <arg value="s3://${page-xml-s3-dest}"/>
         </exec>
         
-        <echo message="Copying ${www.pending.dir}/items/ to S3://${www-s3-dest}"/>
-        <exec executable="aws" resolveexecutable="true">
-            <arg value="s3"/>
-            <arg value="sync"/>
-            <arg value="--quiet"/>
-            <arg value="${www.pending.dir}/items/"/>
-            <arg value="s3://${www-s3-dest}"/>
-        </exec>
-        
-        <echo message="Copying ${viewer-json.pending.dir} to S3://${viewer-json-s3-dest}"/>
-        <exec executable="aws" resolveexecutable="true">
-            <arg value="s3"/>
-            <arg value="sync"/>
-            <arg value="--quiet"/>
-            <arg value="${viewer-json.pending.dir}"/>
-            <arg value="s3://${viewer-json-s3-dest}"/>
-        </exec>
-        
-        <echo message="Copying ${dp-json.pending.dir} to S3://${dp-json-s3-dest}"/>
-        <exec executable="aws" resolveexecutable="true">
-            <arg value="s3"/>
-            <arg value="sync"/>
-            <arg value="--quiet"/>
-            <arg value="${dp-json.pending.dir}"/>
-            <arg value="s3://${dp-json-s3-dest}"/>
-        </exec>
-        
-        <echo message="Copying ${solr-json.pending.dir} to S3://${solr-json-s3-dest}"/>
-        <exec executable="aws" resolveexecutable="true">
-            <arg value="s3"/>
-            <arg value="sync"/>
-            <arg value="--quiet"/>
-            <arg value="${solr-json.pending.dir}"/>
-            <arg value="s3://${solr-json-s3-dest}"/>
-        </exec>
     </target>
 
     <target name="if.local.environment">
-        <echo message="${ENVIRONMENT}"/>
         <condition property="is.local.environment" value="true" else="false">
             <equals arg1="${ENVIRONMENT}" arg2="local" trim="true"/>
         </condition>

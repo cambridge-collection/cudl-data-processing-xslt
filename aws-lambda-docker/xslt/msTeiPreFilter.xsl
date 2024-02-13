@@ -44,8 +44,6 @@
    </xsl:template>
   
   <xsl:template name="get-collection">
-     <xsl:message select="concat($clean_collection_xml_dir,'/', $fileID, '.xml')"/>
-     
      <xsl:if test="doc-available(concat($clean_collection_xml_dir,'/', $fileID, '.xml'))">
         <xsl:copy-of select="doc(concat($clean_collection_xml_dir,'/', $fileID, '.xml'))/json:map/json:*"/>
      </xsl:if>
@@ -58,6 +56,9 @@
          </array>
 
          <!--top level fields concerning the document as a whole-->
+         <string key="fileID" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="$fileID"/>
+         </string>
          <xsl:call-template name="get-collection"/>
          <xsl:call-template name="get-numberOfPages"/>
          <xsl:call-template name="get-embeddable"/>
@@ -850,7 +851,7 @@
                            <xsl:call-template name="output-date-elems">
                               <xsl:with-param name="date_elem" select="$preferred-date-elem"/>
                               <xsl:with-param name="label" select="'Date of Publication'"/>
-                              <xsl:with-param name="output_empty" select="true()"/>
+                              <xsl:with-param name="output_empty" select="false()"/>
                            </xsl:call-template>
                         </xsl:if>
                         
@@ -950,7 +951,7 @@
                         <xsl:if test="not(empty($preferred-date-elem))">
                            <xsl:call-template name="output-date-elems">
                               <xsl:with-param name="date_elem" select="$preferred-date-elem"/>
-                              <xsl:with-param name="output_empty" select="true()"/><!-- SHIM COMPAT -->
+                              <xsl:with-param name="output_empty" select="false()"/><!-- SHIM COMPAT -->
                               <xsl:with-param name="output_centuries" select="true()"/>
                            </xsl:call-template>
                         </xsl:if>
@@ -2463,6 +2464,9 @@
                      <xsl:variable name="surface-elem" select="."/>
                      <xsl:variable name="label" select="normalize-space(@n)"/>
                   <map xmlns="http://www.w3.org/2005/xpath-functions">
+                     <string key="id" xmlns="http://www.w3.org/2005/xpath-functions">
+                        <xsl:value-of select="concat($fileID, '-', string(position()))"/>
+                     </string>
                      <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:value-of select="$label"/>
                      </string>
@@ -2474,6 +2478,9 @@
                      <number key="sequence" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:value-of select="position()"/>
                      </number>
+                     <string key="itemURL" xmlns="http://www.w3.org/2005/xpath-functions">
+                        <xsl:value-of select="string-join(($fileID, string(position()))[normalize-space(.)], '/')"/>
+                     </string>
                      
                      <xsl:variable name="imageUrl" select="normalize-space(tei:graphic[contains(@decls, '#download')]/@url)"/>
                      <xsl:variable name="thumbnailOrientation" select="normalize-space(tei:graphic[contains(@decls, '#download')]/@rend)"/>
@@ -2533,7 +2540,16 @@
                      <xsl:variable name="isLast" select="string(position()=last())"/>
                      
                      <xsl:choose>
-                        <xsl:when test="tei:media[contains(@mimeType,'transcription')]"/>
+                        <xsl:when test="tei:media[contains(@mimeType,'transcription')]">
+                           <!-- TODO Transcription not embeded because it's only available via API
+                                     Convert to in-house TEI and remove all these shims?
+                           -->
+                           <map key="transcription_content" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <boolean key="pageHasTranscription" xmlns="http://www.w3.org/2005/xpath-functions">
+                                 <xsl:value-of select="true()"/>
+                              </boolean>
+                           </map>
+                        </xsl:when>
                         <xsl:otherwise>
                            <xsl:variable name="transcription_container" select="//tei:text/tei:body/tei:div[not(@type)]" as="item()*" />
                            
@@ -2547,15 +2563,27 @@
                                     <xsl:value-of select="false()"/>
                                  </boolean>
                               </xsl:if>
-                              <xsl:for-each select="$transcription_pb">
-                                 <xsl:call-template name="output-html-link">
-                                    <xsl:with-param name="current_pb" select="."/>
-                                    <xsl:with-param name="isLast" select="$isLast"/>
-                                    <xsl:with-param name="label" select="$label"/>
-                                    <xsl:with-param name="type" select="'transcription'"/>
-                                    <xsl:with-param name="html_dir" select="$html_dir"/>
-                                 </xsl:call-template>
-                              </xsl:for-each>
+                           <xsl:choose>
+                              <xsl:when test="exists($transcription_pb)">
+                                 <xsl:for-each select="$transcription_pb">
+                                    <xsl:call-template name="output-html-link">
+                                       <xsl:with-param name="current_pb" select="."/>
+                                       <xsl:with-param name="isLast" select="$isLast"/>
+                                       <xsl:with-param name="label" select="$label"/>
+                                       <xsl:with-param name="type" select="'transcription'"/>
+                                       <xsl:with-param name="html_dir" select="$html_dir"/>
+                                    </xsl:call-template>
+                                 </xsl:for-each>
+                              </xsl:when>
+                              <xsl:otherwise>
+                                 
+                                 <map key="transcription_content" xmlns="http://www.w3.org/2005/xpath-functions">
+                                    <boolean key="pageHasTranscription" xmlns="http://www.w3.org/2005/xpath-functions">
+                                       <xsl:value-of select="false()"/>
+                                    </boolean>
+                                 </map>
+                              </xsl:otherwise>
+                           </xsl:choose>
                            <!--</xsl:if>-->
                         </xsl:otherwise>
                      </xsl:choose>
@@ -2567,15 +2595,35 @@
                            key('pbNs', $label)[@type='pageBoundary'][ancestor::tei:div[@type='translation']/parent::tei:body],
                            key('pbNs', $label)[ancestor::tei:div[@type='translation']/parent::tei:body][not(@type='pageBoundary')]
                            )[1]" as="item()*"/>
-                        <xsl:for-each select="$translation_pb">
-                           <xsl:call-template name="output-html-link">
-                              <xsl:with-param name="current_pb" select="."/>
-                              <xsl:with-param name="isLast" select="$isLast"/>
-                              <xsl:with-param name="label" select="$label"/>
-                              <xsl:with-param name="type" select="'translation'"/>
-                              <xsl:with-param name="html_dir" select="$html_dir"/>
-                           </xsl:call-template>
-                        </xsl:for-each>
+                     <xsl:choose>
+                        <xsl:when test="exists($translation_pb)">
+                           <xsl:for-each select="$translation_pb">
+                              <xsl:call-template name="output-html-link">
+                                 <xsl:with-param name="current_pb" select="."/>
+                                 <xsl:with-param name="isLast" select="$isLast"/>
+                                 <xsl:with-param name="label" select="$label"/>
+                                 <xsl:with-param name="type" select="'translation'"/>
+                                 <xsl:with-param name="html_dir" select="$html_dir"/>
+                              </xsl:call-template>
+                           </xsl:for-each>
+                        </xsl:when>
+                        <xsl:otherwise>
+                           <map key="translation_content" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:message select="parent::tei:surface"></xsl:message>
+                              <boolean key="pageHasTranslation" xmlns="http://www.w3.org/2005/xpath-functions">
+                                 <xsl:choose>
+                                    <xsl:when test="tei:media[@mimeType='translation']">
+                                       <xsl:value-of select="true()"/>
+                                       
+                                    </xsl:when>
+                                    <xsl:otherwise>
+                                       <xsl:value-of select="false()"/>
+                                    </xsl:otherwise>
+                                 </xsl:choose>
+                              </boolean>
+                           </map>
+                        </xsl:otherwise>
+                     </xsl:choose>
                      <!--</xsl:if>-->
                   </map>
                   </xsl:for-each>
@@ -2617,46 +2665,64 @@
       <!-- Do not ouput if pb[position() gt 1][ancestor::div[@decls='#unpaginated']] -->
       <!-- not($current_pb is (tei:div[@decls='unpaginated']//tei:pb)[position() gt 1]) -->
       
-      <xsl:if test="unparsed-text-available($html_file)">
-         <map key="{$type}_content" xmlns="http://www.w3.org/2005/xpath-functions">
-            <string key="filename" xmlns="http://www.w3.org/2005/xpath-functions">
-               <xsl:value-of select="replace(tokenize($html_file,'/')[last()],'\.html$','')"/>
-            </string>
-            <string key="fullpath" xmlns="http://www.w3.org/2005/xpath-functions">
-               <xsl:value-of select="replace($html_file, concat($clean_dest_dir, '/*'), '')"/>
-            </string>
-            <string key="surfaceID" xmlns="http://www.w3.org/2005/xpath-functions">
-               <xsl:value-of select="concat('i',$surface_number)"/>
-            </string>
-            <string key="text" xmlns="http://www.w3.org/2005/xpath-functions">
-               <xsl:value-of select="unparsed-text($html_file)"/>
-            </string>
-         </map>
-         <xsl:choose>
-         <xsl:when test="$isLast = 'true' and count(following::*) = 0"/>
-         <!--when there's no content between here and the next pb element do nothing-->
-          <xsl:when test="not(key('surfaceIDs', $current_pb/@facs))">
-              <xsl:message select="concat('ERROR: ', $fileID, ' has invalid pb/@facs or surface/@xml:id: ''', $current_pb/@facs, '''')"/>
-          </xsl:when>
-         <xsl:when test="local-name(following-sibling::*[1]) = 'pb' and not(ancestor::tei:div[tokenize(normalize-space(@decls), '\s+')[. = '#unpaginated']])"/>
-         <xsl:otherwise>
+      <xsl:choose>
+         <xsl:when test="unparsed-text-available($html_file)">
+            <map key="{$type}_content" xmlns="http://www.w3.org/2005/xpath-functions">
+               <boolean key="pageHas{cudl:capitalise-first($type)}" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="true()"/>
+               </boolean>
+               <string key="filename" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="replace(tokenize($html_file,'/')[last()],'\.html$','')"/>
+               </string>
+               <string key="fullpath" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="replace($html_file, concat($clean_dest_dir, '/*'), '')"/>
+               </string>
+               <string key="surfaceID" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="concat('i',$surface_number)"/>
+               </string>
+               <string key="text" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="unparsed-text($html_file)"/>
+               </string>
+            </map>
             <xsl:choose>
-                  <xsl:when test="$type='transcription'">
-                     <xsl:variable name="encoded-label" select="replace($label, ' ', '%20')"/>
-                     
-                     <string key="transcriptionDiplomaticURL" xmlns="http://www.w3.org/2005/xpath-functions">
-                        <xsl:value-of select="lambda:write-tei-services-link(., 'transcription')"/>
-                     </string>
-                  </xsl:when>
-                  <xsl:when test="$type='translation'">
-                     <string key="translationURL" xmlns="http://www.w3.org/2005/xpath-functions">
-                        <xsl:value-of select="lambda:write-tei-services-link(.,'translation')"/>
-                     </string>
-                  </xsl:when>
-               </xsl:choose>
+               <xsl:when test="$isLast = 'true' and count(following::*) = 0"/>
+               <!--when there's no content between here and the next pb element do nothing-->
+               <xsl:when test="not(key('surfaceIDs', $current_pb/@facs))">
+                  <xsl:message select="concat('ERROR: ', $fileID, ' has invalid pb/@facs or surface/@xml:id: ''', $current_pb/@facs, '''')"/>
+               </xsl:when>
+               <xsl:when test="local-name(following-sibling::*[1]) = 'pb' and not(ancestor::tei:div[tokenize(normalize-space(@decls), '\s+')[. = '#unpaginated']])"/>
+               <xsl:otherwise>
+                  <xsl:choose>
+                     <xsl:when test="$type='transcription'">
+                        <xsl:variable name="encoded-label" select="replace($label, ' ', '%20')"/>
+                        
+                        <string key="transcriptionDiplomaticURL" xmlns="http://www.w3.org/2005/xpath-functions">
+                           <xsl:value-of select="lambda:write-tei-services-link(., 'html_transcription')"/>
+                        </string>
+                        <string key="pageXMLTranscriptionURL" xmlns="http://www.w3.org/2005/xpath-functions">
+                           <xsl:value-of select="lambda:write-tei-services-link(., 'page_xml_transcription')"/>
+                        </string>
+                     </xsl:when>
+                     <xsl:when test="$type='translation'">
+                        <string key="translationURL" xmlns="http://www.w3.org/2005/xpath-functions">
+                           <xsl:value-of select="lambda:write-tei-services-link(.,'html_translation')"/>
+                        </string>
+                        <string key="pageXMLTranslationURL" xmlns="http://www.w3.org/2005/xpath-functions">
+                           <xsl:value-of select="lambda:write-tei-services-link(., 'page_xml_translation')"/>
+                        </string>
+                     </xsl:when>
+                  </xsl:choose>
+               </xsl:otherwise>
+            </xsl:choose>
+         </xsl:when>
+         <xsl:otherwise>
+            <map key="{$type}_content" xmlns="http://www.w3.org/2005/xpath-functions">
+               <boolean key="pageHas{cudl:capitalise-first($type)}" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="false()"/>
+               </boolean>
+            </map>
          </xsl:otherwise>
       </xsl:choose>
-      </xsl:if>
    </xsl:template>
 
    <!--LIST ITEM PAGES - passing through for indexing-->
@@ -4247,23 +4313,25 @@
       <xsl:param name="output_centuries" select="false()"/>
       
       <xsl:variable name="dateStart" select="cudl:get-date-start($date_elem)" as="xsd:string*"/>
-      <xsl:if test="exists($date_elem/(@from, @notBefore, @when)[1]) and ($dateStart !='' or $output_empty)"><!-- SHIM COMPAT -->
+      <xsl:variable name="yearStart" select="cudl:get-year($date_elem/(@from, @notBefore, @when)[1])"/>
+      <xsl:if test="$yearStart castable as xsd:integer and ($dateStart !='' or $output_empty)"><!-- SHIM COMPAT -->
          <string key="dateStart" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="$dateStart"/>
          </string>
-         <string key="yearStart" xmlns="http://www.w3.org/2005/xpath-functions">
-            <xsl:value-of select="tokenize($dateStart,'-')[1]"/>
-         </string>
+         <number key="yearStart" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="$yearStart"/>
+         </number>
       </xsl:if>
       
       <xsl:variable name="dateEnd" select="cudl:get-date-end($date_elem)" as="xsd:string*"/>
-      <xsl:if test="exists($date_elem/(@to, @notAfter, @when)[1]) and ($dateEnd !='' or $output_empty)"><!-- SHIM COMPAT -->
+      <xsl:variable name="yearEnd" select="cudl:get-year($date_elem/(@to, @notAfter, @when)[1])"/>
+      <xsl:if test="$yearEnd castable as xsd:integer and ($dateEnd !='' or $output_empty)"><!-- SHIM COMPAT -->
          <string key="dateEnd" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="$dateEnd"/>
          </string>
-         <string key="yearEnd" xmlns="http://www.w3.org/2005/xpath-functions">
-            <xsl:value-of select="tokenize($dateEnd,'-')[1]"/>
-         </string>
+         <number key="yearEnd" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="$yearEnd"/>
+         </number>
       </xsl:if>
       
       <xsl:if test="$output_centuries eq true() and $dateStart !=''">
@@ -4337,13 +4405,22 @@
             <xsl:value-of select="$node/@to"/>
          </xsl:when>
          <xsl:when test="$node/@notAfter">
-            <xsl:value-of select="$node/@notAfter"/><!-- TODO: Shouldn't this be notAfter?-->
+            <xsl:value-of select="$node/@notAfter"/>
          </xsl:when>
          <xsl:when test="$node/@when">
             <xsl:value-of select="$node/@when"/>
          </xsl:when>
          <xsl:otherwise/>
       </xsl:choose>
+   </xsl:function>
+   
+   <xsl:function name="cudl:get-year" as="xsd:integer*">
+      <xsl:param name="iso_string"/>
+      
+      <xsl:variable name="year_tmp" select="replace($iso_string,'(^-*\d{1,4})(.+)*$', '$1')"/>
+      <xsl:if test="$year_tmp castable as xsd:integer">
+         <xsl:sequence select="xsd:integer($year_tmp)"/>
+      </xsl:if>
    </xsl:function>
    
    <xsl:function name="cudl:display" as="item()">

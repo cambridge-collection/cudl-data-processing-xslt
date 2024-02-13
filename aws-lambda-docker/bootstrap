@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-mkdir -p /tmp/opt/cdcp/dist && mkdir -p /tmp/opt/cdcp/transcriptions && mkdir -p /tmp/opt/cdcp/cudl-data-source
+mkdir -p /tmp/opt/cdcp/dist && mkdir -p /tmp/opt/cdcp/dist-pending/collection-xml && mkdir -p /tmp/opt/cdcp/transcriptions && mkdir -p /tmp/opt/cdcp/cudl-data-source
 
 # Initialization - load function handler
 source $LAMBDA_TASK_ROOT/"$(echo $_HANDLER | cut -d. -f1).sh"
@@ -21,5 +21,5 @@ do
   RESPONSE=$($(echo "$_HANDLER" | cut -d. -f3) "$EVENT_DATA")
 
   # Send the response
-  curl "http://${AWS_LAMBDA_RUNTIME_API}/2018-06-01/runtime/invocation/$REQUEST_ID/response"  -d "$RESPONSE"
+  curl --no-progress-meter "http://${AWS_LAMBDA_RUNTIME_API}/2018-06-01/runtime/invocation/$REQUEST_ID/response"  -d "$RESPONSE"
 done

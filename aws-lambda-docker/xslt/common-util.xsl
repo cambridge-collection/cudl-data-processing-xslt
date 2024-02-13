@@ -95,22 +95,27 @@
       <xsl:variable name="fileID" select="lambda:construct-output-filename-path($node, 'services')"/>
       
       <xsl:choose>
-         <xsl:when
-            test="namespace-uri($node) = 'http://www.tei-c.org/ns/1.0' and $type = ('', 'transcription')">
-            <xsl:value-of select="concat('/v1/transcription/tei/diplomatic/internal/',$fileID)"/>
-         </xsl:when>
-         <xsl:when
-            test="namespace-uri($node) = 'http://www.tei-c.org/ns/1.0' and $type = ('translation')">
-            <!-- Can it be /EN/tei/...? The tei/... is part of fileID -->
-            <xsl:value-of
-               select="concat('/v1/translation/tei/',lambda:get-translation-lang-code($node),'/',$fileID)"
-            />
-         </xsl:when>
-         <xsl:when
-            test="namespace-uri($node) = 'http://www.tei-c.org/ns/1.0' and $type = ('metadata')">
-            <xsl:value-of
-               select="concat('/v1/metadata/tei/',replace(tokenize($fileID,'/')[last()],'\.xml$',''),'/')"
-            />
+         <xsl:when test="namespace-uri($node) = 'http://www.tei-c.org/ns/1.0'">
+            <xsl:choose>
+               <xsl:when test="$type = ('', 'html_transcription')">
+                  <xsl:value-of select="concat('/v1/transcription/tei/diplomatic/internal/', $fileID)"/>
+               </xsl:when>
+               <xsl:when test="$type = ('html_translation')">
+                  <!-- Can it be /EN/tei/...? The tei/... is part of fileID -->
+                  <xsl:value-of select="concat('/v1/translation/tei/', lambda:get-translation-lang-code($node), '/', $fileID)" />
+               </xsl:when>
+               <xsl:when test="$type = ('', 'page_xml_transcription')">
+                  <!-- Determine services url -->
+                  <xsl:value-of select="concat('/v1/transcription/tei/diplomatic/internal/', $fileID)"/>
+               </xsl:when>
+               <xsl:when test="$type = ('page_xml_translation')">
+                  <!-- Determine services url -->
+                  <xsl:value-of select="concat('/v1/translation/tei/', lambda:get-translation-lang-code($node), '/', $fileID)"/>
+               </xsl:when>
+               <xsl:when test="$type = ('metadata')">
+                  <xsl:value-of select="concat('/v1/metadata/tei/', replace(tokenize($fileID,'/')[last()], '\.xml$', ''), '/')"/>
+               </xsl:when>
+            </xsl:choose>
          </xsl:when>
          <xsl:otherwise/>
       </xsl:choose>
@@ -202,9 +207,4 @@
                             not(preceding::tei:addSpan/replace(normalize-space(@spanTo), '#', '') = following::tei:anchor/@xml:id)])"/>
    </xsl:function>
    
-   <xsl:function name="lambda:page-has-content" as="xsd:boolean">
-      <xsl:param name="node" as="item()"/>
-      
-      <xsl:sequence select="exists($node[normalize-space(.) or self::tei:graphic or self::tei:gap])" />
-   </xsl:function>
 </xsl:stylesheet>
