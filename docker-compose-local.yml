@@ -2,7 +2,7 @@ version: "3"
 services:
   cudl-tei-processing:
     extends:
-      file: docker-compose-common.yml
+      file: docker-compose-base.yml
       service: cudl-tei-processing
     environment:
       ENVIRONMENT: local

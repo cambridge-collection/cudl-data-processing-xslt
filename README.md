@@ -4,72 +4,102 @@ The code in this repository is used for processing TEI item data into all the fo
 
 1. The `www` directory contains html files for every page transcription or translation along with associated UI resources (inline diagrams, css, javascript)
 1. `collection-xml` contains collection information grouped by classmark
-1. `core-xml` version of processed metadata (including html page files and collection information)
+1. `core-xml` contains the processed metadata (including html page files and collection information)
 1. `json-viewer` contains the JSON files required for the viewer to function
 1. `json-solr` contains the JSON files that contain the metadata and textual content for indexing in solr.
+1. `json-dp` contains the JSON files that contain the metadata necessary for items to be processed in Cambridge University Library’s Digital Preservation pipeline.
 
-It's recommended that you use the Dockerised version to build the data, but it can be done locally or even within a CI system if you install the required prerequisites.
+The application is dockerised. There are two versions:
+
+1. One that creates the development environment for testing the AWS Lambda implementation. This relies on a wide range of AWS infrastructure to function.
+2. The other version runs off locally stored data files. This is the version that’s best suited for implementation within a CI/CD system or for running local builds.
+
+## Prerequisites
+
+- Docker [https://docs.docker.com/get-docker/].
+
+## Instructions for running the AWS Lambda Development version locally
 
 ### Prerequisites
 
-#### [ALL]: Add cudl-data-source and cudl-data-releases
+Environment variables with the necessary AWS credentials stored in the following variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SECRET_ACCESS_KEY`.
 
-Place the relevant environment's versions of cudl-data-source and cudl-data-releases at the root level of this repository.
+All other environment variables necessary for CUDL are stored in `.env`.
 
-**N.B:** If you are building using the Dockerised version, you **cannot** use symlinks for these items.
+### Building and running the container
 
-#### [LOCAL] Local Install Download and install
-- Java JDK
-- Saxon JAR (<https://www.saxonica.com/download/download_page.xml>)
-- Apache Ant (<https://ant.apache.org/>)
+`docker compose -f docker-compose-aws-dev.yml up --build`
 
-#### [DOCKER]
-- Docker [https://docs.docker.com/get-docker/]
+**NB: ** This `docker-compose-aws-dev.yml` must not be used when building the container for deployment within AWS. Instead, follow the instructions below.
 
-### Building the data
+### Processing a file
 
-#### Docker
+The AWS Lambda responds to SNS messages. To transform a file, you need to submit a JSON file with the SNS structure with a `POST` request to `http://localhost:9000/2015-03-31/functions/function/invocations`:
+
+`curl -X POST -H 'Content-Type: application/json' 'http://localhost:9000/2015-03-31/functions/function/invocations' --data-binary "@./sample/sns-tei-source-change.json"`
+
+Assuming you have the required permissions to access the resources, this container will create all the necessary outputs and, if successful, copy them to their S3 bucket destinations.
+
+## Instructions for running the non-AWS container
+
+### Prerequisites
+
+Two directories at the root level of the repository:
+
+* `staging-cudl-data-source`, which contains the source data for your collection. This can be copied from the relevant S3 source bucket.
+* `dist`, which will contain the finished outputs.
+
+### Building the container and processing data
+
+The non-AWS version automatically processes the requested file(s) when the container is mounted.
+
+You must first specify the file you want to process in the environment variable called `TEI_FILE`. This contains the path to the source file, relative to the root of the `staging-cudl-data-source`. 
+
+To process MS-ADD-03975:
 
 ```
-docker build . -f ./ant/Dockerfile -t cdcp-data-build
-docker run -d --name cdl-ant -v ./staging-cudl-data-source:/opt/cdcp/cudl-data-source -v ./dist:/opt/cdcp/dist cdcp-data-build ant -buildfile /opt/cdcp/bin/build.xml
+export TEI_FILE=items/data/tei/MS-ADD-03975/MS-ADD-03975.xml
+docker compose -f docker-compose-local.yml up --build
 ```
 
-You can also pass a file, or file glob, to selectively build resources. The following will rebuild files for MS-ADD-04000 to MS-ADD-04009:
+`TEI_FILE` also accepts wildcards. If the environment variable is not set, it will assume that you want to process all files (**/*.xml) in `staging-cudl-data-source`. The following will rebuild files for MS-ADD-04000 to MS-ADD-04009:
 
-`docker run -d --name cdl-ant -v ./staging-cudl-data-source:/opt/cdcp/cudl-data-source -v ./dist:/opt/cdcp/dist cdcp-data-build ant -buildfile /opt/cdcp/bin/build.xml -Dfiles-to-process="MS-ADD-0400*"`
+```
+export TEI_FILE=items/data/tei/**/MS-ADD-0400*.xml
+docker compose -f docker-compose-local.yml up --build
+```
 
-**NB:** Whatever the source and dist directories are called locally, it's **vital** that they map to `/opt/cdcp/cudl-data-source` and `/opt/cdcp/dist`a within the container.
+**NB: ** You cannot pass multiple files (with paths) to the container. It only accepts a single file or wildcards.
 
-#### Locally
+## Building the container for the ECR.
 
-Place Saxon's JAR on your CLASSPATH (*e.g.* `export CLASSPATH=/path/to/saxon-he-12.3.jar`)
+1. Log into AWS in your shell
+2. `cd aws-lambda-docker`
+3. Run the following commands
 
-`ant -buildfile bin/build.xml -Ddata.dir=$(pwd)/staging-cudl-data-source -Dcollection.json.dir=$(pwd)/staging-cudl-data-releases/collections -Ddist.dir=${pwd}/dist`
+```
+aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 563181399728.dkr.ecr.eu-west-1.amazonaws.com
+docker build -t cudl-tei-processing --platform linux/amd64 .
+docker tag cudl-tei-processing:latest 563181399728.dkr.ecr.eu-west-1.amazonaws.com/cudl-tei-processing:latest
+docker push 563181399728.dkr.ecr.eu-west-1.amazonaws.com/cudl-tei-processing:latest
+```
 
-**N.B:** Absolute paths to these directories are required. Relative paths will not work.
+## Ant Targets
 
-### Ant Targets
+If you run ant without specifying a target, it will build all the relevant resources in the output directory, namely: `collection-xml`, `www`, `core-xml`, `json-viewer`, `json-solr`, and `json-dp`.
 
-If you run ant without specifying a target, it will build all the relevant resources in the output directory, namely: `collection-xml`, `www`, `core-xml`, `json-viewer`, `json-solr`
-
-It is possible to call each discrete phase of the process, which, in order, are:
+It is possible to call each phase of the process, which, in order, are:
 
 1. `collection-update` builds `collection-xml` into `./dist/collection-xml`
 1. `transcripts` builds html page transcriptions/translations and associated resources into `./dist/www`
-1. `core-xml` builds the core-xml metadata files into `./dist/core-xml` (**NB:** requires the results of collection-update and transcripts)
-1. `viewer-json` builds the viewer json into `./dist/json-viewer` (**NB:** requires core-xml)
-1. `solr-json` builds the solr json into `./dist/json-solr` (**NB:** requires json-solr)
+1. `metadata` builds the core-xml metadata files into `./dist/core-xml` (**NB:** requires the results of collection-update and transcripts)
+1. `metadata-and-transcripts` builds the core-xml metadata files and transcripts into `./dist/core-xml` and `./dist/www`, respectively.
+1. `viewer` builds the viewer json into `./dist/json-viewer` (**NB:** requires core-xml)
+1. `solr` builds the solr json into `./dist/json-solr` (**NB:** requires core-xml)
+1. `dp` builds the DP json into `./dist/json-dp` (**NB:** requires core-xml)
+1. `json` builds all json outputs into `./dist/json-viewer`, `./dist/json-solr` and `./dist/json-dp` (**NB:** requires core-xml)
 
-Each phase requires the previous ones to have been completed successfully. However, these dependencies are not hard-coded into the build file so that they can be call independantly (say in an AWS Step function).
-
-By default, ant will create all outputs for all the XML files contained within the source directory. You can, however, pass a file glob (or individual filename) to ant using `-Dfiles-to-process` so that only they are processed. For example, 
-
-`ant -buildfile bin/build.xml -Ddata.dir=$(pwd)/staging-cudl-data-source -Dcollection.json.dir=$(pwd)/staging-cudl-data-releases/collections -Ddist.dir=${pwd}/dist -Dfiles-to-process=MS-ADD-04004.xml` will only process Newton’s Waste Book (Ms Add 4004).
-
-`ant -buildfile bin/build.xml -Ddata.dir=$(pwd)/staging-cudl-data-source -Dcollection.json.dir=$(pwd)/staging-cudl-data-releases/collections -Ddist.dir=${pwd}/dist -Dfiles-to-process=MS-DAR*.xml` will only process Darwin manuscripts.
-    
-### Tests
+## Tests
 
 The test suite checks that:
 
