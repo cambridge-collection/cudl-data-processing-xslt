@@ -10,5 +10,7 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
       ANT_TARGET: ${ANT_TARGET:-full}
+      SEARCH_HOST: host.docker.internal
+      SEARCH_PORT: 8000
     ports:
       - 9000:8080

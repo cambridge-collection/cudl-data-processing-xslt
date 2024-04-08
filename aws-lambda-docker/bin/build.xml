@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project name="TranformXml" default="extended"
+<project name="TranformXml" default="full"
     xmlns:if="ant:if"
     xmlns:unless="ant:unless">
     <dirname property="buildfile.dir" file="${ant.file}"/>
@@ -34,14 +34,18 @@
     <property name="checksum-src.dir"  value="${dist-pending.dir}/checksum-src"/>
 
     <!-- Final S3 Destinations -->
-    <property name="core_xml-s3-dest" value="${env.CORE_XML_S3_DEST}"/>
-    <property name="www-s3-dest" value="${env.WWW_S3_DEST}"/>
-    <property name="page-xml-s3-dest" value="${env.PAGE_XML_S3_DEST}"/>
-    <property name="dp-json-s3-dest" value="${env.DP_S3_DEST}"/>
-    <property name="solr-json-s3-dest" value="${env.SOLR_S3_DEST}"/>
-    <property name="viewer-json-s3-dest" value="${env.VIEWER_S3_DEST}"/>
+    <property name="AWS_DIST_BUCKET" value="${env.AWS_DIST_BUCKET}"/>
+    <property name="core_xml-s3-dest" value="${AWS_DIST_BUCKET}/core-xml"/>
+    <property name="www-s3-dest" value="${AWS_DIST_BUCKET}/html"/>
+    <property name="page-xml-s3-dest" value="${AWS_DIST_BUCKET}/page-xml"/>
+    <property name="dp-json-s3-dest" value="${AWS_DIST_BUCKET}/dp-json"/>
+    <property name="solr-json-s3-dest" value="${AWS_DIST_BUCKET}/solr-json"/>
+    <property name="viewer-json-s3-dest" value="${AWS_DIST_BUCKET}/viewer-json"/>
 
-    <property name="collection_xml.dir" value="${env.COLLECTION_XML_SOURCE}"/><!-- collection info broken down by file -->
+    <property name="SEARCH_HOST" value="${env.SEARCH_HOST}"/>
+    <property name="SEARCH_PORT" value="${env.SEARCH_PORT}"/>
+    
+    <property name="collection_xml.dir" value="${AWS_DIST_BUCKET}/collection-xml"/><!-- collection info broken down by file -->
 
     <condition property="no.copy.xml" value="true" else="false">
         <contains string="json,solr,dp,viewer" substring="${env.ANT_TARGET}"/>
@@ -57,11 +61,7 @@
     </target>
     
     <!-- Comprehensive builds -->
-    
-    <target name="extended" depends="_itemise-collection, full">
-        <antcall target="release-outputs"/>
-    </target>
-    
+        
     <target name="full" depends="if.core.source.overide, metadata-and-transcripts, _json">
         <antcall target="release-outputs"/>
     </target>
@@ -101,6 +101,8 @@
             <param name="dest_dir" expression="${www.pending.dir}"/>
             <param name="data_dir" expression="${data.dir}"/>
             <param name="collection_xml_dir" expression="${collection_xml.dir}"/>
+            <param name="SEARCH_HOST" expression="${SEARCH_HOST}"/>
+            <param name="SEARCH_PORT" expression="${SEARCH_PORT}"/>
         </xslt>
     </target>
 
@@ -334,35 +336,6 @@
         </copy>
     </target>
     
-    <target name="_itemise-collection">
-        <echo message="Generating item collection xml files"/>
-        
-        <!-- Concurrency issue:   Any item removed from collection must be removed from collection_xml.dir.
-            But, deleting the directory outright before rebuilding will cause  other 
-            running data builds to fail.
-            The only solution I can see is generating the collection dir locally and
-            copying it over. There's a slight risk that another build might try to load
-            an invalid XML file (while copying in progress).
-        -->
-        <retry retrycount="6">
-            <delete dir="${collection_xml.dir}" failonerror="no" />
-        </retry>
-        
-        <mkdir dir="${collection_xml.dir}"/>
-        
-        <xslt out="../catalog.out" in="../xslt/cache-collection-info.xsl" style="../xslt/cache-collection-info.xsl" force="true" useimplicitfileset="false" extension=".xml" reloadstylesheet="true">
-            <factory name="net.sf.saxon.TransformerFactoryImpl">
-                <attribute name="http://saxon.sf.net/feature/xinclude-aware"
-                    value="true"/>
-            </factory>
-            <param name="path_to_buildfile" expression="${buildfile.dir}"/>
-            <param name="dest_dir" expression="${collection_xml.dir}"/>
-            <param name="data_dir" expression="${collection.json.dir}"/>
-        </xslt>
-        
-        <delete file="../catalog.out"/>
-    </target>
-    
     <target name="collection-update" depends="_update-core-xml, _viewer-json, _solr-json"/>
     
     <target name="_update-core-xml">
@@ -433,50 +406,15 @@
             </fileset>
         </copy>
     </target>
-
+    
     <target name="_copy_to_s3">
-        
-        <antcall unless:true="${no.copy.xml}" target="_copy_xml_derivs_to_s3"/>
-
-        <condition property="www.exists" value="true" else="false"><available file="${www.pending.dir}/items" type="dir"/></condition>
-        <echo if:true="${www.exists}" message="Copying ${www.pending.dir}/items/ to S3://${www-s3-dest}"/>
-        <exec if:true="${www.exists}" executable="aws" resolveexecutable="true">
-            <arg value="s3"/>
-            <arg value="sync"/>
-            <arg value="--quiet"/>
-            <arg value="${www.pending.dir}/items/"/>
-            <arg value="s3://${www-s3-dest}"/>
-        </exec>
-
-        <condition property="viewer-json.exists" value="true" else="false"><available file="${viewer-json.pending.dir}" type="dir"/></condition>
-        <echo if:true="${viewer-json.exists}" message="Copying ${viewer-json.pending.dir} to S3://${viewer-json-s3-dest}"/>
-        <exec if:true="${viewer-json.exists}" executable="aws" resolveexecutable="true">
-            <arg value="s3"/>
-            <arg value="sync"/>
-            <arg value="--quiet"/>
-            <arg value="${viewer-json.pending.dir}"/>
-            <arg value="s3://${viewer-json-s3-dest}"/>
-        </exec>
-
-        <condition property="dp-json.exists" value="true" else="false"><available file="${dp-json.pending.dir}" type="dir"/></condition>
-        <echo if:true="${dp-json.exists}" message="Copying ${dp-json.pending.dir} to S3://${dp-json-s3-dest}"/>
-        <exec if:true="${dp-json.exists}" executable="aws" resolveexecutable="true">
-            <arg value="s3"/>
-            <arg value="sync"/>
-            <arg value="--quiet"/>
-            <arg value="${dp-json.pending.dir}"/>
-            <arg value="s3://${dp-json-s3-dest}"/>
-        </exec>
-
-        <condition property="solr-json.exists" value="true" else="false"><available file="${solr-json.pending.dir}" type="dir"/></condition>
-        <echo if:true="${solr-json.exists}" message="Copying ${solr-json.pending.dir} to S3://${solr-json-s3-dest}"/>
-        <exec if:true="${solr-json.exists}" executable="aws" resolveexecutable="true">
-            <arg value="s3"/>
-            <arg value="sync"/>
-            <arg value="--quiet"/>
-            <arg value="${solr-json.pending.dir}"/>
-            <arg value="s3://${solr-json-s3-dest}"/>
-        </exec>
+        <parallel>
+            <antcall unless:true="${no.copy.xml}" target="_copy_xml_derivs_to_s3"/>
+            <antcall target="_copy_www_to_s3"/>
+            <antcall target="_copy_viewer_json_to_s3"/>
+            <antcall target="_copy_dp_json_to_s3"/>
+            <antcall target="_copy_solr_json_to_s3"/>
+        </parallel>
     </target>
     
     <target name="_copy_xml_derivs_to_s3">
@@ -498,6 +436,56 @@
             <arg value="s3://${page-xml-s3-dest}"/>
         </exec>
         
+    </target>
+    
+    <target name="_copy_www_to_s3">
+        
+        <condition property="www.exists" value="true" else="false"><available file="${www.pending.dir}/items" type="dir"/></condition>
+        <echo if:true="${www.exists}" message="Copying ${www.pending.dir}/items/ to S3://${www-s3-dest}"/>
+        <exec if:true="${www.exists}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="sync"/>
+            <arg value="--quiet"/>
+            <arg value="${www.pending.dir}/items/"/>
+            <arg value="s3://${www-s3-dest}"/>
+        </exec>
+    </target>
+    
+    <target name="_copy_viewer_json_to_s3">
+        
+        <condition property="viewer-json.exists" value="true" else="false"><available file="${viewer-json.pending.dir}" type="dir"/></condition>
+        <echo if:true="${viewer-json.exists}" message="Copying ${viewer-json.pending.dir} to S3://${viewer-json-s3-dest}"/>
+        <exec if:true="${viewer-json.exists}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="sync"/>
+            <arg value="--quiet"/>
+            <arg value="${viewer-json.pending.dir}"/>
+            <arg value="s3://${viewer-json-s3-dest}"/>
+        </exec>
+    </target>
+    
+    <target name="_copy_dp_json_to_s3">
+        <condition property="dp-json.exists" value="true" else="false"><available file="${dp-json.pending.dir}" type="dir"/></condition>
+        <echo if:true="${dp-json.exists}" message="Copying ${dp-json.pending.dir} to S3://${dp-json-s3-dest}"/>
+        <exec if:true="${dp-json.exists}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="sync"/>
+            <arg value="--quiet"/>
+            <arg value="${dp-json.pending.dir}"/>
+            <arg value="s3://${dp-json-s3-dest}"/>
+        </exec>
+    </target>
+    
+    <target name="_copy_solr_json_to_s3">
+        <condition property="solr-json.exists" value="true" else="false"><available file="${solr-json.pending.dir}" type="dir"/></condition>
+        <echo if:true="${solr-json.exists}" message="Copying ${solr-json.pending.dir} to S3://${solr-json-s3-dest}"/>
+        <exec if:true="${solr-json.exists}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="sync"/>
+            <arg value="--quiet"/>
+            <arg value="${solr-json.pending.dir}"/>
+            <arg value="s3://${solr-json-s3-dest}"/>
+        </exec>
     </target>
 
     <target name="if.local.environment">

@@ -24,7 +24,7 @@ The application is dockerised. There are two versions:
 
 Environment variables with the necessary AWS credentials stored in the following variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SECRET_ACCESS_KEY`.
 
-All other environment variables necessary for CUDL are stored in `.env`.
+All other environment variables necessary for CUDL are stored in `.env`, such as the source and destination buckets.
 
 ### Building and running the container
 
@@ -38,23 +38,21 @@ The AWS Lambda responds to SNS messages. To transform a file, you need to submit
 
 `curl -X POST -H 'Content-Type: application/json' 'http://localhost:9000/2015-03-31/functions/function/invocations' --data-binary "@./sample/sns-tei-source-change.json"`
 
-Assuming you have the required permissions to access the resources, this container will create all the necessary outputs and, if successful, copy them to their S3 bucket destinations.
+Assuming you have the required permissions to access the resources, this container will create all the necessary outputs and, if successful, copy them to their S3 bucket destination.
 
-## Instructions for running the non-AWS container
+## Instructions for running the local non-AWS container
 
 ### Prerequisites
 
 Two directories at the root level of the repository:
 
-* `staging-cudl-data-source`, which contains the source data for your collection. This can be copied from the relevant S3 source bucket.
+* `data`, which contains the source data for your collection. This can be copied from the relevant S3 source bucket.
 * `dist`, which will contain the finished outputs.
 
 ### Building the container and processing data
 
-The non-AWS version automatically processes the requested file(s) when the container is mounted.
-
-You must first specify the file you want to process in the environment variable called `TEI_FILE`. This contains the path to the source file, relative to the root of the `staging-cudl-data-source`. 
-
+You must specify the file you want to process in the environment variable called `TEI_FILE` before you mount the container. This contains the path to the source file, relative to the root of the `./data`. This file will be processed as soon as the container is run.
+ 
 To process MS-ADD-03975:
 
 ```
@@ -62,18 +60,19 @@ export TEI_FILE=items/data/tei/MS-ADD-03975/MS-ADD-03975.xml
 docker compose -f docker-compose-local.yml up --build
 ```
 
-`TEI_FILE` also accepts wildcards. If the environment variable is not set, it will assume that you want to process all files (**/*.xml) in `staging-cudl-data-source`. The following will rebuild files for MS-ADD-04000 to MS-ADD-04009:
+`TEI_FILE` also accepts wildcards. The following will rebuild files for MS-ADD-04000 to MS-ADD-04009:
 
 ```
 export TEI_FILE=items/data/tei/**/MS-ADD-0400*.xml
 docker compose -f docker-compose-local.yml up --build
 ```
+You cannot pass multiple files (with paths) to the container. It only accepts a single file or wildcards.
 
-**NB: ** You cannot pass multiple files (with paths) to the container. It only accepts a single file or wildcards.
+If the `TEI_FILE` environment variable is not set, the container will assume that you want to process all files (**/*.xml) in `./data`.
 
 ## Building the container for the ECR.
 
-1. Log into AWS in your shell
+1. Log into AWS in your shell and have your credentials stored in `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN`.
 2. `cd aws-lambda-docker`
 3. Run the following commands
 

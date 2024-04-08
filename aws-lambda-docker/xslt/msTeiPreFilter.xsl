@@ -9,43 +9,74 @@
    
    <xsl:output method="xml" indent="no" encoding="UTF-8"/>
    <xsl:strip-space elements="*"/>
-   
+
    <xsl:include href="common-util.xsl"/>
+
    
    <xsl:param name="dest_dir" as="xsd:string*" required="yes" /><!-- Point to the output directory -->
    <xsl:param name="data_dir" as="xsd:string*" required="no" />
-   <xsl:param name="collection_xml_dir" as="xsd:string*" />
-   
+   <xsl:param name="SEARCH_HOST" as="xsd:string" required="no"/>
+   <xsl:param name="SEARCH_PORT" as="xsd:string" required="no"/>
+
    <xsl:param name="path_to_buildfile" as="xsd:string*" required="no"/>
-   
+
    <xsl:variable name="clean_dest_dir" select="cudl:path-to-directory($dest_dir, $path_to_buildfile)"/>
    <xsl:variable name="clean_data_dir" select="cudl:path-to-directory($data_dir, $path_to_buildfile)"/>
-   <xsl:variable name="clean_collection_xml_dir" select="cudl:path-to-directory($collection_xml_dir, $path_to_buildfile)"/>
-   
+
    <!--<xsl:variable name="pathToConf" select="'../../../conf/local.conf'"/>
    <xsl:variable name="conf_file" select="document($pathToConf)"/>
    <xsl:variable name="servicesURI" select="$conf_file//services/@path"/>
    <xsl:variable name="apiKey" select="$conf_file)//services/@key"/>-->
 
    <xsl:variable name="fileID" select="substring-before(tokenize(document-uri(/), '/')[last()], '.xml')"/>
-   
+
    <xsl:key name="surfaceIDs" match="//tei:surface" use="(@xml:id, concat('#',@xml:id))"/>
    <xsl:key name="surfaceNs" match="//tei:surface" use="normalize-space(@n)"/>
    <xsl:key name="pbNs" match="//tei:pb[normalize-space(@n)]" use="@n"/>
-   
+
    <xsl:template match="/">
       <xsl:call-template name="get-meta"/>
    </xsl:template>
-   
+
    <xsl:template match="@*|node()" mode="meta">
       <xsl:copy>
          <xsl:apply-templates select="@*|node()" mode="#current"/>
       </xsl:copy>
    </xsl:template>
-  
+
+   <xsl:key name="collection_items" match="/*:map/*:map[@key='response']/*:array[@key='docs']/*:map/*:array[@key='items._id']/*:string" use="replace(tokenize(., '/')[last()], '\.xml$', '', 'i')"/>
+
   <xsl:template name="get-collection">
-     <xsl:if test="doc-available(concat($clean_collection_xml_dir,'/', $fileID, '.xml'))">
-        <xsl:copy-of select="doc(concat($clean_collection_xml_dir,'/', $fileID, '.xml'))/json:map/json:*"/>
+     <xsl:variable name="search_addr" select="string-join(($SEARCH_HOST, $SEARCH_PORT)[normalize-space(.)], ':')"/>
+     
+     <xsl:variable name="collection-query">
+        <xsl:try>
+           <xsl:copy-of select="json-to-xml(unparsed-text(concat('http://', $search_addr,'/collections?q=items._id:%22%2F', $fileID, '.xml%22')))"/>
+           <xsl:catch>
+              <xsl:message>ERROR: Search API not responding</xsl:message>
+           </xsl:catch>
+        </xsl:try>
+     </xsl:variable>
+     
+     <xsl:variable name="item_matches" select="key('collection_items', $fileID, $collection-query)"/>
+     <xsl:variable name="collection_names" select="$item_matches/parent::*/parent::*/*:array[@key='name.short']" as="xsd:string*"/>
+     
+     <xsl:if test="$collection-query[*/*:map[@key='responseHeader']]">
+        <array key="collection" xmlns="http://www.w3.org/2005/xpath-functions">
+           <xsl:for-each select="$collection_names">
+              <string xmlns="http://www.w3.org/2005/xpath-functions">
+                 <xsl:value-of select="."/>
+              </string>
+           </xsl:for-each>
+        </array>
+        
+        <xsl:for-each select="$item_matches">
+           <xsl:variable name="parent_obj" select="./parent::*/parent::*"/>
+           <xsl:variable name="collection_name" select="$parent_obj/*:array[@key='name.short'][1]"/>
+           <string key="{$collection_name}_sort" xmlns="http://www.w3.org/2005/xpath-functions">
+              <xsl:value-of select="format-number(./count(preceding-sibling::*) + 1,'000000')"/>
+           </string>
+        </xsl:for-each>
      </xsl:if>
   </xsl:template>
    

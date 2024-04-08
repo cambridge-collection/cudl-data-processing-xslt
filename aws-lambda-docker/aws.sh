@@ -12,12 +12,14 @@ cp -r /opt/cdcp/xslt /tmp/opt/cdcp 1>&2
 
 function handler () {
    #echo "$1" 1>&2
+   CORE_XML_S3_DEST="${AWS_DIST_BUCKET}/core-xml"
+   PAGE_XML_S3_DEST="${AWS_DIST_BUCKET}/page-xml"
+   COLLECTION_XML_S3_SOURCE="${AWS_DIST_BUCKET}/collection-xml"
+
    TEI_FILE=$(echo "$1" | jq -r '.Records[].body'| jq -r '.Records[].s3.object.key') 1>&2
    echo "Requested file: ${TEI_FILE}" 1>&2
 
    FILENAME=$(basename "${TEI_FILE}");
-   echo "Downloading collection info for ${FILENAME}" 1>&2;
-   aws s3 cp --quiet s3://${COLLECTION_XML_S3_SOURCE}/${FILENAME} ${COLLECTION_XML_SOURCE}/${FILENAME} 1>&2
 
    CONTAINING_DIR=$(dirname "${TEI_FILE}")
 
@@ -32,6 +34,7 @@ function handler () {
    && PAGE_XML_SUBDIR=$(dirname "${TEI_FILE}") \
    && aws s3 cp --quiet --recursive s3://${PAGE_XML_S3_DEST}/${CONTAINING_DIR} ${PAGE_XML_SOURCE}/${CONTAINING_DIR} 1>&2
 
+   # Process requested file
    echo "Downloading ${TEI_FILE}" 1>&2
    aws s3 cp --quiet s3://${AWS_DATA_SOURCE_BUCKET}/${TEI_FILE} /tmp/opt/cdcp/cudl-data-source/${TEI_FILE} 1>&2 \
     && echo "Processing ${TEI_FILE}" 1>&2
