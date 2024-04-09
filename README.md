@@ -22,13 +22,17 @@ The application is dockerised. There are two versions:
 
 ### Prerequisites
 
-Environment variables with the necessary AWS credentials stored in the following variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SECRET_ACCESS_KEY`.
+Environment variables with the necessary AWS credentials stored in the following variables:
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_SECRET_ACCESS_KEY`
 
 All other environment variables necessary for CUDL are stored in `.env`, such as the source and destination buckets.
 
 ### Building and running the container
 
-`docker compose -f docker-compose-aws-dev.yml up --build`
+
+    docker compose -f docker-compose-aws-dev.yml up --build
 
 **NB: ** This `docker-compose-aws-dev.yml` must not be used when building the container for deployment within AWS. Instead, follow the instructions below.
 
@@ -36,7 +40,7 @@ All other environment variables necessary for CUDL are stored in `.env`, such as
 
 The AWS Lambda responds to SNS messages. To transform a file, you need to submit a JSON file with the SNS structure with a `POST` request to `http://localhost:9000/2015-03-31/functions/function/invocations`:
 
-`curl -X POST -H 'Content-Type: application/json' 'http://localhost:9000/2015-03-31/functions/function/invocations' --data-binary "@./sample/sns-tei-source-change.json"`
+    curl -X POST -H 'Content-Type: application/json' 'http://localhost:9000/2015-03-31/functions/function/invocations' --data-binary "@./sample/sns-tei-source-change.json"
 
 Assuming you have the required permissions to access the resources, this container will create all the necessary outputs and, if successful, copy them to their S3 bucket destination.
 
@@ -55,33 +59,30 @@ You must specify the file you want to process in the environment variable called
  
 To process MS-ADD-03975:
 
-```
-export TEI_FILE=items/data/tei/MS-ADD-03975/MS-ADD-03975.xml
-docker compose -f docker-compose-local.yml up --build
-```
+
+    export TEI_FILE=items/data/tei/MS-ADD-03975/MS-ADD-03975.xml
+    docker compose -f docker-compose-local.yml up --build
+
 
 `TEI_FILE` also accepts wildcards. The following will rebuild files for MS-ADD-04000 to MS-ADD-04009:
 
-```
-export TEI_FILE=items/data/tei/**/MS-ADD-0400*.xml
-docker compose -f docker-compose-local.yml up --build
-```
+    export TEI_FILE=items/data/tei/**/MS-ADD-0400*.xml
+    docker compose -f docker-compose-local.yml up --build
+
 You cannot pass multiple files (with paths) to the container. It only accepts a single file or wildcards.
 
 If the `TEI_FILE` environment variable is not set, the container will assume that you want to process all files (**/*.xml) in `./data`.
 
 ## Building the container for the ECR.
 
-1. Log into AWS in your shell and have your credentials stored in `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN`.
-2. `cd aws-lambda-docker`
-3. Run the following commands
+Log into AWS in your shell and have your credentials stored in `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN`. Then, run the following commands:
 
-```
-aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 563181399728.dkr.ecr.eu-west-1.amazonaws.com
-docker build -t cudl-tei-processing --platform linux/amd64 .
-docker tag cudl-tei-processing:latest 563181399728.dkr.ecr.eu-west-1.amazonaws.com/cudl-tei-processing:latest
-docker push 563181399728.dkr.ecr.eu-west-1.amazonaws.com/cudl-tei-processing:latest
-```
+    cd aws-lambda-docker
+    aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 563181399728.dkr.ecr.eu-west-1.amazonaws.com
+    docker build -t cudl-tei-processing --platform linux/amd64 .
+    docker tag cudl-tei-processing:latest 563181399728.dkr.ecr.eu-west-1.amazonaws.com/cudl-tei-processing:latest
+    docker push 563181399728.dkr.ecr.eu-west-1.amazonaws.com/cudl-tei-processing:latest
+
 
 ## Ant Targets
 
