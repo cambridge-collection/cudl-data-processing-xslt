@@ -38,9 +38,45 @@
       <xsl:call-template name="get_rights"/>
       <xsl:call-template name="get_license"/>
       
-      <json:string key="type">
-         <xsl:text>CDL TEI/TIFF Package</xsl:text>
+      <json:string key="Source">
+         <xsl:text>Cambridge University Digital Library</xsl:text>
       </json:string>
+      
+      <json:string key="collectionDirectorate">
+         <xsl:text>Digital Initiatives</xsl:text>
+      </json:string>
+      
+      <json:string key="collectionName">
+         <xsl:text>Research Outputs</xsl:text>
+      </json:string>
+      
+      <json:string key="type">
+         <xsl:text>TEI XML</xsl:text>
+      </json:string>
+      
+      <json:string key="collectionType">
+         <xsl:text>CUDL Item</xsl:text>
+      </json:string>
+      
+      <json:string key="collectingArea">
+         <xsl:text>Cambridge University Digital Library</xsl:text>
+      </json:string>
+      
+      <json:string key="researchProject">
+         <xsl:text/>
+      </json:string>
+      
+      <json:string key="collectingSource">
+         <xsl:text>Cambridge University Digital Library</xsl:text>
+      </json:string>
+      
+      <json:string key="collectingBody">
+         <xsl:text>Cambridge University Library</xsl:text>
+      </json:string>
+      
+         <json:boolean key="CopyToPreservation">
+         <xsl:value-of select="true()"/>
+      </json:boolean>     
       
    </xsl:template>
    
@@ -99,14 +135,14 @@
    <xsl:template name="get_rights">
       <!-- What do if none? -->
       <json:string key="rights">
-         <xsl:value-of select="normalize-space(string-join(json:string[@key = ('displayImageRights','downloadImageRights', 'downloadImageRights')][normalize-space(.)], ' '))"/>
+         <xsl:value-of select="normalize-space(string-join(json:string[@key = ('metadataRights','transcriptionRights')][normalize-space(.)], ' '))"/>
       </json:string>
    </xsl:template>
    
    <xsl:template name="get_license">
       <!-- What do if none? -->
       <json:string key="license">
-         <xsl:value-of select="normalize-space(string-join(json:string[@key = ('displayImageRights','downloadImageRights', 'downloadImageRights')][normalize-space(.)], ' '))"/>
+         <xsl:value-of select="normalize-space(string-join(json:string[@key = ('metadataRights','transcriptionRights')][normalize-space(.)], ' '))"/>
       </json:string>
    </xsl:template>
    

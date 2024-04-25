@@ -223,6 +223,7 @@
          <xsl:call-template name="get-doc-thumbnail"/>
          <xsl:call-template name="get-doc-image-rights"/>
          <xsl:call-template name="get-doc-metadata-rights"/>
+         <xsl:call-template name="get-doc-transcription-rights"/>
          <xsl:call-template name="get-doc-pdf-rights"/>
          <xsl:call-template name="get-doc-watermark-statement"/>
          <xsl:call-template name="get-doc-authority"/>
@@ -1149,6 +1150,12 @@
    <xsl:template name="get-doc-metadata-rights">
       <string key="metadataRights" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:value-of select="normalize-space(//tei:publicationStmt/tei:availability[@xml:id='metadataRights'])"/>
+      </string>
+   </xsl:template>
+   
+   <xsl:template name="get-doc-transcription-rights">
+      <string key="transcriptionRights" xmlns="http://www.w3.org/2005/xpath-functions">
+         <xsl:value-of select="normalize-space(//tei:publicationStmt/tei:availability[@xml:id='transcriptionRights'])"/>
       </string>
    </xsl:template>
 
