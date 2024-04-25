@@ -42,9 +42,13 @@
     <property name="solr-json-s3-dest" value="${AWS_DIST_BUCKET}/solr-json"/>
     <property name="viewer-json-s3-dest" value="${AWS_DIST_BUCKET}/viewer-json"/>
 
-    <property name="SEARCH_HOST" value="${env.SEARCH_HOST}"/>
-    <property name="SEARCH_PORT" value="${env.SEARCH_PORT}"/>
-    
+    <condition property="SEARCH_HOST" value="${env.SEARCH_HOST}" else="">
+        <isset property="env.SEARCH_HOST" />
+    </condition>
+    <condition property="SEARCH_PORT" value="${env.SEARCH_PORT}" else="">
+        <isset property="env.SEARCH_PORT" />
+    </condition>
+
     <property name="collection_xml.dir" value="${AWS_DIST_BUCKET}/collection-xml"/><!-- collection info broken down by file -->
 
     <condition property="no.copy.xml" value="true" else="false">
