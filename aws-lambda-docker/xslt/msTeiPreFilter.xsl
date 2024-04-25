@@ -46,39 +46,47 @@
 
    <xsl:key name="collection_items" match="/*:map/*:map[@key='response']/*:array[@key='docs']/*:map/*:array[@key='items._id']/*:string" use="replace(tokenize(., '/')[last()], '\.xml$', '', 'i')"/>
 
-  <xsl:template name="get-collection">
-     <xsl:variable name="search_addr" select="string-join(($SEARCH_HOST, $SEARCH_PORT)[normalize-space(.)], ':')"/>
-     
-     <xsl:variable name="collection-query">
-        <xsl:try>
-           <xsl:copy-of select="json-to-xml(unparsed-text(concat('http://', $search_addr,'/collections?q=items._id:%22%2F', $fileID, '.xml%22')))"/>
-           <xsl:catch>
-              <xsl:message>ERROR: Search API not responding</xsl:message>
-           </xsl:catch>
-        </xsl:try>
-     </xsl:variable>
-     
-     <xsl:variable name="item_matches" select="key('collection_items', $fileID, $collection-query)"/>
-     <xsl:variable name="collection_names" select="$item_matches/parent::*/parent::*/*:array[@key='name.short']" as="xsd:string*"/>
-     
-     <xsl:if test="$collection-query[*/*:map[@key='responseHeader']]">
-        <array key="collection" xmlns="http://www.w3.org/2005/xpath-functions">
-           <xsl:for-each select="$collection_names">
-              <string xmlns="http://www.w3.org/2005/xpath-functions">
-                 <xsl:value-of select="."/>
-              </string>
-           </xsl:for-each>
-        </array>
-        
-        <xsl:for-each select="$item_matches">
-           <xsl:variable name="parent_obj" select="./parent::*/parent::*"/>
-           <xsl:variable name="collection_name" select="$parent_obj/*:array[@key='name.short'][1]"/>
-           <string key="{$collection_name}_sort" xmlns="http://www.w3.org/2005/xpath-functions">
-              <xsl:value-of select="format-number(./count(preceding-sibling::*) + 1,'000000')"/>
-           </string>
-        </xsl:for-each>
-     </xsl:if>
-  </xsl:template>
+   <xsl:template name="get-collection">
+      <xsl:variable name="search_addr" select="string-join(($SEARCH_HOST, $SEARCH_PORT)[normalize-space(.)], ':')"/>
+      
+      <xsl:variable name="collection-query">
+         <xsl:try>
+            <xsl:copy-of select="json-to-xml(unparsed-text(concat('http://', $search_addr,'/collections?q=items._id:%22%2F', $fileID, '.xml%22')))"/>
+            <xsl:catch>
+               <xsl:message>ERROR: Search API not responding</xsl:message>
+            </xsl:catch>
+         </xsl:try>
+      </xsl:variable>
+      
+      <xsl:variable name="item_matches" select="key('collection_items', $fileID, $collection-query)"/>
+      
+      <xsl:variable name="collection_names" select="$item_matches/parent::*/parent::*/*:array[@key='name.short']" as="xsd:string*"/>
+      
+      <xsl:if test="$collection-query[*/*:map[@key='responseHeader']]">
+         <array key="collection" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:for-each select="$collection_names">
+               <string xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="."/>
+               </string>
+            </xsl:for-each>
+         </array>
+         
+         <xsl:for-each select="$item_matches">
+            <xsl:variable name="parent_obj" select="./parent::*/parent::*"/>
+            <xsl:variable name="collection_name" select="$parent_obj/*:array[@key='name.short'][1]"/>
+            <string key="{$collection_name}_sort" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:variable name="pos">
+                  <xsl:apply-templates select="." mode="count"/>
+               </xsl:variable>
+               <xsl:value-of select="format-number(xsd:int($pos),'000000')"/>
+            </string>
+         </xsl:for-each>
+      </xsl:if>
+   </xsl:template>
+   
+   <xsl:template match="*:string" mode="count">
+      <xsl:number count="/*:map/*:map[@key='response']/*:array[@key='docs']/*:map/*:array[@key='items._id']/*:string" level="single"/>
+   </xsl:template>
    
    <xsl:template name="get-meta">
       <xsl:variable name="meta">
