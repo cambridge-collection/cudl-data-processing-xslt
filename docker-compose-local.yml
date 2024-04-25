@@ -11,8 +11,8 @@ services:
       COLLECTION_XML_SOURCE: ../dist/collection-xml
       PAGE_XML_SOURCE: ${PAGE_XML_SOURCE}
       CORE_XML_SOURCE: ${CORE_XML_SOURCE}
-      SEARCH_HOST: host.docker.internal
-      SEARCH_PORT: 8000
+      SEARCH_HOST: localhost
+      SEARCH_PORT: 80
     volumes:
       - dist:/tmp/opt/cdcp/dist
       - source:/tmp/opt/cdcp/cudl-data-source
