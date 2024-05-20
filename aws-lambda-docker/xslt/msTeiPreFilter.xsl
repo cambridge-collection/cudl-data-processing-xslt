@@ -1,22 +1,23 @@
-<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="3.1" 
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="3.1"
    xmlns:tei="http://www.tei-c.org/ns/1.0"
-   xmlns:cudl="http://cudl.lib.cam.ac.uk/xtf/" 
-   xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+   xmlns:cudl="http://cudl.lib.cam.ac.uk/xtf/"
+   xmlns:xsd="http://www.w3.org/2001/XMLSchema"
    xmlns:json="http://www.w3.org/2005/xpath-functions"
    xmlns="http://www.w3.org/1999/xhtml"
    exclude-result-prefixes="#all"
    xmlns:lambda="http://cudl.lib.cam.ac.uk/lambda/">
-   
+
    <xsl:output method="xml" indent="no" encoding="UTF-8"/>
    <xsl:strip-space elements="*"/>
 
    <xsl:include href="common-util.xsl"/>
 
-   
+
    <xsl:param name="dest_dir" as="xsd:string*" required="yes" /><!-- Point to the output directory -->
    <xsl:param name="data_dir" as="xsd:string*" required="no" />
    <xsl:param name="SEARCH_HOST" as="xsd:string" required="no"/>
    <xsl:param name="SEARCH_PORT" as="xsd:string" required="no"/>
+   <xsl:param name="SEARCH_COLLECTION_PATH" as="xsd:string" required="no"/>
 
    <xsl:param name="path_to_buildfile" as="xsd:string*" required="no"/>
 
@@ -52,18 +53,18 @@
          
          <xsl:variable name="collection-query">
             <xsl:try>
-               <xsl:copy-of select="json-to-xml(unparsed-text(concat('http://', $search_addr,'/collections?q=items._id:%22%2F', $fileID, '.xml%22')))"/>
+               <xsl:copy-of select="json-to-xml(unparsed-text(concat('http://', $search_addr,'/', $SEARCH_COLLECTION_PATH,'?q=items._id:%22%2F', $fileID, '.xml%22')))"/>
                <xsl:catch>
                   <xsl:message>ERROR: Search API not responding</xsl:message>
                </xsl:catch>
             </xsl:try>
          </xsl:variable>
-         
-         
+
+
          <xsl:variable name="item_matches" select="key('collection_items', $fileID, $collection-query)"/>
-         
+
          <xsl:variable name="collection_names" select="$item_matches/parent::*/parent::*/*:array[@key='name.short']" as="xsd:string*"/>
-         
+
          <xsl:if test="$collection-query[*/*:map[@key='responseHeader']]">
             <array key="collection" xmlns="http://www.w3.org/2005/xpath-functions">
                <xsl:for-each select="$collection_names">
@@ -72,7 +73,7 @@
                   </string>
                </xsl:for-each>
             </array>
-            
+
             <xsl:for-each select="$item_matches">
                <xsl:variable name="parent_obj" select="./parent::*/parent::*"/>
                <xsl:variable name="collection_name" select="$parent_obj/*:array[@key='name.short'][1]"/>
@@ -86,11 +87,11 @@
          </xsl:if>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template match="*:string" mode="count">
       <xsl:number count="/*:map/*:map[@key='response']/*:array[@key='docs']/*:map/*:array[@key='items._id']/*:string" level="single"/>
    </xsl:template>
-   
+
    <xsl:template name="get-meta">
       <xsl:variable name="meta">
          <array key="descriptiveMetadata" xmlns="http://www.w3.org/2005/xpath-functions">
@@ -132,7 +133,7 @@
             <xsl:apply-templates select="$meta/*" mode="meta"/>
          </map>
       </xsl:variable>
-      
+
       <xsl:variable name="t" as="item()*">
          <xsl:apply-templates select="$result" mode="updateSeq"/>
       </xsl:variable>
@@ -151,14 +152,14 @@
          </xsl:choose>
       </number>
    </xsl:template>
-   
+
    <xsl:template name="get-embeddable">
       <xsl:variable name="images" select="//tei:facsimile/tei:surface[1]/tei:graphic[1][normalize-space(@url)]"/>
       <boolean key="embeddable" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:value-of select="exists($images)"/>
       </boolean>
    </xsl:template>
-   
+
    <xsl:template name="get-text-direction">
       <xsl:variable name="languageCode">
          <xsl:choose>
@@ -176,12 +177,12 @@
             </xsl:otherwise>
          </xsl:choose>
       </xsl:variable>
-      
+
       <string key="textDirection" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:value-of select="cudl:get-language-direction($languageCode)"/>
       </string>
    </xsl:template>
-   
+
    <xsl:template name="get-sourceData">
       <string key="sourceData" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:value-of select="lambda:write-tei-services-link(root(.)/*,'metadata')"/>
@@ -220,15 +221,15 @@
             <xsl:text>true</xsl:text>
          </boolean>
       </xsl:if>
-      
+
       <xsl:if test="//tei:text/tei:body/tei:div[@type='translation']/*[not(self::tei:pb)]">
          <boolean key="useTranslations" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:text>true</xsl:text>
          </boolean>
       </xsl:if>
    </xsl:template>
-   
-   
+
+
    <xsl:template match="tei:msDesc">
       <map xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:call-template name="get-doc-thumbnail"/>
@@ -250,7 +251,7 @@
             <xsl:with-param name="level" select="'doc'"/>
          </xsl:call-template>
          <xsl:call-template name="get-calendarnum"/>
-         
+
          <xsl:choose>
             <xsl:when test="count(tei:msContents/tei:msItem) = 1">
                <xsl:call-template name="get-abstract">
@@ -265,7 +266,7 @@
                <xsl:call-template name="get-biblio">
                      <xsl:with-param name="level" select="'doc-and-item'"/>
                   </xsl:call-template>
-               
+
                <xsl:for-each select="tei:msContents/tei:msItem[1]">
                   <xsl:call-template name="get-item-title">
                      <xsl:with-param name="display" select="false()"/>
@@ -326,18 +327,18 @@
             <xsl:apply-templates select="tei:msContents/tei:msItem"/>
          </xsl:otherwise>
       </xsl:choose>
-      
+
       <!--and then process the msParts-->
       <xsl:apply-templates select="tei:msPart"/>
    </xsl:template>
-   
+
    <xsl:template match="tei:msPart">
       <map xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:call-template name="get-dmdID">
                      <xsl:with-param name="level" select="'msPart'"/>
                   </xsl:call-template>
          <xsl:call-template name="get-calendarnum"/>
-         
+
          <xsl:choose>
             <!-- if there is just one top-level msItem, merge into the document level -->
             <xsl:when test="count(tei:msContents/tei:msItem) = 1">
@@ -359,7 +360,7 @@
                <xsl:call-template name="get-places">
                   <xsl:with-param name="level" select="'part'"/>
                </xsl:call-template>
-               
+
                <xsl:for-each select="tei:msContents/tei:msItem[1]">
                   <xsl:call-template name="get-item-title">
                      <xsl:with-param name="display" select="true()"/>
@@ -429,7 +430,7 @@
       <!--process the msParts in this part-->
       <xsl:apply-templates select="tei:msPart"/>
    </xsl:template>
-   
+
    <!--each msItem is also a part-->
    <xsl:template match="tei:msItem">
       <map xmlns="http://www.w3.org/2005/xpath-functions">
@@ -463,10 +464,10 @@
          <!-- Any child items of this item -->
          <xsl:apply-templates select="tei:msContents/tei:msItem|tei:msItem"/>
    </xsl:template>
-   
+
    <xsl:template name="get-dmdID">
       <xsl:param name="level" select="'doc'"/>
-      
+
       <xsl:variable name="id">
          <xsl:choose>
             <xsl:when test="$level eq 'item'">
@@ -482,12 +483,12 @@
             </xsl:otherwise>
          </xsl:choose>
       </xsl:variable>
-      
+
       <string key="ID" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:value-of select="$id"/>
       </string>
    </xsl:template>
-   
+
    <xsl:template name="get-doc-title">
       <xsl:call-template name="write-container-lg">
          <xsl:with-param name="type" select="'title'"/>
@@ -528,11 +529,11 @@
          <xsl:with-param name="seq" select="1"/>
       </xsl:call-template>
    </xsl:template>
-   
+
    <!--item titles-->
    <xsl:template name="get-item-title">
       <xsl:param name="display"/>
-      
+
       <map key="title" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:copy-of select="cudl:display($display)"/>
          <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
@@ -577,11 +578,11 @@
          </number>
       </map>
    </xsl:template>
-   
+
    <xsl:template name="get-alt-titles">
       <!-- level may be either 'doc' or 'item' -->
       <xsl:param name="level" select="'doc'"/>
-      
+
       <xsl:variable name="target" as="item()*">
          <xsl:choose>
             <xsl:when test="$level ='doc'">
@@ -593,7 +594,7 @@
             </xsl:otherwise>
          </xsl:choose>
       </xsl:variable>
-   
+
       <xsl:if test="$target">
          <xsl:call-template name="write-container-lg">
             <xsl:with-param name="type" select="'alternativeTitles'"/>
@@ -604,11 +605,11 @@
          </xsl:call-template>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template name="get-desc-titles">
       <!-- level may be either 'doc' or 'item' -->
       <xsl:param name="level" select="'doc'"/>
-      
+
       <xsl:variable name="target" as="item()*">
          <xsl:choose>
             <xsl:when test="$level = 'doc'">
@@ -621,7 +622,7 @@
             </xsl:otherwise>
          </xsl:choose>
       </xsl:variable>
-      
+
       <xsl:if test="$target">
          <xsl:call-template name="write-container-lg">
             <xsl:with-param name="type" select="'descriptiveTitles'"/>
@@ -632,11 +633,11 @@
          </xsl:call-template>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template name="get-uniform-title">
       <!-- level may be either 'doc' or 'item' -->
       <xsl:param name="level" select="'doc'"/>
-      
+
       <!-- Cumbersome code needed at present since uniform title, which is always a context-level singleton,
            has differing data structures. Doc-level has a values array; item level only provides a string.
            Revisit these structures and update Viewer to support consistent structure?
@@ -666,11 +667,11 @@
          </xsl:otherwise>
       </xsl:choose>
    </xsl:template>
-   
+
    <xsl:template name="get-abstract">
       <!-- level may be either 'doc' or 'part' -->
       <xsl:param name="level" select="'doc'"/>
-      
+
       <xsl:if test="(ancestor-or-self::tei:teiHeader[1]//tei:profileDesc/tei:abstract,tei:msContents/tei:summary)[normalize-space(.)][1]">
          <xsl:variable name="abstract">
             <xsl:apply-templates select="(ancestor-or-self::tei:teiHeader[1]//tei:profileDesc/tei:abstract,tei:msContents/tei:summary)[normalize-space(.)][1]" mode="html"/>
@@ -685,11 +686,11 @@
          </map>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template name="get-subjects">
       <!-- level may be either 'doc' or 'part' -->
       <xsl:param name="level" select="'doc'"/>
-      
+
       <xsl:variable name="target" as="item()*">
          <xsl:choose>
             <xsl:when test="$level = 'doc'">
@@ -707,7 +708,7 @@
             </xsl:otherwise>
          </xsl:choose>
       </xsl:variable>
-      
+
       <xsl:if test="$target">
          <!-- SHIM removed [normalize-space(.)] for testing compatibility -->
          <map key="subjects" xmlns="http://www.w3.org/2005/xpath-functions">
@@ -716,7 +717,7 @@
                <xsl:with-param name="label" select="'Subject(s)'"/>
                <xsl:with-param name="listDisplay" select="'inline'"/>
             </xsl:call-template>
-            
+
             <array key="value" xmlns="http://www.w3.org/2005/xpath-functions">
                <xsl:for-each select="if ($level eq 'part') then $target else $target[normalize-space(.)]">
                   <map xmlns="http://www.w3.org/2005/xpath-functions">
@@ -752,11 +753,11 @@
          </map>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template name="get-places">
       <!-- level may be either 'doc' or 'part' -->
       <xsl:param name="level" select="'doc'"/>
-      
+
       <xsl:variable name="target" as="item()*">
          <xsl:choose>
             <xsl:when test="$level = 'doc'">
@@ -774,7 +775,7 @@
             </xsl:otherwise>
          </xsl:choose>
       </xsl:variable>
-      
+
       <xsl:if test="$target">
          <map key="places" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:copy-of select="cudl:display(true())"/>
@@ -821,7 +822,7 @@
          </map>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template name="get-doc-events">
       <xsl:choose>
          <xsl:when test="//tei:editor[@role='pbl'] and tei:history/tei:origin">
@@ -838,7 +839,7 @@
                         <string key="type" xmlns="http://www.w3.org/2005/xpath-functions">
                            <xsl:text>publication</xsl:text>
                         </string>
-                        
+
                         <xsl:variable name="place-elems" as="item()*">
                            <xsl:variable name="item_teiHeader" select="ancestor-or-self::tei:teiHeader[1]"/>
                            <xsl:choose>
@@ -850,7 +851,7 @@
                               </xsl:otherwise>
                            </xsl:choose>
                         </xsl:variable>
-                        
+
                         <xsl:if test="$place-elems">
                            <map key="places" xmlns="http://www.w3.org/2005/xpath-functions">
                               <xsl:copy-of select="cudl:display(true())"/>
@@ -884,12 +885,12 @@
                               </array>
                            </map>
                         </xsl:if>
-                        
+
                         <xsl:variable name="preferred-date-elem" as="item()*">
                            <xsl:variable name="correspAction-elems" select="ancestor-or-self::tei:teiHeader[1]//tei:correspDesc/tei:correspAction" as="item()*"/>
                            <xsl:copy-of select="($correspAction-elems[@type='sent']//tei:date,$correspAction-elems[not(@type='sent')]//tei:date,.//tei:origDate,.//tei:date)[1]" />
                         </xsl:variable>
-                        
+
                         <xsl:if test="not(empty($preferred-date-elem))">
                            <xsl:call-template name="output-date-elems">
                               <xsl:with-param name="date_elem" select="$preferred-date-elem"/>
@@ -897,7 +898,7 @@
                               <xsl:with-param name="output_empty" select="false()"/>
                            </xsl:call-template>
                         </xsl:if>
-                        
+
                         <map key="publishers" xmlns="http://www.w3.org/2005/xpath-functions">
                            <xsl:copy-of select="cudl:display(true())"/>
                            <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
@@ -921,7 +922,7 @@
                <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
                   <xsl:value-of select="1"/>
                </number>
-               
+
                <xsl:variable name="context-elem" as="item()*">
                   <xsl:choose>
                      <xsl:when test="ancestor-or-self::tei:teiHeader[1]//tei:profileDesc/tei:correspDesc">
@@ -934,13 +935,13 @@
                </xsl:variable>
 
                <array key="value" xmlns="http://www.w3.org/2005/xpath-functions">
-                  
+
                   <xsl:for-each select="$context-elem">
                      <map xmlns="http://www.w3.org/2005/xpath-functions">
                         <string key="type" xmlns="http://www.w3.org/2005/xpath-functions">
                            <xsl:text>creation</xsl:text>
                         </string>
-                        
+
                         <xsl:variable name="place-elems" as="item()*">
                            <xsl:choose>
                               <xsl:when test="exists(tei:correspAction//tei:placeName)">
@@ -951,7 +952,7 @@
                               </xsl:otherwise>
                            </xsl:choose>
                         </xsl:variable>
-                        
+
                         <xsl:if test="not(empty($place-elems))">
                            <map key="places" xmlns="http://www.w3.org/2005/xpath-functions">
                               <xsl:copy-of select="cudl:display(true())"/>
@@ -985,12 +986,12 @@
                               </array>
                            </map>
                         </xsl:if>
-                        
+
                         <xsl:variable name="preferred-date-elem" as="item()*">
                            <xsl:variable name="correspAction-elems" select="$context-elem//tei:correspAction" as="item()*"/>
                            <xsl:copy-of select="($correspAction-elems[@type='sent']//tei:date,$correspAction-elems[not(@type='sent')]//tei:date,.//tei:origDate,.//tei:date)[1]"/>
                         </xsl:variable>
-                        
+
                         <xsl:if test="not(empty($preferred-date-elem))">
                            <xsl:call-template name="output-date-elems">
                               <xsl:with-param name="date_elem" select="$preferred-date-elem"/>
@@ -1004,7 +1005,7 @@
             </map>
          </xsl:when>
       </xsl:choose>
-      
+
       <xsl:if test="tei:history/tei:acquisition">
          <map key="acquisitions" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:copy-of select="cudl:display(true())"/>
@@ -1024,7 +1025,7 @@
                               <xsl:value-of select="$dateStart"/>
                            </string>
                         </xsl:if>
-                        
+
                         <xsl:variable name="dateEnd" select="cudl:get-date-end(.)" as="xsd:string*"/>
                         <xsl:if test="exists((@to, @notAfter, @when)[1]) or $dateEnd !=''"><!-- SHIM COMPAT -->
                            <string key="dateEnd" xmlns="http://www.w3.org/2005/xpath-functions">
@@ -1050,7 +1051,7 @@
          </map>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template match="tei:editor[@role='pbl']" mode="publisher">
       <map xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:copy-of select="cudl:display(true())"/>
@@ -1062,7 +1063,7 @@
          </number>
       </map>
    </xsl:template>
-   
+
    <xsl:template name="get-doc-physloc">
       <xsl:if test="tei:msIdentifier/tei:repository[normalize-space(.)]">
          <map key="physicalLocation" xmlns="http://www.w3.org/2005/xpath-functions">
@@ -1078,7 +1079,7 @@
             </number>
          </map>
       </xsl:if>
-      
+
       <xsl:variable name="shelfLocator_elem" as="item()*">
          <xsl:choose>
             <xsl:when test="ancestor-or-self::tei:teiHeader[1]/tei:fileDesc/tei:sourceDesc/tei:bibl[normalize-space(.)]">
@@ -1105,7 +1106,7 @@
          </map>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template name="get-doc-alt-ids">
       <xsl:if test="normalize-space(tei:msIdentifier/tei:altIdentifier[not(@type='internal')][1]/tei:idno)">
          <xsl:call-template name="write-container-lg">
@@ -1117,13 +1118,13 @@
          </xsl:call-template>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template name="get-doc-thumbnail">
-      
+
       <xsl:if test="count(//tei:graphic[@decls='#document-thumbnail']) gt 1">
          <xsl:message select="concat('WARN: More than one #document-thumbnail block in ', tokenize(document-uri(/), '/')[last()])"/>
       </xsl:if>
-      
+
       <xsl:variable name="graphic" select="(//tei:graphic[@decls='#document-thumbnail'])[1]"/>
 
       <xsl:if test="$graphic">
@@ -1145,7 +1146,7 @@
          </string>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template name="get-doc-image-rights">
       <string key="displayImageRights" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:value-of select="normalize-space(//tei:publicationStmt/tei:availability[@xml:id='displayImageRights'])" />
@@ -1163,7 +1164,7 @@
          <xsl:value-of select="normalize-space(//tei:publicationStmt/tei:availability[@xml:id='metadataRights'])"/>
       </string>
    </xsl:template>
-   
+
    <xsl:template name="get-doc-transcription-rights">
       <string key="transcriptionRights" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:value-of select="normalize-space(//tei:publicationStmt/tei:availability[@xml:id='transcriptionRights'])"/>
@@ -1175,13 +1176,13 @@
          <xsl:value-of select="normalize-space(//tei:publicationStmt/tei:availability[@xml:id='pdfRights'])"/>
       </string>
    </xsl:template>
-   
+
    <xsl:template name="get-doc-watermark-statement">
       <string key="watermarkStatement" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:value-of select="normalize-space(//tei:publicationStmt/tei:availability[@xml:id='watermark'])"/>
       </string>
    </xsl:template>
-   
+
    <xsl:template name="get-doc-authority">
       <string key="docAuthority" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:variable name="authority">
@@ -1190,18 +1191,18 @@
          <xsl:value-of select="normalize-space($authority)"/>
       </string>
    </xsl:template>
-   
+
    <xsl:template match="tei:note[@type='completeness']"><!-- NB: This does not apperar to be used. Delete? -->
       <completeness>
          <xsl:value-of select="normalize-space(.)"/>
       </completeness>
    </xsl:template>
-   
+
    <xsl:template name="get-doc-funding">
       <xsl:variable name="funding">
          <xsl:apply-templates select="//tei:titleStmt/tei:funder" mode="html"/>
       </xsl:variable>
-      
+
       <xsl:call-template name="write-container-lg">
          <xsl:with-param name="type" select="'fundings'"/>
          <xsl:with-param name="displayFormIter" select="$funding"/>
@@ -1211,7 +1212,7 @@
          <xsl:with-param name="displayNullItems" select="true()"/>
       </xsl:call-template>
    </xsl:template>
-   
+
    <xsl:template name="write-data-obj-flat" xmlns="http://www.w3.org/2005/xpath-functions">
       <xsl:param name="display" select="true()"/>
       <xsl:param name="seq" select="1"/>
@@ -1219,7 +1220,7 @@
       <xsl:param name="label"/>
       <xsl:param name="displayForm"/>
       <xsl:param name="displayNull" select="false()"/>
-      
+
       <xsl:copy-of select="cudl:display($display)"/>
       <xsl:choose>
          <xsl:when test="not(normalize-space($displayForm)) and $displayNull"><!-- SHIM: Entire clause  to print displayForm and others in correct order -->
@@ -1259,7 +1260,7 @@
          </xsl:otherwise>
       </xsl:choose>
    </xsl:template>
-   
+
    <xsl:template name="write-metadata-block-header" xmlns="http://www.w3.org/2005/xpath-functions">
       <xsl:param name="display" select="true()"/>
       <xsl:param name="seq" select="1"/>
@@ -1267,7 +1268,7 @@
       <xsl:param name="label"/>
       <xsl:param name="displayForm"/>
       <xsl:param name="displayNull" select="false()"/>
-      
+
       <xsl:copy-of select="cudl:display($display)"/>
       <xsl:choose>
          <xsl:when test="not(normalize-space($displayForm)) and $displayNull"><!-- SHIM: Entire clause  to print displayForm and others in correct order -->
@@ -1307,7 +1308,7 @@
          </xsl:otherwise>
       </xsl:choose>
    </xsl:template>
-   
+
    <xsl:template name="write-container-lg" as="item()*">
       <xsl:param name="type"/>
       <xsl:param name="display" select="true()"/>
@@ -1317,7 +1318,7 @@
       <xsl:param name="seq"/>
       <xsl:param name="seq2"/>
       <xsl:param name="displayNullItems" select="false()"/>
-      
+
       <map key="{$type}" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:choose>
             <xsl:when test="string($seq2) = ''">
@@ -1380,7 +1381,7 @@
          </xsl:choose>
       </map>
    </xsl:template>
-   
+
    <xsl:template name="get-doc-physdesc">
       <xsl:if test="exists(tei:physDesc/tei:p|tei:physDesc/tei:list)">
          <xsl:call-template name="write-container-lg">
@@ -1452,7 +1453,7 @@
             <xsl:with-param name="seq" select="1"/>
          </xsl:call-template>
       </xsl:if>
-      
+
       <xsl:if test="tei:physDesc/tei:objectDesc/tei:supportDesc/tei:collation">
          <xsl:call-template name="write-container-lg">
             <xsl:with-param name="type" select="'collation'"/>
@@ -1467,7 +1468,7 @@
             <xsl:with-param name="displayNullItems" select="true()"/>
          </xsl:call-template>
       </xsl:if>
-      
+
       <xsl:if test="normalize-space(tei:physDesc/tei:objectDesc/tei:supportDesc/tei:condition)">
          <xsl:call-template name="write-container-lg">
             <xsl:with-param name="type" select="'conditions'"/>
@@ -1513,7 +1514,7 @@
             <xsl:with-param name="seq2" select="2"/>
          </xsl:call-template>
       </xsl:if>
-      
+
       <xsl:if test="tei:physDesc/tei:musicNotation">
          <xsl:call-template name="write-container-lg">
             <xsl:with-param name="type" select="'musicNotations'"/>
@@ -1529,7 +1530,7 @@
             <xsl:with-param name="displayNullItems" select="true()"/>
          </xsl:call-template>
       </xsl:if>
-      
+
       <xsl:if test="tei:physDesc/tei:decoDesc">
          <xsl:call-template name="write-container-lg">
             <xsl:with-param name="type" select="'decorations'"/>
@@ -1593,11 +1594,11 @@
          </xsl:call-template>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template match="tei:objectDesc/@form" mode="html">
       <xsl:value-of select="concat(upper-case(substring(., 1, 1)), substring(., 2))"/>
    </xsl:template>
-   
+
    <xsl:template match="tei:supportDesc/tei:foliation" mode="html">
       <xsl:text>&lt;p&gt;</xsl:text>
 
@@ -1614,7 +1615,7 @@
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/p&gt;</xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="tei:dimensions" mode="html">
       <xsl:if test="@subtype">
          <xsl:text>&lt;b&gt;</xsl:text>
@@ -1658,7 +1659,7 @@
       </xsl:for-each>
       <xsl:text>. </xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="tei:commentaryForm" mode="html">
       <xsl:text>&lt;div&gt;</xsl:text>
       <xsl:text>&lt;b&gt;Commentary form:&lt;/b&gt; </xsl:text>
@@ -1667,7 +1668,7 @@
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="tei:handDesc" mode="html">
       <xsl:text>&lt;div style=&apos;list-style-type: disc;&apos;&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
@@ -1679,7 +1680,7 @@
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="tei:decoNote" mode="html">
       <xsl:apply-templates mode="html"/>
       <xsl:if test="exists(following-sibling::*)">
@@ -1690,13 +1691,13 @@
    <xsl:template match="tei:additions|tei:bindingDesc|tei:accMat|tei:decoDesc|tei:stringHole|tei:layout|tei:layoutDesc|tei:supportDesc/tei:condition|tei:supportDesc/tei:support|tei:supportDesc/tei:extent|tei:recordHist/tei:source|tei:revisionDesc|tei:note|tei:abstract|tei:authority" mode="html">
       <xsl:apply-templates mode="html"/>
    </xsl:template>
-   
+
    <xsl:template match="tei:history/tei:provenance|tei:history/tei:origin|tei:history/tei:acquisition" mode="html">
       <xsl:if test="normalize-space(.)">
          <xsl:apply-templates mode="html"/>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template match="tei:msItem/tei:colophon|tei:msItem/tei:div/tei:colophon" mode="html">
       <xsl:text>&lt;div&gt;</xsl:text>
       <xsl:text>&lt;b&gt;Colophon</xsl:text>
@@ -1709,7 +1710,7 @@
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="tei:msItem/tei:explicit|tei:msItem/tei:div/tei:explicit" mode="html">
       <xsl:text>&lt;div&gt;</xsl:text>
       <xsl:text>&lt;b&gt;Explicit</xsl:text>
@@ -1722,7 +1723,7 @@
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="tei:msItem/tei:incipit|tei:msItem/tei:div/tei:incipit" mode="html">
       <xsl:text>&lt;div&gt;</xsl:text>
       <xsl:text>&lt;b&gt;Incipit</xsl:text>
@@ -1735,7 +1736,7 @@
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="tei:summary" mode="html">
       <!--we need to put this in a paragraph if the summary itself contains no paragraphs-->
       <xsl:choose>
@@ -1749,7 +1750,7 @@
          </xsl:otherwise>
       </xsl:choose>
    </xsl:template>
-   
+
    <xsl:template match="tei:msItem/tei:rubric|tei:msItem/tei:div/tei:rubric" mode="html">
       <xsl:text>&lt;div&gt;</xsl:text>
       <xsl:text>&lt;b&gt;Rubric</xsl:text>
@@ -1775,7 +1776,7 @@
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="tei:msItem//tei:decoNote" mode="html">
       <xsl:choose>
          <xsl:when test="tei:p">
@@ -1792,29 +1793,29 @@
          </xsl:otherwise>
       </xsl:choose>
    </xsl:template>
-   
+
    <xsl:template match="tei:filiation" mode="html">
       <xsl:text>&lt;div&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="tei:revisionDesc/tei:change" mode="html">
       <xsl:apply-templates mode="html"/>
-      
+
       <xsl:if test="not(position()=last())">
          <xsl:text>&lt;br /&gt;</xsl:text>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template match="tei:incipit" mode="title">
       <xsl:apply-templates select="node() except tei:locus" mode="html"/>
    </xsl:template>
-   
+
    <xsl:template match="tei:rubric" mode="title">
       <xsl:apply-templates select="node() except tei:locus" mode="html"/>
    </xsl:template>
-   
+
    <xsl:template name="get-doc-history">
       <xsl:if test="tei:history/tei:provenance">
          <xsl:call-template name="write-container-lg">
@@ -1831,7 +1832,7 @@
             <xsl:with-param name="displayNullItems" select="true()"/>
          </xsl:call-template>
       </xsl:if>
-      
+
       <xsl:if test="tei:history/tei:origin/text()|tei:history/tei:origin/tei:p">
          <xsl:call-template name="write-container-lg">
             <xsl:with-param name="type" select="'origins'"/>
@@ -1846,7 +1847,7 @@
             <xsl:with-param name="seq2" select="2"/>
          </xsl:call-template>
       </xsl:if>
-      
+
       <xsl:if test="tei:history/tei:acquisition/text()|tei:history/tei:acquisition/tei:p">
          <xsl:call-template name="write-container-lg">
             <xsl:with-param name="type" select="'acquisitionTexts'"/>
@@ -1862,13 +1863,13 @@
          </xsl:call-template>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template name="get-item-excerpts">
       <xsl:if test="tei:head|tei:div/tei:head|tei:p|tei:div/tei:p|tei:div/tei:note|tei:colophon|tei:div/tei:colophon|tei:decoNote|tei:div/tei:decoNote|tei:explicit|tei:div/tei:explicit|tei:finalRubric|tei:div/tei:finalRubric|tei:incipit|tei:div/tei:incipit|tei:rubric|tei:div/tei:rubric">
          <xsl:variable name="excerpts">
             <xsl:apply-templates select="tei:head|tei:div/tei:head|tei:p|tei:div/tei:p|tei:div/tei:note|tei:colophon|tei:div/tei:colophon|tei:decoNote|tei:div/tei:decoNote|tei:explicit|tei:div/tei:explicit|tei:finalRubric|tei:div/tei:finalRubric|tei:incipit|tei:div/tei:incipit|tei:rubric|tei:div/tei:rubric" mode="html"/>
          </xsl:variable>
-         
+
          <xsl:call-template name="write-container-lg">
             <xsl:with-param name="type" select="'excerpts'"/>
             <xsl:with-param name="displayForm" select="normalize-space($excerpts)"/>
@@ -1877,7 +1878,7 @@
          </xsl:call-template>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template name="get-item-notes">
       <xsl:if test="tei:note">
          <xsl:variable name="notes" as="item()*">
@@ -1898,7 +1899,7 @@
          </xsl:call-template>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template name="get-item-filiation">
       <xsl:if test="tei:filiation">
          <xsl:call-template name="write-container-lg">
@@ -1916,7 +1917,7 @@
          </xsl:call-template>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template name="write-named-entity-object">
       <xsl:param name="map_key"/>
       <xsl:param name="display" select="true()"/>
@@ -1925,7 +1926,7 @@
       <xsl:param name="label"/>
       <xsl:param name="array_nodes"/>
       <xsl:param name="processing_mode" select="'default'"/>
-      
+
       <map key="{$map_key}" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:copy-of select="cudl:display($display)"/>
          <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
@@ -1963,7 +1964,7 @@
          </array>
       </map>
    </xsl:template>
-   
+
    <xsl:variable name="rolemap">
       <cudl:role code="aut" name="authors"/>
       <cudl:role code="dnr" name="donors"/>
@@ -2080,7 +2081,7 @@
             <xsl:with-param name="processing_mode" select="'doc-level'"/>
          </xsl:call-template>
       </xsl:if>
-      
+
       <xsl:if test="tei:msContents/tei:summary//tei:name[@role='dnr']|tei:physDesc//tei:name[@role='dnr']|tei:history//tei:name[@role='dnr']|tei:msContents/tei:msItem[1]/tei:editor[@role='dnr']">
          <xsl:call-template name="write-named-entity-object">
             <xsl:with-param name="map_key" select="'donors'"/>
@@ -2127,7 +2128,7 @@
             <xsl:with-param name="processing_mode" select="'doc-level'"/>
          </xsl:call-template>
       </xsl:if>
-      
+
       <xsl:if test="tei:msContents/tei:summary//tei:name[@role='scr']|tei:physDesc//tei:name[@role='scr']|tei:history//tei:name[@role='scr']|tei:msContents/tei:msItem[1]/tei:editor[@role='scr']">
          <xsl:call-template name="write-named-entity-object">
             <xsl:with-param name="map_key" select="'scribes'"/>
@@ -2232,7 +2233,7 @@
             <xsl:otherwise>authors</xsl:otherwise>
          </xsl:choose>
       </xsl:variable>
-      
+
       <xsl:variable name="object_label">
          <xsl:choose>
             <xsl:when test="@type=('recieved', 'received')"><!-- SHIM on mispelling -->
@@ -2241,7 +2242,7 @@
             <xsl:otherwise>Author(s)</xsl:otherwise>
          </xsl:choose>
       </xsl:variable>
-      
+
       <map key="{$object_name}" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:copy-of select="cudl:display(true())"/>
          <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
@@ -2258,15 +2259,15 @@
          </array>
       </map>
    </xsl:template>
-   
+
    <xsl:template match="tei:name[not(tei:persName)]" mode="#default doc-level"/>
-   
+
    <xsl:template match="tei:name[tei:persName]" mode="#default" priority="2">
       <string key="linktype" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:text>keyword search</xsl:text>
       </string>
    </xsl:template>
-   
+
    <xsl:template match="tei:name[tei:persName]" mode="doc-level" priority="2">
       <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:value-of select="1"/>
@@ -2331,7 +2332,7 @@
                </string>
             </xsl:otherwise>
          </xsl:choose>
-         
+
          <xsl:for-each select="@type">
             <string key="type" xmlns="http://www.w3.org/2005/xpath-functions">
                <xsl:value-of select="normalize-space(.)"/>
@@ -2351,7 +2352,7 @@
             <string key="authorityURI" xmlns="http://www.w3.org/2005/xpath-functions">
                <xsl:text>http://viaf.org/</xsl:text>
             </string>
-            
+
             <!-- NB: Some files, like Sanskrit MS-OR-02339, might have multiple VIAF_* tokens. For now, just use first, but should maybe handle multiple -->
             <xsl:for-each select="tokenize(normalize-space(.), ' ')[starts-with(., 'person_v')][1]">
                <string key="valueURI" xmlns="http://www.w3.org/2005/xpath-functions">
@@ -2361,7 +2362,7 @@
          </xsl:for-each>
       </map>
    </xsl:template>
-   
+
    <xsl:template
       match="tei:author|tei:correspAction/tei:*[self::tei:persName|self::tei:orgName|self::tei:name]|tei:editor" mode="#default doc-level">
       <map xmlns="http://www.w3.org/2005/xpath-functions">
@@ -2381,13 +2382,13 @@
          <string key="shortForm" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="normalize-space(.)"/>
          </string>
-         
+
          <xsl:for-each select="@type">
             <string key="type" xmlns="http://www.w3.org/2005/xpath-functions">
                <xsl:value-of select="normalize-space(.)"/>
             </string>
          </xsl:for-each>
-         
+
          <xsl:variable name="role" as="xsd:string*">
             <xsl:choose>
                <xsl:when test="self::tei:editor[@role]">
@@ -2402,13 +2403,13 @@
                </xsl:otherwise>
             </xsl:choose>
          </xsl:variable>
-         
+
          <xsl:if test="$role != ''">
             <string key="role" xmlns="http://www.w3.org/2005/xpath-functions">
                <xsl:value-of select="$role"/>
             </string>
          </xsl:if>
-         
+
          <xsl:for-each select="@key[contains(., 'person_v')]">
             <string key="authority" xmlns="http://www.w3.org/2005/xpath-functions">
                <xsl:text>VIAF</xsl:text>
@@ -2416,7 +2417,7 @@
             <string key="authorityURI" xmlns="http://www.w3.org/2005/xpath-functions">
                <xsl:text>http://viaf.org/</xsl:text>
             </string>
-            
+
             <!-- NB: Some files, like Sanskrit MS-OR-02339, might have multiple VIAF_* tokens. For now, just use first, but should maybe handle multiple -->
             <xsl:for-each select="tokenize(normalize-space(.), ' ')[starts-with(., 'person_v')][1]">
                <string key="valueURI" xmlns="http://www.w3.org/2005/xpath-functions">
@@ -2426,10 +2427,10 @@
          </xsl:for-each>
       </map>
    </xsl:template>
-   
+
    <xsl:template name="get-languages">
       <xsl:param name="level" select="'doc'"/>
-      
+
       <xsl:variable name="language-elems" as="item()*">
          <xsl:choose>
             <xsl:when test="not($level = ('doc', 'item'))"/>
@@ -2445,7 +2446,7 @@
             </xsl:otherwise>
          </xsl:choose>
       </xsl:variable>
-      
+
       <xsl:if test="$language-elems[exists((@mainLang,@ident)[normalize-space(.)])]">
          <array key="languageCodes" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:for-each select="$language-elems[exists((@mainLang,@ident)[normalize-space(.)])]">
@@ -2456,7 +2457,7 @@
             </xsl:for-each>
          </array>
       </xsl:if>
-      
+
       <xsl:if test="if ($level eq 'doc') then $language-elems else $language-elems[normalize-space(.)]">
          <xsl:call-template name="write-container-lg">
             <xsl:with-param name="type" select="'languageStrings'"/>
@@ -2467,13 +2468,13 @@
          </xsl:call-template>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template name="get-doc-metadata">
       <xsl:if test="normalize-space(tei:additional/tei:adminInfo/tei:recordHist/tei:source)">
          <xsl:variable name="dataSource">
             <xsl:apply-templates select="tei:additional/tei:adminInfo/tei:recordHist/tei:source" mode="html"/>
          </xsl:variable>
-         
+
          <xsl:call-template name="write-container-lg">
             <xsl:with-param name="type" select="'dataSources'"/>
             <xsl:with-param name="displayFormIter" select="normalize-space($dataSource)"/>
@@ -2488,7 +2489,7 @@
             <xsl:variable name="dataRevisions">
                <xsl:value-of select="distinct-values(//tei:revisionDesc/tei:change/tei:*[self::tei:persName|self::tei:name|self::tei:orgName][normalize-space(.)])" separator=", "/>
             </xsl:variable>
-            
+
             <xsl:call-template name="write-data-obj-flat">
                <xsl:with-param name="seq" select="1"/>
                <xsl:with-param name="displayForm" select="normalize-space($dataRevisions)"/>
@@ -2498,14 +2499,14 @@
          </map>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template match="tei:facsimile/tei:surface" mode="count">
       <xsl:number format="1" level="any" count="tei:facsimile/tei:surface"/>
    </xsl:template>
-   
+
    <xsl:template name="make-pages">
       <xsl:variable name="html_dir" select="string-join(tokenize(cudl:construct-output-filename-path(.,'',concat('i',position()), ''), '/')[position() lt last()], '/')"/>
-      
+
       <array key="pages" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:choose>
             <xsl:when test="//tei:facsimile/tei:surface">
@@ -2519,33 +2520,33 @@
                      <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:value-of select="$label"/>
                      </string>
-                     
+
                      <string key="physID" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:value-of select="concat('PHYS-',position())"/>
                      </string>
-                     
+
                      <number key="sequence" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:value-of select="position()"/>
                      </number>
                      <string key="itemURL" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:value-of select="string-join(($fileID, string(position()))[normalize-space(.)], '/')"/>
                      </string>
-                     
+
                      <xsl:variable name="imageUrl" select="normalize-space(tei:graphic[contains(@decls, '#download')]/@url)"/>
                      <xsl:variable name="thumbnailOrientation" select="normalize-space(tei:graphic[contains(@decls, '#download')]/@rend)"/>
-                     
+
                      <xsl:variable name="imageWidth" select="replace(normalize-space(tei:graphic[contains(@decls, '#download')]/@width), 'px', '')"/>
-                     
+
                      <xsl:variable name="imageHeight" select="replace(normalize-space(tei:graphic[contains(@decls, '#download')]/@height), 'px', '')"/>
-                     
+
                      <string key="IIIFImageURL" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:value-of select="$imageUrl"/>
                      </string>
-                     
+
                      <string key="thumbnailImageOrientation" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:value-of select="$thumbnailOrientation"/>
                      </string>
-                     
+
                      <number key="imageWidth" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:choose>
                            <xsl:when test="normalize-space($imageWidth)">
@@ -2556,7 +2557,7 @@
                            </xsl:otherwise>
                         </xsl:choose>
                      </number>
-                     
+
                      <number key="imageHeight" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:choose>
                            <xsl:when test="normalize-space($imageHeight)">
@@ -2567,27 +2568,27 @@
                            </xsl:otherwise>
                         </xsl:choose>
                      </number>
-                     
+
                      <xsl:if test="normalize-space(tei:media[@mimeType='transcription_diplomatic']/@url)">
                         <string key="transcriptionDiplomaticURL" xmlns="http://www.w3.org/2005/xpath-functions">
                            <xsl:value-of select="normalize-space(replace(tei:media[@mimeType='transcription_diplomatic']/@url, 'http://services.cudl.lib.cam.ac.uk',''))"/>
                         </string>
                      </xsl:if>
-                     
+
                      <xsl:if test="normalize-space(tei:media[@mimeType='transcription_normalised']/@url)">
                         <string key="transcriptionNormalisedURL" xmlns="http://www.w3.org/2005/xpath-functions">
                            <xsl:value-of select="replace(tei:media[@mimeType='transcription_normalised']/@url, 'http://services.cudl.lib.cam.ac.uk','')"/>
                         </string>
                      </xsl:if>
-                     
+
                      <xsl:if test="normalize-space(tei:media[@mimeType='translation']/@url)">
                         <string key="translationURL" xmlns="http://www.w3.org/2005/xpath-functions">
                            <xsl:value-of select="replace(tei:media[@mimeType='translation']/@url, 'http://services.cudl.lib.cam.ac.uk','')"/>
                         </string>
                      </xsl:if>
-                     
+
                      <xsl:variable name="isLast" select="string(position()=last())"/>
-                     
+
                      <xsl:choose>
                         <xsl:when test="tei:media[contains(@mimeType,'transcription')]">
                            <!-- TODO Transcription not embeded because it's only available via API
@@ -2601,7 +2602,7 @@
                         </xsl:when>
                         <xsl:otherwise>
                            <xsl:variable name="transcription_container" select="//tei:text/tei:body/tei:div[not(@type)]" as="item()*" />
-                           
+
                            <!--<xsl:if test="exists($transcription_container)">-->
                               <xsl:variable name="transcription_pb" select="(
                                  key('pbNs', $label)[@type='pageBoundary'][ancestor::tei:div[not(@type)]/parent::tei:body],
@@ -2625,7 +2626,7 @@
                                  </xsl:for-each>
                               </xsl:when>
                               <xsl:otherwise>
-                                 
+
                                  <map key="transcription_content" xmlns="http://www.w3.org/2005/xpath-functions">
                                     <boolean key="pageHasTranscription" xmlns="http://www.w3.org/2005/xpath-functions">
                                        <xsl:value-of select="false()"/>
@@ -2636,9 +2637,9 @@
                            <!--</xsl:if>-->
                         </xsl:otherwise>
                      </xsl:choose>
-                     
+
                      <xsl:variable name="translation_container" select="//tei:text/tei:body/tei:div[@type='translation']" as="item()*"/>
-                     
+
                      <!--<xsl:if test="exists($translation_container)">-->
                         <xsl:variable name="translation_pb" select="(
                            key('pbNs', $label)[@type='pageBoundary'][ancestor::tei:div[@type='translation']/parent::tei:body],
@@ -2663,7 +2664,7 @@
                                  <xsl:choose>
                                     <xsl:when test="tei:media[@mimeType='translation']">
                                        <xsl:value-of select="true()"/>
-                                       
+
                                     </xsl:when>
                                     <xsl:otherwise>
                                        <xsl:value-of select="false()"/>
@@ -2682,11 +2683,11 @@
                   <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
                      <xsl:text>cover</xsl:text>
                   </string>
-                  
+
                   <string key="physID" xmlns="http://www.w3.org/2005/xpath-functions">
                      <xsl:text>PHYS-1</xsl:text>
                   </string>
-                  
+
                   <number key="sequence" xmlns="http://www.w3.org/2005/xpath-functions">
                      <xsl:value-of select="1"/>
                   </number>
@@ -2695,25 +2696,25 @@
          </xsl:choose>
       </array>
    </xsl:template>
-   
+
    <xsl:template name="output-html-link">
       <xsl:param name="current_pb" as="item()*"/>
       <xsl:param name="isLast"/>
       <xsl:param name="label"/>
       <xsl:param name="type" as="xsd:string*"/>
       <xsl:param name="html_dir"/>
-      
-      
+
+
       <xsl:variable name="filename" select="lambda:construct-output-filename-path($current_pb, 'filename', $type)"/>
       <xsl:variable name="html_file" select="concat(string-join(($html_dir, $filename),'/'), '.html')"/>
-      
+
       <xsl:variable name="surface_number">
          <xsl:apply-templates select="key('surfaceIDs', $current_pb/@facs)" mode="count"/>
       </xsl:variable>
-      
+
       <!-- Do not ouput if pb[position() gt 1][ancestor::div[@decls='#unpaginated']] -->
       <!-- not($current_pb is (tei:div[@decls='unpaginated']//tei:pb)[position() gt 1]) -->
-      
+
       <xsl:choose>
          <xsl:when test="unparsed-text-available($html_file)">
             <map key="{$type}_content" xmlns="http://www.w3.org/2005/xpath-functions">
@@ -2744,7 +2745,7 @@
                   <xsl:choose>
                      <xsl:when test="$type='transcription'">
                         <xsl:variable name="encoded-label" select="replace($label, ' ', '%20')"/>
-                        
+
                         <string key="transcriptionDiplomaticURL" xmlns="http://www.w3.org/2005/xpath-functions">
                            <xsl:value-of select="lambda:write-tei-services-link(., 'html_transcription')"/>
                         </string>
@@ -2785,7 +2786,7 @@
                <string key="dmdID" xmlns="http://www.w3.org/2005/xpath-functions">
                   <xsl:text>DOCUMENT</xsl:text>
                </string>
-               
+
                <xsl:variable name="startPageLabel" select="tei:locus[1]/@from"/>
 
                <xsl:variable name="startPagePosition">
@@ -2798,19 +2799,19 @@
                      </xsl:otherwise>
                   </xsl:choose>
                </xsl:variable>
-               
+
                <string key="startPageLabel" xmlns="http://www.w3.org/2005/xpath-functions">
                   <xsl:value-of select="$startPageLabel"/>
                </string>
-               
+
                <number key="startPage" xmlns="http://www.w3.org/2005/xpath-functions">
                   <xsl:value-of select="$startPagePosition"/>
                </number>
-               
+
                <string key="title" xmlns="http://www.w3.org/2005/xpath-functions">
                   <xsl:value-of select="$startPageLabel"/>
                </string>
-               
+
                <string key="listItemText" xmlns="http://www.w3.org/2005/xpath-functions">
                   <xsl:value-of select="normalize-space(.)"/>
                </string>
@@ -2818,7 +2819,7 @@
          </xsl:for-each>
       </array>
    </xsl:template>
-   
+
    <xsl:template name="make-logical-structure">
       <array key="logicalStructures" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:apply-templates select="tei:TEI/tei:teiHeader/tei:fileDesc/tei:sourceDesc/tei:msDesc" mode="logicalstructure"/>
@@ -2830,7 +2831,7 @@
          <string key="descriptiveMetadataID" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="'DOCUMENT'"/>
          </string>
-         
+
          <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
                <!--general titles take precedence-->
@@ -2890,7 +2891,7 @@
                </xsl:otherwise>
             </xsl:choose>
          </string>
-         
+
          <string key="startPageLabel" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
                <xsl:when test="//tei:facsimile/tei:surface">
@@ -2901,11 +2902,11 @@
                </xsl:otherwise>
             </xsl:choose>
          </string>
-         
+
          <number key="startPagePosition" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="1"/>
          </number>
-         
+
          <string key="startPageID" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="'PHYS-1'"/>
          </string>
@@ -2920,7 +2921,7 @@
                </xsl:otherwise>
             </xsl:choose>
          </string>
-         
+
          <number key="endPagePosition" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
                <xsl:when test="//tei:facsimile/tei:surface">
@@ -2931,7 +2932,7 @@
                </xsl:otherwise>
             </xsl:choose>
          </number>
-         
+
          <xsl:if test="(count(tei:msContents/tei:msItem) = 1 and tei:msContents/tei:msItem/tei:msItem) or count(tei:msContents/tei:msItem) > 1 or tei:msPart">
             <array key="children" xmlns="http://www.w3.org/2005/xpath-functions">
                <xsl:choose>
@@ -2954,8 +2955,8 @@
          <string key="descriptiveMetadataID" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:variable name="n-tree" select="string(sum((count(ancestor-or-self::*[self::tei:msPart]), count(preceding::*[self::tei:msPart]))))"/>
             <xsl:value-of select="concat('PART-', normalize-space($n-tree))"/>
-         </string>   
-            
+         </string>
+
          <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:variable name="mspart_title">
                <xsl:choose>
@@ -3005,16 +3006,16 @@
                   </xsl:when>
                </xsl:choose>
             </xsl:variable>
-            
+
             <xsl:choose>
                <xsl:when test="normalize-space($mspart_title)">
                   <xsl:value-of select="normalize-space(concat(tei:msIdentifier/tei:idno, ': ', $mspart_title))"/>
                </xsl:when>
                <xsl:otherwise>
-                  <xsl:value-of select="normalize-space(tei:msIdentifier/tei:idno)"/>      
+                  <xsl:value-of select="normalize-space(tei:msIdentifier/tei:idno)"/>
                </xsl:otherwise></xsl:choose>
          </string>
-         
+
          <xsl:variable name="startPageLabel">
                <xsl:choose>
                   <xsl:when test="tei:msContents/tei:msItem[1]/tei:locus[1][normalize-space(@from)]">
@@ -3032,11 +3033,11 @@
                   </xsl:otherwise>
                </xsl:choose>
             </xsl:variable>
-            
+
          <string key="startPageLabel" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="$startPageLabel"/>
          </string>
-         
+
          <xsl:variable name="startPagePosition">
             <xsl:choose>
                <xsl:when test="key('surfaceNs', $startPageLabel)">
@@ -3047,15 +3048,15 @@
                </xsl:otherwise>
             </xsl:choose>
          </xsl:variable>
-         
+
          <number key="startPagePosition" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="$startPagePosition"/>
          </number>
-         
+
          <string key="startPageID" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="concat('PHYS-',string($startPagePosition))"/>
          </string>
-         
+
          <xsl:variable name="endPageLabel">
             <xsl:choose>
                <xsl:when test="tei:msContents/tei:msItem[last()]/tei:locus[1][normalize-space(@to)]">
@@ -3073,11 +3074,11 @@
                </xsl:otherwise>
             </xsl:choose>
          </xsl:variable>
-         
+
          <string key="endPageLabel" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="$endPageLabel"/>
          </string>
-         
+
          <number key="endPagePosition" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
                <xsl:when test="key('surfaceNs', $endPageLabel)">
@@ -3088,7 +3089,7 @@
                </xsl:otherwise>
             </xsl:choose>
          </number>
-         
+
          <array key="children" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
                   <xsl:when test="count(tei:msContents/tei:msItem) = 1">
@@ -3107,7 +3108,7 @@
    <xsl:template match="tei:msItem" mode="logicalstructure">
       <map xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:variable name="n-tree" select="string(sum((count(ancestor-or-self::*[self::tei:msItem]), count(preceding::*[self::tei:msItem]))))"/>
-         
+
          <string key="descriptiveMetadataID" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="concat('ITEM-', normalize-space($n-tree))"/>
          </string>
@@ -3146,7 +3147,7 @@
                </xsl:otherwise>
             </xsl:choose>
          </string>
-         
+
          <xsl:variable name="startPageLabel">
             <xsl:choose>
                <xsl:when test="tei:locus[normalize-space(@from)]">
@@ -3164,11 +3165,11 @@
                </xsl:otherwise>
             </xsl:choose>
          </xsl:variable>
-         
+
          <string key="startPageLabel" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="$startPageLabel"/>
          </string>
-         
+
          <xsl:variable name="startPagePosition">
             <xsl:choose>
                <xsl:when test="key('surfaceNs', $startPageLabel)">
@@ -3180,15 +3181,15 @@
                </xsl:otherwise>
             </xsl:choose>
          </xsl:variable>
-         
+
          <number key="startPagePosition" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="$startPagePosition"/>
          </number>
-         
+
          <string key="startPageID" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="concat('PHYS-',$startPagePosition)"/>
          </string>
-         
+
          <xsl:variable name="endPageLabel">
             <xsl:choose>
                <xsl:when test="tei:locus/@to">
@@ -3206,11 +3207,11 @@
                </xsl:otherwise>
             </xsl:choose>
          </xsl:variable>
-         
+
          <string key="endPageLabel" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="$endPageLabel"/>
          </string>
-         
+
          <number key="endPagePosition" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
                <xsl:when test="key('surfaceNs', $endPageLabel)">
@@ -3222,7 +3223,7 @@
                </xsl:otherwise>
             </xsl:choose>
          </number>
-         
+
          <xsl:if test="tei:msItem">
             <array key="children" xmlns="http://www.w3.org/2005/xpath-functions">
                <xsl:apply-templates select="tei:msItem" mode="logicalstructure"/>
@@ -3230,7 +3231,7 @@
          </xsl:if>
       </map>
    </xsl:template>
-   
+
    <xsl:template match="tei:p" mode="html">
       <xsl:text>&lt;p&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
@@ -3244,19 +3245,19 @@
       <xsl:apply-templates mode="#current"/>
       <xsl:text>&lt;/p&gt;</xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="tei:table" mode="html">
       <xsl:text>&lt;table border='1'&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/table&gt;</xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="tei:table/tei:head" mode="html">
       <xsl:text>&lt;caption&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/caption&gt;</xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="tei:table/tei:row" mode="html">
       <xsl:text>&lt;tr&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
@@ -3274,7 +3275,7 @@
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/td&gt;</xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="*[not(self::tei:additions)]/tei:list" mode="html">
       <xsl:text>&lt;ul&gt;</xsl:text>
       <xsl:apply-templates mode="#current"/>
@@ -3405,7 +3406,7 @@
    <xsl:template match="tei:ref[@type='biblio']" mode="html">
       <xsl:apply-templates mode="html"/>
    </xsl:template>
-   
+
    <xsl:template match="tei:ref[@type='extant_mss']" mode="html">
       <xsl:choose>
          <xsl:when test="normalize-space(@target)">
@@ -3483,7 +3484,7 @@
          </xsl:otherwise>
       </xsl:choose>
    </xsl:template>
-   
+
    <xsl:template match="tei:ref[@type='popup']" mode="html">
       <xsl:choose>
          <xsl:when test="normalize-space(@target)">
@@ -3513,7 +3514,7 @@
          </xsl:otherwise>
       </xsl:choose>
    </xsl:template>
-   
+
    <xsl:template match="tei:locus" mode="html">
       <xsl:variable name="from" select="normalize-space(@from)"/>
       <xsl:variable name="page">
@@ -3543,7 +3544,7 @@
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/i&gt;</xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="tei:graphic[@url]" mode="html">
       <xsl:variable name="float">
          <xsl:choose>
@@ -3563,7 +3564,7 @@
       <xsl:value-of select="@url"/>
       <xsl:text>&quot; /&gt;</xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="tei:damage" mode="html">
       <xsl:text>&lt;i class=&apos;delim&apos;</xsl:text>
       <xsl:text> style=&apos;font-style:normal; color:red&apos;&gt;</xsl:text>
@@ -3707,21 +3708,21 @@
       <xsl:apply-templates select="tei:reg[@type='hyphenated']" mode="html"/>
       <xsl:text>&lt;/i&gt;</xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="tei:reg" mode="html">
       <xsl:apply-templates mode="html"/>
    </xsl:template>
-   
+
    <xsl:template match="text()" mode="html">
       <xsl:variable name="translated" select="translate(., '^&#x00A7;', '&#x00A0;&#x30FB;')"/>
       <xsl:variable name="replaced"
          select="replace($translated, '_ _ _', '&#x2014;&#x2014;&#x2014;')"/>
       <xsl:value-of select="$replaced"/>
    </xsl:template>
-   
+
    <xsl:template name="get-biblio">
       <xsl:param name="level" select="'doc'"/>
-      
+
       <xsl:variable name="target" as="item()*">
          <xsl:choose>
             <xsl:when test="$level = 'item'">
@@ -3736,7 +3737,7 @@
             </xsl:otherwise>
          </xsl:choose>
       </xsl:variable>
-      
+
       <xsl:if test="$target">
          <xsl:call-template name="write-container-lg">
             <xsl:with-param name="type" select="'bibliographies'"/>
@@ -3752,8 +3753,8 @@
          </xsl:call-template>
       </xsl:if>
    </xsl:template>
-   
-   
+
+
    <xsl:template match="tei:head" mode="html">
       <xsl:text>&lt;p&gt;&lt;b&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
@@ -3767,20 +3768,20 @@
       <xsl:text>&lt;/div&gt;</xsl:text>
       <xsl:text>&lt;br /&gt;</xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="tei:listBibl//tei:bibl" mode="html">
       <xsl:text>&lt;div style=&apos;display: list-item; margin-left: 20px;&apos;&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="tei:listBibl//tei:biblStruct[not(*)]" mode="html">
       <!-- Template to catch biblStruct w no child elements and treat like bibl - shouldn't really happen but frequently does, so prob easiest to handle it -->
       <xsl:text>&lt;div style=&apos;display: list-item; margin-left: 20px;&apos;&gt;</xsl:text>
       <xsl:apply-templates mode="html"/>
       <xsl:text>&lt;/div&gt;</xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="tei:listBibl//tei:biblStruct[tei:analytic]" mode="html">
       <xsl:text>&lt;div style=&apos;display: list-item; margin-left: 20px;&apos;</xsl:text>
       <xsl:choose>
@@ -3796,7 +3797,7 @@
          </xsl:when>
       </xsl:choose>
       <xsl:text>&gt;</xsl:text>
-      
+
       <xsl:choose>
          <xsl:when test="@type='bookSection' or @type='encyclopaediaArticle' or @type='encyclopediaArticle'">
             <xsl:for-each select="tei:analytic">
@@ -4004,7 +4005,7 @@
 
       <xsl:text>&lt;/div&gt;</xsl:text>
    </xsl:template>
-   
+
    <xsl:template match="tei:listBibl//tei:biblStruct[tei:monogr and not(tei:analytic)]" mode="html">
       <xsl:text>&lt;div style=&apos;display: list-item; margin-left: 20px;&apos;</xsl:text>
       <xsl:choose>
@@ -4081,7 +4082,7 @@
                      <xsl:call-template name="get-respStmt"/>
                   </xsl:for-each>
                </xsl:if>
-               
+
                <xsl:if test="../tei:series">
                   <xsl:for-each select="../tei:series">
                      <xsl:text>, </xsl:text>
@@ -4108,7 +4109,7 @@
                      <xsl:value-of select="normalize-space(.)"/>
                   </xsl:for-each>
                </xsl:if>
-               
+
                <xsl:if test="tei:imprint">
                   <xsl:for-each select="tei:imprint">
                      <xsl:text> </xsl:text>
@@ -4134,14 +4135,14 @@
                   <xsl:value-of select="normalize-space(.)"/>
                </xsl:for-each>
             </xsl:if>
-            
+
             <xsl:text>.</xsl:text>
          </xsl:when>
-         <xsl:otherwise/> 
+         <xsl:otherwise/>
       </xsl:choose>
       <xsl:text>&lt;/div&gt;</xsl:text>
    </xsl:template>
-   
+
    <!--names processing for bibliography-->
    <xsl:template name="get-names-first-surname-first">
       <xsl:choose>
@@ -4302,13 +4303,13 @@
             </xsl:for-each>
          </xsl:if>
       </xsl:variable>
-      
+
       <xsl:if test="normalize-space($pubText)">
          <xsl:text>(</xsl:text>
          <xsl:value-of select="$pubText"/>
          <xsl:text>)</xsl:text>
       </xsl:if>
-      
+
       <xsl:if test="tei:note[@type='url']">
          <xsl:text> &lt;a target=&apos;_blank&apos; class=&apos;externalLink&apos; href=&apos;</xsl:text>
          <xsl:value-of select="tei:note[@type='url']"/>
@@ -4360,7 +4361,7 @@
       <xsl:param name="label" select="'Date of Creation'"/>
       <xsl:param name="output_empty" select="false()"/><!-- SHIM COMPAT -->
       <xsl:param name="output_centuries" select="false()"/>
-      
+
       <xsl:variable name="dateStart" select="cudl:get-date-start($date_elem)" as="xsd:string*"/>
       <xsl:variable name="yearStart" select="cudl:get-year($date_elem/(@from, @notBefore, @when)[1])"/>
       <xsl:if test="$yearStart castable as xsd:integer and ($dateStart !='' or $output_empty)"><!-- SHIM COMPAT -->
@@ -4371,7 +4372,7 @@
             <xsl:value-of select="$yearStart"/>
          </number>
       </xsl:if>
-      
+
       <xsl:variable name="dateEnd" select="cudl:get-date-end($date_elem)" as="xsd:string*"/>
       <xsl:variable name="yearEnd" select="cudl:get-year($date_elem/(@to, @notAfter, @when)[1])"/>
       <xsl:if test="$yearEnd castable as xsd:integer and ($dateEnd !='' or $output_empty)"><!-- SHIM COMPAT -->
@@ -4382,7 +4383,7 @@
             <xsl:value-of select="$yearEnd"/>
          </number>
       </xsl:if>
-      
+
       <xsl:if test="$output_centuries eq true() and $dateStart !=''">
          <array key="century" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:for-each select="cudl:get-century($dateStart, $dateEnd)">
@@ -4392,7 +4393,7 @@
             </xsl:for-each>
          </array>
       </xsl:if>
-      
+
       <map key="dateDisplay" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:copy-of select="cudl:display(true())"/>
          <xsl:variable name="dateDisplay">
@@ -4424,14 +4425,14 @@
          </map>
       </xsl:if>
    </xsl:template>
-   
+
    <xsl:template match="tei:surface" mode="count">
         <xsl:number count="//tei:facsimile/tei:surface" level="any"/>
     </xsl:template>
-   
+
    <xsl:function name="cudl:get-date-start" as="xsd:string*">
    <xsl:param name="node"/>
-   
+
    <xsl:choose>
       <xsl:when test="$node/@from">
          <xsl:value-of select="$node/@from"/>
@@ -4445,10 +4446,10 @@
       <xsl:otherwise/>
    </xsl:choose>
 </xsl:function>
-   
+
    <xsl:function name="cudl:get-date-end" as="xsd:string*">
       <xsl:param name="node"/>
-      
+
       <xsl:choose>
          <xsl:when test="$node/@to">
             <xsl:value-of select="$node/@to"/>
@@ -4462,24 +4463,24 @@
          <xsl:otherwise/>
       </xsl:choose>
    </xsl:function>
-   
+
    <xsl:function name="cudl:get-year" as="xsd:integer*">
       <xsl:param name="iso_string"/>
-      
+
       <xsl:variable name="year_tmp" select="replace($iso_string,'(^-*\d{1,4})(.+)*$', '$1')"/>
       <xsl:if test="$year_tmp castable as xsd:integer">
          <xsl:sequence select="xsd:integer($year_tmp)"/>
       </xsl:if>
    </xsl:function>
-   
+
    <xsl:function name="cudl:display" as="item()">
       <xsl:param name="bool" as="xsd:boolean"/>
-      
+
       <boolean key="display" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:value-of select="$bool"/>
       </boolean>
    </xsl:function>
-   
+
    <xsl:template match="*[@key='seq']" priority="1" mode="updateSeq">
       <xsl:variable name="position" select="cudl:get-pos(.)"/>
       <xsl:copy>
@@ -4487,17 +4488,17 @@
          <xsl:value-of select="$position"/>
       </xsl:copy>
    </xsl:template>
-   
+
    <xsl:template match="@*|node()"  mode="updateSeq">
       <xsl:copy>
          <xsl:apply-templates select="@*|node()" mode="#current"/>
       </xsl:copy>
    </xsl:template>
-   
+
    <xsl:variable name="layout">
          <!--
             <cudl:element name="itemType" jsontype="array" >
-            <cudl:element name="type" jsontype="string" />         
+            <cudl:element name="type" jsontype="string" />
             </cudl:element>
          -->
          <cudl:element name="itemType" jsontype="string" />
@@ -4914,20 +4915,20 @@
             </cudl:element>
          </cudl:element>
       </xsl:variable>
-   
+
    <!-- Calculate cdl seq value -->
    <xsl:key name="test" match="//cudl:element" use="@name"/>
-   
+
    <xsl:function name="cudl:get-pos" as="xsd:int*">
       <xsl:param name="node" />
-      
+
       <xsl:variable name="containing_named_object" select="$node/ancestor::json:map[normalize-space(@key)][1]"/>
       <xsl:variable name="offset" select="if (not($node/parent::json:map[normalize-space(@key)])) then 1 else 0"/>
-      
+
       <xsl:variable name="container_name" select="$containing_named_object/@key"/>
-      
+
       <xsl:variable name="matches" select="key('test', $container_name, $layout)"/>
-      
+
       <xsl:choose>
          <xsl:when test="count($matches) eq 1">
             <xsl:for-each select="$matches">
@@ -4944,15 +4945,15 @@
             </xsl:for-each>
          </xsl:when>
       </xsl:choose>
-      
+
    </xsl:function>
-   
+
    <xsl:function name="cudl:path-to-directory" as="xsd:string">
       <xsl:param name="dir"/>
       <xsl:param name="build_dir"/>
-      
+
       <xsl:variable name="directory" select="replace(normalize-space($dir),'/$','')"/>
-      
+
       <xsl:choose>
          <xsl:when test="normalize-space($build_dir) !=''">
             <xsl:choose>
@@ -4975,26 +4976,26 @@
          </xsl:otherwise>
       </xsl:choose>
    </xsl:function>
-   
-   
+
+
    <xsl:function name="cudl:construct-output-filename-path" as="xsd:string">
       <xsl:param name="node" as="item()*"/>
       <xsl:param name="type" as="xsd:string*" />
       <xsl:param name="surfaceID" as="xsd:string*"/>
       <xsl:param name="supplemental" as="xsd:string*"/>
-      
-      <!-- The only @type value that's accepted into the filename 
+
+      <!-- The only @type value that's accepted into the filename
             at this time is 'translation' -->
       <xsl:variable name="type_cleaned" select="$type[. = 'translation']" as="xsd:string*"/>
-      
+
       <xsl:variable name="document-uri" select="document-uri(root($node))"/>
       <xsl:variable name="filename-root" select="replace(normalize-space(tokenize(document-uri(root($node)), '/')[last()]),'\..*$','')" as="xsd:string"/>
       <xsl:variable name="path-to-filename" select="string-join(tokenize(replace(document-uri(root($node)),'^file:',''), '/')[position() lt last()],'/')" as="xsd:string"/>
       <xsl:variable name="output-filename" as="xsd:string">
          <xsl:value-of select="concat(string-join(($filename-root,distinct-values(($surfaceID, $supplemental)),$type_cleaned)[.!=''],'-'),'.xml')"/>
       </xsl:variable>
-      
-      
+
+
       <xsl:variable name="hierarchy" as="xsd:string">
          <xsl:choose>
             <xsl:when test="$clean_data_dir != ''">
@@ -5005,14 +5006,14 @@
             </xsl:otherwise>
          </xsl:choose>
       </xsl:variable>
-      
+
       <xsl:value-of select="replace(concat(string-join(($clean_dest_dir,$hierarchy)[.!=''],'/'),'/',$output-filename),'//','/')"/>
    </xsl:function>
-   
+
    <xsl:function name="cudl:get-century">
       <xsl:param name="dateStart"/>
       <xsl:param name="dateEnd"/>
-      
+
       <xsl:variable name="century-key" as="item()*">
          <cudl:century key="-10">0900s B.C.E.</cudl:century>
          <cudl:century key="-9">0800s B.C.E.</cudl:century>
@@ -5047,10 +5048,10 @@
          <cudl:century key="20">2000s C.E.</cudl:century>
          <cudl:century key="21">2100s C.E.</cudl:century>
       </xsl:variable>
-      
+
       <xsl:variable name="start_num" select="cudl:_get_century_num($dateStart)" as="xsd:integer*"/>
       <xsl:variable name="end_num" select="cudl:_get_century_num($dateEnd)" as="xsd:integer*"/>
-      
+
       <xsl:if test="$start_num castable as xsd:integer">
          <xsl:variable name="end_num_final" as="xsd:integer">
             <xsl:choose>
@@ -5062,17 +5063,17 @@
                </xsl:otherwise>
             </xsl:choose>
          </xsl:variable>
-         
+
          <xsl:for-each select="($start_num to $end_num_final)">
             <xsl:variable name="key_num" select="."/>
             <xsl:sequence select="$century-key[@key=$key_num]"/>
          </xsl:for-each>
       </xsl:if>
    </xsl:function>
-   
+
    <xsl:function name="cudl:_get_century_num" as="xsd:integer*">
       <xsl:param name="date"/>
-      
+
       <xsl:variable name="tmp">
          <xsl:choose>
             <xsl:when test="starts-with($date, '-')">
@@ -5083,7 +5084,7 @@
             </xsl:otherwise>
          </xsl:choose>
       </xsl:variable>
-      
+
       <xsl:choose>
          <xsl:when test="$tmp castable as xsd:integer">
             <xsl:value-of select="number($tmp)"/>

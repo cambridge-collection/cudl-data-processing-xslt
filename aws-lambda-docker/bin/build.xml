@@ -53,6 +53,10 @@
         <isset property="env.SEARCH_PORT" />
     </condition>
 
+    <condition property="SEARCH_COLLECTION_PATH" value="${env.SEARCH_COLLECTION_PATH}" else="">
+        <isset property="env.SEARCH_COLLECTION_PATH" />
+    </condition>
+
     <property name="collection_xml.dir" value="${AWS_DIST_BUCKET}/collection-xml"/><!-- collection info broken down by file -->
 
     <condition property="no.copy.xml" value="true" else="false">
@@ -119,6 +123,7 @@
             <param name="collection_xml_dir" expression="${collection_xml.dir}"/>
             <param name="SEARCH_HOST" expression="${SEARCH_HOST}"/>
             <param name="SEARCH_PORT" expression="${SEARCH_PORT}"/>
+            <param name="SEARCH_COLLECTION_PATH" expression="${SEARCH_COLLECTION_PATH}"/>
         </xslt>
     </target>
 

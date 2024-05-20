@@ -12,5 +12,6 @@ services:
       ANT_TARGET: ${ANT_TARGET:-full}
       SEARCH_HOST: host.docker.internal
       SEARCH_PORT: 80
+      SEARCH_COLLECTION_PATH: collections
     ports:
       - 9000:8080
