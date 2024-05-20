@@ -25,8 +25,10 @@
     <property unless:blank="${env.PAGE_XML_SOURCE}" name="page-xml.pending.dir" value="${env.PAGE_XML_SOURCE}"/>
     <property if:blank="${env.PAGE_XML_SOURCE}" name="page-xml.pending.dir" value="${dist-pending.dir}/page-xml"/>
 
+    <property name="tei_full.pending.dest"  value="${dist-pending.dir}"/><!-- target directory for original TEI file (along with its path hierarchy) -->
+    <property name="tei_full.pending.src"  value="${dist-pending.dir}/items"/><!-- source directory for the original TEI file copied to the pending dist dir -->
     <property name="default.core_xml.pending.dir"  value="${dist-pending.dir}/core-xml"/><!-- target of the xtf indexing results. Source for json xslt -->
-    
+
     <property name="viewer-json.pending.dir"  value="${dist-pending.dir}/json-viewer"/><!-- Destination dir for json viewer -->
     <property name="solr-json.pending.dir"  value="${dist-pending.dir}/json-solr"/><!-- Destination dir for json solr -->
     <property name="dp-json.pending.dir"  value="${dist-pending.dir}/json-dp"/><!-- Destination dir for json digital preservation -->
@@ -38,6 +40,7 @@
     <property name="core_xml-s3-dest" value="${AWS_DIST_BUCKET}/core-xml"/>
     <property name="www-s3-dest" value="${AWS_DIST_BUCKET}/html"/>
     <property name="page-xml-s3-dest" value="${AWS_DIST_BUCKET}/page-xml"/>
+    <property name="tei-full-s3-dest" value="${AWS_DIST_BUCKET}/items"/>
     <property name="dp-json-s3-dest" value="${AWS_DIST_BUCKET}/dp-json"/>
     <property name="solr-json-s3-dest" value="${AWS_DIST_BUCKET}/solr-json"/>
     <property name="viewer-json-s3-dest" value="${AWS_DIST_BUCKET}/viewer-json"/>
@@ -91,8 +94,16 @@
         </retry>
     </target>
 
+    <target name="_copy_tei_full_to_dist_pending">
+        <copy todir="${tei_full.pending.dest}">
+            <fileset dir="${data.dir}" includes="${files-to-process}" />
+        </copy>
+    </target>
+
     <target name="metadata">
         <mkdir dir="${core_xml.pending.dir}"/>
+
+        <antcall target="_copy_tei_full_to_dist_pending"/>
 
         <fileset id="original_xml" dir="${data.dir}" includes="${files-to-process}" />
 
@@ -410,11 +421,12 @@
                 <include name="**/*"/>
             </fileset>
         </copy>
-        
+
     </target>
 
     <target name="_copy_to_s3">
         <parallel>
+            <antcall target="_copy_tei_full_to_s3"/>
             <antcall unless:true="${no.copy.xml}" target="_copy_xml_derivs_to_s3"/>
             <antcall target="_copy_www_to_s3"/>
             <antcall target="_copy_viewer_json_to_s3"/>
@@ -422,7 +434,18 @@
             <antcall target="_copy_solr_json_to_s3"/>
         </parallel>
     </target>
-    
+
+    <target name="_copy_tei_full_to_s3">
+        <echo message="Copying ${tei_full.pending.src} to S3://${tei-full-s3-dest}"/>
+        <exec executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="sync"/>
+            <arg value="--quiet"/>
+            <arg value="${tei_full.pending.src}"/>
+            <arg value="s3://${tei-full-s3-dest}"/>
+        </exec>
+    </target>
+
     <target name="_copy_xml_derivs_to_s3">
         <echo message="Copying ${core_xml.pending.dir} to S3://${core_xml-s3-dest}"/>
         <exec executable="aws" resolveexecutable="true">
