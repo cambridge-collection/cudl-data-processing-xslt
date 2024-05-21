@@ -43,7 +43,10 @@
     <property name="tei-full-s3-dest" value="${AWS_DIST_BUCKET}/items"/>
     <property name="dp-json-s3-dest" value="${AWS_DIST_BUCKET}/dp-json"/>
     <property name="solr-json-s3-dest" value="${AWS_DIST_BUCKET}/solr-json"/>
-    <property name="viewer-json-s3-dest" value="${AWS_DIST_BUCKET}/viewer-json"/>
+    <!-- TODO: Viewer JSON dest dir is temporarily set to 'json' so that it can be readily used by legacy code.
+               Once this code has been refactored, it should be changed to json-viewer
+    -->
+    <property name="viewer-json-s3-dest" value="${AWS_DIST_BUCKET}/json"/>
 
     <condition property="SEARCH_HOST" value="${env.SEARCH_HOST}" else="">
         <isset property="env.SEARCH_HOST" />
