@@ -431,7 +431,8 @@
 
     <target name="_copy_to_s3">
         <parallel>
-            <antcall target="_copy_tei_full_to_s3"/>
+            <!-- NB: Uncomment the following line to copy original TEI to dist -->
+            <!--<antcall target="_copy_tei_full_to_s3"/>-->
             <antcall unless:true="${no.copy.xml}" target="_copy_xml_derivs_to_s3"/>
             <antcall target="_copy_www_to_s3"/>
             <antcall target="_copy_viewer_json_to_s3"/>
