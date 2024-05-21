@@ -2,16 +2,18 @@
 
 The code in this repository is used for processing TEI item data into all the formats used by the Cambridge Digital Collections Platform, namely:
 
-1. The `www` directory contains html files for every page transcription or translation along with associated UI resources (inline diagrams, css, javascript)
-1. `collection-xml` contains collection information grouped by classmark
 1. `core-xml` contains the processed metadata (including html page files and collection information)
-1. `json-viewer` contains the JSON files required for the viewer to function
-1. `json-solr` contains the JSON files that contain the metadata and textual content for indexing in solr.
 1. `json-dp` contains the JSON files that contain the metadata necessary for items to be processed in Cambridge University Library’s Digital Preservation pipeline.
+1. `json-solr` contains the JSON files that contain the metadata and textual content for indexing in solr.
+1. `json-viewer` contains the JSON files required for the viewer to function
+1. `page-xml` contains TEI XML files for each individual page.
+1. 1. The `www` directory contains html files for every page transcription or translation along with associated UI resources (inline diagrams, css, javascript)
+
+The lambda additionally places a copy of the original, unmodified, source TEI XML file into `items`.
 
 The application is dockerised. There are two versions:
 
-1. One that creates the development environment for testing the AWS Lambda implementation. This relies on a wide range of AWS infrastructure to function.
+1. One that creates the environment for running in an AWS Lambda. which relies on a wide range of AWS infrastructure to function.
 2. The other version runs off locally stored data files. This is the version that’s best suited for implementation within a CI/CD system or for running local builds.
 
 ## Prerequisites
@@ -29,8 +31,7 @@ Environment variables with the necessary AWS credentials stored in the following
 
 All other environment variables necessary for CUDL are stored in `.env`, such as the source and destination buckets.
 
-### Building and running the container
-
+### Running the AWS container locally
 
     docker compose -f docker-compose-aws-dev.yml up --build
 
@@ -38,11 +39,15 @@ All other environment variables necessary for CUDL are stored in `.env`, such as
 
 ### Processing a file
 
-The AWS Lambda responds to SNS messages. To transform a file, you need to submit a JSON file with the SNS structure with a `POST` request to `http://localhost:9000/2015-03-31/functions/function/invocations`:
+The AWS Lambda responds to SQS messages. To transform a file, you need to submit a JSON file with the SQS structure with a `POST` request to `http://localhost:9000/2015-03-31/functions/function/invocations`:
 
     curl -X POST -H 'Content-Type: application/json' 'http://localhost:9000/2015-03-31/functions/function/invocations' --data-binary "@./sample/sns-tei-source-change.json"
 
 Assuming you have the required permissions to access the resources, this container will create all the necessary outputs and, if successful, copy them to their S3 bucket destination.
+
+**NOTE:** The lambda will attempt to download the item mentioned in the sample notification. You will consequently only be able to successfully run this lambda locally after you have successfully logged into AWS and stored your access keys (as above).
+
+This information is coded in escaped JSON contained within the `body` property. If you search for ‘bucket’, you will find the name of the bucket (‘rmm98-sandbox-cudl-data-source ‘ at present) and the filename is stored within object key property (items/data/tei/MS-ADD-03975/MS-ADD-03975.xml` at present). You will need to update these to buckets/items that exist and which you have access to.
 
 ## Instructions for running the local non-AWS container
 
@@ -59,10 +64,8 @@ You must specify the file you want to process in the environment variable called
  
 To process MS-ADD-03975:
 
-
     export TEI_FILE=items/data/tei/MS-ADD-03975/MS-ADD-03975.xml
     docker compose -f docker-compose-local.yml up --build
-
 
 `TEI_FILE` also accepts wildcards. The following will rebuild files for MS-ADD-04000 to MS-ADD-04009:
 
@@ -77,12 +80,11 @@ If the `TEI_FILE` environment variable is not set, the container will assume tha
 
 Log into AWS in your shell and have your credentials stored in `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN`. Then, run the following commands:
 
-    cd aws-lambda-docker
-    aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 563181399728.dkr.ecr.eu-west-1.amazonaws.com
-    docker build -t cudl-tei-processing --platform linux/amd64 .
-    docker tag cudl-tei-processing:latest 563181399728.dkr.ecr.eu-west-1.amazonaws.com/cudl-tei-processing:latest
-    docker push 563181399728.dkr.ecr.eu-west-1.amazonaws.com/cudl-tei-processing:latest
-
+    $ cd aws-lambda-docker
+    $ aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 563181399728.dkr.ecr.eu-west-1.amazonaws.com
+    $ docker build -t cudl-tei-processing --platform linux/amd64 .
+    $ docker tag cudl-tei-processing:latest 563181399728.dkr.ecr.eu-west-1.amazonaws.com/cudl-tei-processing:latest
+    $ docker push 563181399728.dkr.ecr.eu-west-1.amazonaws.com/cudl-tei-processing:latest
 
 ## Ant Targets
 
