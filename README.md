@@ -86,20 +86,6 @@ Log into AWS in your shell and have your credentials stored in `AWS_ACCESS_KEY_I
     $ docker tag cudl-tei-processing:latest 563181399728.dkr.ecr.eu-west-1.amazonaws.com/cudl-tei-processing:latest
     $ docker push 563181399728.dkr.ecr.eu-west-1.amazonaws.com/cudl-tei-processing:latest
 
-## Ant Targets
-
-If you run ant without specifying a target, it will build all the relevant resources in the output directory, namely:  `core-xml`, `json-dp`, `json-solr`, `json-viewer`, `page-xml` and ``www`.
-
-It is possible to call each phase of the process, which, in order, are:
-
-1. `transcripts` builds html page transcriptions/translations and associated resources into `./dist/www`
-1. `metadata` builds the core-xml metadata files into `./dist/core-xml` (**NB:** requires the results of transcripts)
-1. `metadata-and-transcripts` builds the core-xml metadata files and transcripts into `./dist/core-xml` and `./dist/www`, respectively.
-1. `viewer` builds the viewer json into `./dist/json-viewer` (**NB:** requires `core-xml`)
-1. `solr` builds the solr json into `./dist/json-solr` (**NB:** requires `core-xml`)
-1. `dp` builds the DP json into `./dist/json-dp` (**NB:** requires `core-xml`)
-1. `json` builds all json outputs into `./dist/json-viewer`, `./dist/json-solr` and `./dist/json-dp` (**NB:** requires `core-xml`)
-
 ## Tests
 
 The test suite checks that:
