@@ -26,17 +26,6 @@ function handler() {
 		FILENAME=$(basename "${TEI_FILE}")
 		CONTAINING_DIR=$(dirname "${TEI_FILE}")
 
-		# Download core-xml if regenerating downstream views
-		[[ 'json solr dp viewer' =~ (^|[[:space:]])$ANT_TARGET($|[[:space:]]) ]] &&
-			echo "Downloading core_xml for ${TEI_FILE}" 1>&2 &&
-			aws s3 cp --quiet --recursive s3://${CORE_XML_S3_DEST}/${CONTAINING_DIR} ${CORE_XML_SOURCE}/${CONTAINING_DIR} 1>&2
-
-		# Download page-xml if regenerating html
-		[[ $ANT_TARGET = "html" ]] &&
-			echo "Downloading page_xml for${TEI_FILE}" &&
-			PAGE_XML_SUBDIR=$(dirname "${TEI_FILE}") &&
-			aws s3 cp --quiet --recursive s3://${PAGE_XML_S3_DEST}/${CONTAINING_DIR} ${PAGE_XML_SOURCE}/${CONTAINING_DIR} 1>&2
-
 		# Process requested file
 		echo "Downloading s3://${S3_BUCKET}/${TEI_FILE}" 1>&2
 		aws s3 cp --quiet s3://${S3_BUCKET}/${TEI_FILE} /tmp/opt/cdcp/cudl-data-source/${TEI_FILE} 1>&2 &&
