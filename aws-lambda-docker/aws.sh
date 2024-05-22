@@ -17,7 +17,7 @@ function handler() {
 	S3_BUCKET=$(echo "$1" | jq -r '.Records[].body' | jq -r '.Records[].s3.bucket.name') 1>&2
 	TEI_FILE=$(echo "$1" | jq -r '.Records[].body' | jq -r '.Records[].s3.object.key') 1>&2
 
-	if [[ -v "AWS_DIST_BUCKET" && -v "SEARCH_HOST" && -v "SEARCH_PORT" && -v "SEARCH_COLLECTION_PATH" && -v "COLLECTION_XML_SOURCE" && -v "PAGE_XML_SOURCE" && -v "CORE_XML_SOURCE" && -v "ANT_TARGET" && -n "$S3_BUCKET" && -n "$TEI_FILE" ]]; then
+	if [[ -v "AWS_OUTPUT_BUCKET" && -v "SEARCH_HOST" && -v "SEARCH_PORT" && -v "SEARCH_COLLECTION_PATH" && -v "COLLECTION_XML_SOURCE" && -v "PAGE_XML_SOURCE" && -v "CORE_XML_SOURCE" && -v "ANT_TARGET" && -n "$S3_BUCKET" && -n "$TEI_FILE" ]]; then
 
 		echo "Requested file: s3://${S3_BUCKET}/${TEI_FILE}" 1>&2
 
@@ -28,7 +28,7 @@ function handler() {
 		(/opt/ant/bin/ant -buildfile /tmp/opt/cdcp/bin/build.xml $ANT_TARGET -Dfiles-to-process=$TEI_FILE) 1>&2 &&
 			echo "OK"
 	else
-		if [[ ! -v "AWS_DIST_BUCKET" ]]; then echo "ERROR: AWS_DIST_BUCKET environment var not set" 1>&2; fi
+		if [[ ! -v "AWS_OUTPUT_BUCKET" ]]; then echo "ERROR: AWS_OUTPUT_BUCKET environment var not set" 1>&2; fi
 		if [[ ! -v "COLLECTION_XML_SOURCE" ]]; then echo "ERROR: COLLECTION_XML_SOURCE environment var not set" 1>&2; fi
 		if [[ ! -v "PAGE_XML_SOURCE" ]]; then echo "ERROR: PAGE_XML_SOURCE environment var not set" 1>&2; fi
 		if [[ ! -v "CORE_XML_SOURCE" ]]; then echo "ERROR: CORE_XML_SOURCE environment var not set" 1>&2; fi
