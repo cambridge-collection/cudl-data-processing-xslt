@@ -22,8 +22,9 @@
     <property name="www.pending.dir"  value="${dist-pending.dir}/www"/><!-- Target directory for www resources -->
 
     <!-- Target directory for TEI XML page files -->
-    <property unless:blank="${env.PAGE_XML_SOURCE}" name="page-xml.pending.dir" value="${env.PAGE_XML_SOURCE}"/>
-    <property if:blank="${env.PAGE_XML_SOURCE}" name="page-xml.pending.dir" value="${dist-pending.dir}/page-xml"/>
+
+    <property if:set="${env.PAGE_XML_SOURCE}" name="page-xml.pending.dir" value="${env.PAGE_XML_SOURCE}"/>
+    <property unless:set="${env.PAGE_XML_SOURCE}" name="page-xml.pending.dir" value="${dist-pending.dir}/page-xml"/>
 
     <property name="tei_full.pending.dest"  value="${dist-pending.dir}"/><!-- target directory for original TEI file (along with its path hierarchy) -->
     <property name="tei_full.pending.src"  value="${dist-pending.dir}/items"/><!-- source directory for the original TEI file copied to the pending dist dir -->
@@ -71,8 +72,8 @@
     </condition>
 
     <target name="if.core.source.overide">
-        <property unless:blank="${env.CORE_XML_SOURCE}" name="core_xml.pending.dir" value="${env.CORE_XML_SOURCE}"/>
-        <property if:blank="${env.CORE_XML_SOURCE}" name="core_xml.pending.dir" value="${dist-pending.dir}/core-xml"/>
+        <property if:set="${env.CORE_XML_SOURCE}" name="core_xml.pending.dir" value="${env.CORE_XML_SOURCE}"/>
+        <property unless:set="${env.CORE_XML_SOURCE}" name="core_xml.pending.dir" value="${dist-pending.dir}/core-xml"/>
     </target>
 
     <!-- Comprehensive builds -->
