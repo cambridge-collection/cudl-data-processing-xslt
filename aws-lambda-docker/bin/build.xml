@@ -22,8 +22,9 @@
     <property name="www.pending.dir"  value="${dist-pending.dir}/www"/><!-- Target directory for www resources -->
 
     <!-- Target directory for TEI XML page files -->
-    <property unless:blank="${env.PAGE_XML_SOURCE}" name="page-xml.pending.dir" value="${env.PAGE_XML_SOURCE}"/>
-    <property if:blank="${env.PAGE_XML_SOURCE}" name="page-xml.pending.dir" value="${dist-pending.dir}/page-xml"/>
+
+    <property if:set="${env.PAGE_XML_SOURCE}" name="page-xml.pending.dir" value="${env.PAGE_XML_SOURCE}"/>
+    <property unless:set="${env.PAGE_XML_SOURCE}" name="page-xml.pending.dir" value="${dist-pending.dir}/page-xml"/>
 
     <property name="tei_full.pending.dest"  value="${dist-pending.dir}"/><!-- target directory for original TEI file (along with its path hierarchy) -->
     <property name="tei_full.pending.src"  value="${dist-pending.dir}/items"/><!-- source directory for the original TEI file copied to the pending dist dir -->
@@ -36,17 +37,17 @@
     <property name="checksum-src.dir"  value="${dist-pending.dir}/checksum-src"/>
 
     <!-- Final S3 Destinations -->
-    <property name="AWS_DIST_BUCKET" value="${env.AWS_DIST_BUCKET}"/>
-    <property name="core_xml-s3-dest" value="${AWS_DIST_BUCKET}/core-xml"/>
-    <property name="www-s3-dest" value="${AWS_DIST_BUCKET}/html"/>
-    <property name="page-xml-s3-dest" value="${AWS_DIST_BUCKET}/page-xml"/>
-    <property name="tei-full-s3-dest" value="${AWS_DIST_BUCKET}/items"/>
-    <property name="dp-json-s3-dest" value="${AWS_DIST_BUCKET}/dp-json"/>
-    <property name="solr-json-s3-dest" value="${AWS_DIST_BUCKET}/solr-json"/>
+    <property name="AWS_OUTPUT_BUCKET" value="${env.AWS_OUTPUT_BUCKET}"/>
+    <property name="core_xml-s3-dest" value="${AWS_OUTPUT_BUCKET}/core-xml"/>
+    <property name="www-s3-dest" value="${AWS_OUTPUT_BUCKET}/html"/>
+    <property name="page-xml-s3-dest" value="${AWS_OUTPUT_BUCKET}/page-xml"/>
+    <property name="tei-full-s3-dest" value="${AWS_OUTPUT_BUCKET}/items"/>
+    <property name="dp-json-s3-dest" value="${AWS_OUTPUT_BUCKET}/dp-json"/>
+    <property name="solr-json-s3-dest" value="${AWS_OUTPUT_BUCKET}/solr-json"/>
     <!-- TODO: Viewer JSON dest dir is temporarily set to 'json' so that it can be readily used by legacy code.
                Once this code has been refactored, it should be changed to json-viewer
     -->
-    <property name="viewer-json-s3-dest" value="${AWS_DIST_BUCKET}/json"/>
+    <property name="viewer-json-s3-dest" value="${AWS_OUTPUT_BUCKET}/json"/>
 
     <condition property="SEARCH_HOST" value="${env.SEARCH_HOST}" else="">
         <isset property="env.SEARCH_HOST" />
@@ -60,7 +61,7 @@
         <isset property="env.SEARCH_COLLECTION_PATH" />
     </condition>
 
-    <property name="collection_xml.dir" value="${AWS_DIST_BUCKET}/collection-xml"/><!-- collection info broken down by file -->
+    <property name="collection_xml.dir" value="${AWS_OUTPUT_BUCKET}/collection-xml"/><!-- collection info broken down by file -->
 
     <condition property="no.copy.xml" value="true" else="false">
         <contains string="json,solr,dp,viewer" substring="${env.ANT_TARGET}"/>
@@ -71,8 +72,8 @@
     </condition>
 
     <target name="if.core.source.overide">
-        <property unless:blank="${env.CORE_XML_SOURCE}" name="core_xml.pending.dir" value="${env.CORE_XML_SOURCE}"/>
-        <property if:blank="${env.CORE_XML_SOURCE}" name="core_xml.pending.dir" value="${dist-pending.dir}/core-xml"/>
+        <property if:set="${env.CORE_XML_SOURCE}" name="core_xml.pending.dir" value="${env.CORE_XML_SOURCE}"/>
+        <property unless:set="${env.CORE_XML_SOURCE}" name="core_xml.pending.dir" value="${dist-pending.dir}/core-xml"/>
     </target>
 
     <!-- Comprehensive builds -->
