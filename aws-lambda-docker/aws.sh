@@ -18,13 +18,8 @@ function handler() {
 	TEI_FILE=$(echo "$1" | jq -r '.Records[].body' | jq -r '.Records[].s3.object.key') 1>&2
 
 	if [[ -v "AWS_DIST_BUCKET" && -v "SEARCH_HOST" && -v "SEARCH_PORT" && -v "SEARCH_COLLECTION_PATH" && -v "COLLECTION_XML_SOURCE" && -v "PAGE_XML_SOURCE" && -v "CORE_XML_SOURCE" && -v "ANT_TARGET" && -n "$S3_BUCKET" && -n "$TEI_FILE" ]]; then
-		CORE_XML_S3_DEST="${AWS_DIST_BUCKET}/core-xml"
-		PAGE_XML_S3_DEST="${AWS_DIST_BUCKET}/page-xml"
-		COLLECTION_XML_S3_SOURCE="${AWS_DIST_BUCKET}/collection-xml"
 
 		echo "Requested file: s3://${S3_BUCKET}/${TEI_FILE}" 1>&2
-		FILENAME=$(basename "${TEI_FILE}")
-		CONTAINING_DIR=$(dirname "${TEI_FILE}")
 
 		# Process requested file
 		echo "Downloading s3://${S3_BUCKET}/${TEI_FILE}" 1>&2
