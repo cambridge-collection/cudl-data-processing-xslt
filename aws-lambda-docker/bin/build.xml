@@ -353,9 +353,9 @@
         </retry>
     </target>
 
-    <target name="_copy_web_resources" depends="if.local.environment">
+    <target name="_copy_web_resources">
 
-        <copy if:true="${is.local.environment}" todir="${www.pending.dir}">
+        <copy todir="${www.pending.dir}">
             <fileset dir="../xslt/transcription/web/">
             </fileset>
         </copy>
@@ -439,6 +439,7 @@
             <!--<antcall target="_copy_tei_full_to_s3"/>-->
             <antcall unless:true="${no.copy.xml}" target="_copy_xml_derivs_to_s3"/>
             <antcall target="_copy_www_to_s3"/>
+            <antcall target="_copy_www_cudl_resources_to_s3"/>
             <antcall target="_copy_viewer_json_to_s3"/>
             <antcall target="_copy_dp_json_to_s3"/>
             <antcall target="_copy_solr_json_to_s3"/>
@@ -487,6 +488,18 @@
             <arg value="--quiet"/>
             <arg value="${www.pending.dir}/items/"/>
             <arg value="s3://${www-s3-dest}"/>
+        </exec>
+    </target>
+    
+    <target name="_copy_www_cudl_resources_to_s3">
+        <condition property="cudl-resources.exists" value="true" else="false"><available file="${www.pending.dir}/cudl-resources" type="dir"/></condition>
+        <echo if:true="${cudl-resources.exists}" message="Copying ${www.pending.dir}/cudl-resources/ to S3://${www-s3-dest}/cudl-resources"/>
+        <exec if:true="${cudl-resources.exists}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="sync"/>
+            <arg value="--quiet"/>
+            <arg value="${www.pending.dir}/cudl-resources"/>
+            <arg value="s3://${www-s3-dest}/cudl-resources"/>
         </exec>
     </target>
 
