@@ -1,12 +1,14 @@
 # CDCP XSLT Transforms
 
-This `base_template` branch contains the base infrastructure necessary to perform XSLT transforms. The codebase is able to run as either as:
+The docker container in `./sample-implementation` contains a minimalist implementation of the basic infrastructure underlying CDL's TEI Processing. It can be used as the basis for [rolling out your own implementations](#rolling-your-own-implementation).
 
-1. an AWS lambda, in response to an SQS notification informing of a file change to source file. The results are then output into the S3 bucket defined by `AWS_OUTPUT_BUCKET`.
+The codebase is able to run either as:
+
+1. an AWS lambda that responds to an SQS notification informing it of a file change to source file. The results are output into the S3 bucket defined by the `AWS_OUTPUT_BUCKET` environment variable.
 
 or
 
-2. a CI/CD or local build acting upon any number of items contained within the `./data` dir. The outputs are copied to `./dist`.
+2. a CI/CD or local build acting upon any number of items contained within the `sample-implementation/source` dir. The outputs are copied to `sample-implementation/out`.
 
 ## Prerequisites
 
@@ -21,49 +23,70 @@ Environment variables with the necessary AWS credentials stored in the following
 - `AWS_SECRET_ACCESS_KEY`
 - `AWS_SECRET_ACCESS_KEY`
 
-All other environment variables necessary for CUDL are stored in `.env`, such as the source and destination buckets.
+You will also need to set an environment variable for `AWS_OUTPUT_BUCKET` in `.env`.
+
+All commands assume that you are in `./sample-implementation`.
 
 ### Running the AWS container locally
 
-    docker compose -f docker-compose-aws-dev.yml up --build
+    docker compose -f docker-sample-data.yml up --force-recreate --build cdcp-aws-dev
 
-**NB: ** This `docker-compose-aws-dev.yml` must not be used when building the container for deployment within AWS. Instead, follow the instructions below.
+
+**DO NOT USE `docker-sample-data.yml` to build the container for deployment within AWS.** Instead, follow the instructions for [building the lambda for deployment in AWS](#building-the-lambda-for-deployment-in-aws).
 
 ### Processing a file
 
 The AWS Lambda responds to SQS messages. To transform a file, you need to submit a JSON file with the SQS structure with a `POST` request to `http://localhost:9000/2015-03-31/functions/function/invocations`:
 
-    curl -X POST -H 'Content-Type: application/json' 'http://localhost:9000/2015-03-31/functions/function/invocations' --data-binary "@./sample/sns-tei-source-change.json"
+    curl -X POST -H 'Content-Type: application/json' 'http://localhost:9000/2015-03-31/functions/function/invocations' --data-binary "@./sample/tei-source-change.json"
 
-Assuming you have the required permissions to access the resources, this container will create all the necessary outputs and, if successful, copy them to their S3 bucket destination.
 
 **NOTE:** The lambda will attempt to download the item mentioned in the sample notification. You will consequently only be able to successfully run this lambda locally after you have successfully logged into AWS and stored your access keys (as above).
 
-This information is coded in escaped JSON contained within the `body` property. If you search for ‘bucket’, you will find the name of the bucket (`rmm98-sandbox-cudl-data-source` at present) and the filename is stored within object key property (`items/data/tei/MS-ADD-03975/MS-ADD-03975.xml` at present). You will need to update these to buckets/items that exist and which you have access to.
+### Test Messages
+
+There are test events for the removal of a resource (`sample-implementation/test/tei-source-removed.json`) as well as a testEvent (` sample-implementation/test/tei-source-testEvent.json`) that confirms it is able to respond appropriately to unsupported event types.
+
+For these tests to run, you will need:
+
+1. Source and destinations buckets that your shell has appropriate access to with your AWS credentials stored in env variables (as per above). The name of the destination bucket must be set in `AWS_OUTPUT_BUCKET`.
+1. The source bucket should contain at least one TEI file.
+1. Modify the test events so that they refer to those buckets and your TEI file. Replace `my-most-awesome-source-b5cf96c0-e114` with your source bucket's name. Replace `my_awesome_tei/sample.xml` with the `full/path/to/your/teifile.xml`.
 
 ## Instructions for running the local non-AWS container
 
 ### Prerequisites
 
-Two directories at the root level of the repository:
+All commands assume that you are in `./sample-implementation`.
 
-* `data`, which contains the source data for your collection. This can be copied from the relevant S3 source bucket.
-* `dist`, which will contain the finished outputs.
+Two directories at the same level as `./docker`  in the ./sample-implementation` directory:
+
+* `source`, which contains the source data for your collection. The directory structure can be as flat or nested as you desire.
+* `out`, which will contain the finished outputs.
 
 ### Building the container and processing data
 
-You must specify the file you want to process in the environment variable called `TEI_FILE` before you mount the container. This contains the path to the source file, relative to the root of the `./data`. This file will be processed as soon as the container is run.
+You must specify the file you want to process in the environment variable called `TEI_FILE` before you mount the container. This contains the path to the source file, relative to the root of the `./source`. This file will be processed as soon as the container is run.
 
-To process MS-ADD-03975:
+To process `./my_awesome_tei/sample.xml`, you would run the following:
 
-    export TEI_FILE=items/data/tei/MS-ADD-03975/MS-ADD-03975.xml
-    docker compose -f docker-compose-local.yml up --build
+    export TEI_FILE=my_awesome_tei/sample.xml
+    docker compose -f docker-sample-data.yml up --force-recreate --build cdcp-local
 
-`TEI_FILE` also accepts wildcards. The following will rebuild files for MS-ADD-04000 to MS-ADD-04009:
 
-    export TEI_FILE=items/data/tei/**/MS-ADD-0400*.xml
-    docker compose -f docker-compose-local.yml up --build
+`TEI_FILE` also accepts wildcards. The following will transform both sample files:
+
+    export TEI_FILE=**/*.xml
+    docker compose -f docker-sample-data.yml up --force-recreate --build cdcp-local
 
 You cannot pass multiple files (with paths) to the container. It only accepts a single file or wildcards.
 
 If the `TEI_FILE` environment variable is not set, the container will assume that you want to process all files (**/*.xml) in `./data`.
+
+## Building the lambda for deployment in AWS
+
+_Instructions forthcoming._
+
+## Rolling your own implementation
+
+_Instructions forthcoming._
