@@ -1,0 +1,45 @@
+version: "3"
+services:
+  cdcp-aws-dev:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile
+    container_name: cdcp-tei-processing-aws-dev
+    env_file:
+      - .sample-env
+    environment:
+      ENVIRONMENT: aws-local
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
+      ANT_TARGET: ${ANT_TARGET:-full}
+    ports:
+      - 9000:8080
+  cdcp-local:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile
+    container_name: cdcp-tei-processing-local
+    env_file:
+      - .sample-env
+    environment:
+      ENVIRONMENT: local
+      TEI_FILE: ${TEI_FILE}
+      ANT_TARGET: ${ANT_TARGET:-full}
+    volumes:
+      - out:/tmp/opt/cdcp/out
+      - source:/tmp/opt/cdcp/source
+    entrypoint: [ "bash", "-c", "-l", "/var/task/local.sh" ]
+volumes:
+  out:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: ./out
+  source:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: ./source
