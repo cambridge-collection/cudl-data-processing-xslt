@@ -30,11 +30,11 @@ function handler() {
 			(/opt/ant/bin/ant -buildfile /tmp/opt/cdcp/bin/build.xml $ANT_TARGET -Dfiles-to-process=$TEI_FILE) 1>&2 &&
 				echo "OK" 1>&2
 		elif [[ "$EVENTNAME" =~ ^ObjectRemoved ]]; then
-			echo "Removing all outputs for: s3://${S3_BUCKET}/${TEI_FILE}" 1>&2
+			echo "Removing all outputs for: s3://${S3_BUCKET}/${TEI_FILE} on s3://${AWS_OUTPUT_BUCKET}" 1>&2
 			FILENAME=$(basename $TEI_FILE ".xml")
 			CONTAINING_DIR=$(dirname "$TEI_FILE")
 			HTML_INNER_PATH=$(echo $CONTAINING_DIR | sed -E 's/^items\///g')
-			aws s3 rm s3://rmm98-sandbox-cudl-dist --recursive --exclude "*" --include "**/${FILENAME}.json" --include "html/${HTML_INNER_PATH}/${FILENAME}-*.html" --include "page-xml/${CONTAINING_DIR}/${FILENAME}-*.xml" --include "core-xml/${TEI_FILE}" --include "${TEI_FILE}" 1>&2 &&
+			aws s3 rm s3://${AWS_OUTPUT_BUCKET} --recursive --exclude "*" --include "**/${FILENAME}.json" --include "html/${HTML_INNER_PATH}/${FILENAME}-*.html" --include "page-xml/${CONTAINING_DIR}/${FILENAME}-*.xml" --include "core-xml/${TEI_FILE}" --include "${TEI_FILE}" 1>&2 &&
 				echo "OK" 1>&2
 		else
 			echo "ERROR: Unsupported event: ${EVENTNAME}" 1>&2
