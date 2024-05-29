@@ -36,7 +36,7 @@
         <echo>Transforming TEI xml into html</echo>
         <fileset id="original_xml" dir="${data.dir}" includes="${files-to-process}" />
 
-        <xslt destdir="${www.pending.dir}" style="../xslt/sample.xsl" force="true" useimplicitfileset="false" extension=".html" reloadstylesheet="true">
+        <xslt destdir="${www.pending.dir}" style="../xslt/TEI-to-HTML.xsl" force="true" useimplicitfileset="false" extension=".html" reloadstylesheet="true">
             <fileset refid="original_xml"/>
             <factory name="net.sf.saxon.TransformerFactoryImpl">
                 <attribute name="http://saxon.sf.net/feature/xinclude-aware" value="true"/>

@@ -1,14 +1,13 @@
 # CDCP XSLT Transforms
 
-The docker container in `./sample-implementation` contains a minimalist implementation of the basic infrastructure underlying CDL's TEI Processing. It can be used as the basis for [rolling out your own implementations](#rolling-your-own-implementation).
+The docker containers in `./sample-implementation` contain implementations of the basic XSLT transformation engine for [CDL's TEI Processing](https://cambridge-collection.github.io/tei-data-processing-overview). 
 
-The codebase is able to run either as:
+At present, there is only one container: `render-only`. This provides an MVP implementation that transforms a TEI file into HTML. The XSLT is not meant to be used for production as it only deals with the half dozen or so elements required to output a valid HTML document. However, it can be used as the basis for [rolling out your own implementations](#rolling-your-own-implementation).
 
-1. an AWS lambda that responds to an SQS notification informing it of a file change to source file. The results are output into the S3 bucket defined by the `AWS_OUTPUT_BUCKET` environment variable.
+The codebase for all containers can be run as either:
 
-or
-
-2. a CI/CD or local build acting upon any number of items contained within the `sample-implementation/source` dir. The outputs are copied to `sample-implementation/out`.
+* an AWS lambda that responds to an SQS notification informing it of a file change to source file. The results are output into the S3 bucket defined by the `AWS_OUTPUT_BUCKET` environment variable. 
+* a CI/CD or local build acting upon any number of items contained within the `sample-implementation/render-only/source` dir. The outputs are copied to `sample-implementation/render-only/out`.
 
 ## Prerequisites
 
@@ -25,9 +24,9 @@ Environment variables with the necessary AWS credentials stored in the following
 
 You will also need to set an environment variable for `AWS_OUTPUT_BUCKET` in `.env`.
 
-All commands assume that you are in `./sample-implementation`.
-
 ### Running the AWS container locally
+
+All commands assume that you are in the root directory of your container, _e.g_: `./sample-implementation/render-only`.
 
     docker compose -f docker-sample-data.yml up --force-recreate --build cdcp-aws-dev
 
@@ -45,7 +44,7 @@ The AWS Lambda responds to SQS messages. To transform a file, you need to submit
 
 ### Test Messages
 
-There are test events for the removal of a resource (`sample-implementation/test/tei-source-removed.json`) as well as a testEvent (` sample-implementation/test/tei-source-testEvent.json`) that confirms it is able to respond appropriately to unsupported event types.
+There are test events for the removal of a resource (`sample-implementation/render-only/test/tei-source-removed.json`) as well as a testEvent (` sample-implementation/render-only/test/tei-source-testEvent.json`) that confirms it is able to respond appropriately to unsupported event types.
 
 For these tests to run, you will need:
 
@@ -57,7 +56,7 @@ For these tests to run, you will need:
 
 ### Prerequisites
 
-All commands assume that you are in `./sample-implementation`.
+All commands assume that you are in the root directory of your container, _e.g_: `./sample-implementation/render-only`.
 
 Two directories at the same level as `./docker`  in the ./sample-implementation` directory:
 
@@ -68,7 +67,7 @@ Two directories at the same level as `./docker`  in the ./sample-implementation`
 
 You must specify the file you want to process in the environment variable called `TEI_FILE` before you mount the container. This contains the path to the source file, relative to the root of the `./source`. This file will be processed as soon as the container is run.
 
-To process `./my_awesome_tei/sample.xml`, you would run the following:
+To process `my_awesome_tei/sample.xml`, you would run the following:
 
     export TEI_FILE=my_awesome_tei/sample.xml
     docker compose -f docker-sample-data.yml up --force-recreate --build cdcp-local
