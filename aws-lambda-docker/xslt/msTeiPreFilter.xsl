@@ -53,7 +53,9 @@
          
          <xsl:variable name="collection-query">
             <xsl:try>
-               <xsl:copy-of select="json-to-xml(unparsed-text(concat('http://', $search_addr,'/', $SEARCH_COLLECTION_PATH,'?q=items._id:%22%2F', $fileID, '.json%22')))"/>
+               <xsl:variable name="request_uri" select="concat('http://', $search_addr,'/', $SEARCH_COLLECTION_PATH,'?q=items._id:%22%2F', $fileID, '.json%22')"/>
+               <xsl:message select="concat('Submitting request to: ', $request_uri)"/>
+               <xsl:copy-of select="json-to-xml(unparsed-text($request_uri))"/>
                <xsl:catch>
                   <xsl:message>ERROR: Search API not responding</xsl:message>
                </xsl:catch>
