@@ -45,7 +45,7 @@
       </xsl:copy>
    </xsl:template>
 
-   <xsl:key name="collection_items" match="/*:map/*:map[@key='response']/*:array[@key='docs']/*:map/*:array[@key='items._id']/*:string" use="replace(tokenize(., '/')[last()], '\.xml$', '', 'i')"/>
+   <xsl:key name="collection_items" match="/*:map/*:map[@key='response']/*:array[@key='docs']/*:map/*:array[@key='items._id']/*:string" use="string-join(tokenize(tokenize(., '/')[last()], '\.')[position() lt last()], '.')"/>
 
    <xsl:template name="get-collection">
       <xsl:if test="$SEARCH_HOST !=''">
@@ -53,7 +53,7 @@
          
          <xsl:variable name="collection-query">
             <xsl:try>
-               <xsl:copy-of select="json-to-xml(unparsed-text(concat('http://', $search_addr,'/', $SEARCH_COLLECTION_PATH,'?q=items._id:%22%2F', $fileID, '.xml%22')))"/>
+               <xsl:copy-of select="json-to-xml(unparsed-text(concat('http://', $search_addr,'/', $SEARCH_COLLECTION_PATH,'?q=items._id:%22%2F', $fileID, '.json%22')))"/>
                <xsl:catch>
                   <xsl:message>ERROR: Search API not responding</xsl:message>
                </xsl:catch>
