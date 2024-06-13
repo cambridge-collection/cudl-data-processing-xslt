@@ -17,6 +17,7 @@
     <property name="chunk.dir"  value="../chunk"/><!-- Chunk directory: target of the chunking process; source of data for the pagify process -->
     <property name="tmp.dir"  value="../tmp"/><!-- Target directory for the TEI XML page extract files -->
     <property name="dev.null"  value="../dev.null"/><!-- Destination directory for empty junk files created by ant's xslt task when running pagify.xsl -->
+    <property name="json-tmp.dir"  value="../json-tmp"/><!-- Destination for all json files - necessary so results can be flattened after files are created -->
 
     <!-- Initial output subdirectories within $dist-pending.dir -->
     <property name="www.pending.dir"  value="${dist-pending.dir}/www"/><!-- Target directory for www resources -->
@@ -78,7 +79,7 @@
 
     <!-- Comprehensive builds -->
 
-    <target name="full" depends="if.core.source.overide, metadata-and-transcripts, _json">
+    <target name="full" depends="if.core.source.overide, cleanup, metadata-and-transcripts, _json">
         <antcall target="release-outputs"/>
     </target>
 
@@ -88,18 +89,8 @@
 
     <target name="metadata-and-transcripts" depends="transcripts, metadata"/>
 
-
     <target name="transcripts" depends="_create-pages, _transform-pages">
-
-        <retry retrycount="6">
-            <delete dir="${chunk.dir}" failonerror="no" />
-        </retry>
-        <retry retrycount="6">
-            <delete dir="${tmp.dir}" failonerror="no" />
-        </retry>
-        <retry retrycount="6">
-            <delete dir="${dev.null}" />
-        </retry>
+        <antcall target="delete-transcript-tmp-files"/>
     </target>
 
     <target name="_copy_tei_full_to_dist_pending">
@@ -142,11 +133,7 @@
     <target name="_viewer-json" depends="if.core.source.overide">
         <echo message="Generating viewer json files"/>
 
-        <property name="json-tmp.dir"  value="../json-tmp"/>
-
-        <retry retrycount="6">
-            <delete dir="${json-tmp.dir}" failonerror="no" />
-        </retry>
+        <antcall target="delete-json-tmp.dir"/>
 
         <mkdir dir="${json-tmp.dir}"/>
         <mkdir dir="${viewer-json.pending.dir}"/>
@@ -167,19 +154,13 @@
             </fileset>
         </move>
 
-        <retry retrycount="6">
-            <delete dir="${json-tmp.dir}" failonerror="no" />
-        </retry>
+        <antcall target="delete-json-tmp.dir"/>
     </target>
 
     <target name="_dp-json" depends="if.core.source.overide">
         <echo message="Generating DP json file"/>
 
-        <property name="json-tmp.dir"  value="../json-tmp"/>
-
-        <retry retrycount="6">
-            <delete dir="${json-tmp.dir}" failonerror="no" />
-        </retry>
+        <antcall target="delete-json-tmp.dir"/>
 
         <mkdir dir="${json-tmp.dir}"/>
         <mkdir dir="${dp-json.pending.dir}"/>
@@ -200,19 +181,13 @@
             </fileset>
         </move>
 
-        <retry retrycount="6">
-            <delete dir="${json-tmp.dir}" failonerror="no" />
-        </retry>
+        <antcall target="delete-json-tmp.dir"/>
     </target>
 
     <target name="_solr-json" depends="if.core.source.overide">
         <echo message="Generating solr json files"/>
 
-        <property name="json-tmp.dir"  value="../json-tmp"/>
-
-        <retry retrycount="6">
-            <delete dir="${json-tmp.dir}" failonerror="no" />
-        </retry>
+        <antcall target="delete-json-tmp.dir"/>
 
         <mkdir dir="${json-tmp.dir}"/>
         <mkdir dir="${solr-json.pending.dir}"/>
@@ -233,17 +208,13 @@
             </fileset>
         </move>
 
-        <retry retrycount="6">
-            <delete dir="${json-tmp.dir}" failonerror="no" />
-        </retry>
+        <antcall target="delete-json-tmp.dir"/>
     </target>
 
     <!-- Private tasks called from main tasks -->
 
     <target name="_create-pages">
-        <retry retrycount="6">
-            <delete dir="${chunk.dir}" failonerror="no" />
-        </retry>
+        <antcall target="delete-chunk.dir"/>
 
         <!-- Do we remove any unused transcription pages or leave them?
             Since the major work occurs on staging, it might be possible to
@@ -258,9 +229,7 @@
         <!--<retry retrycount="6">
             <delete dir="${web.dir}" />
             </retry>-->
-        <retry retrycount="6">
-            <delete dir="${dev.null}" />
-        </retry>
+        <antcall target="delete-dev.null"/>
 
         <mkdir dir="${chunk.dir}"/>
         <mkdir dir="${www.pending.dir}"/>
@@ -294,9 +263,7 @@
             <param name="num_chunks" expression="8"/>
         </xslt>
 
-        <retry retrycount="6">
-            <delete dir="${dev.null}" />
-        </retry>
+        <antcall target="delete-dev.null"/>
     </target>
 
     <target name="_transform-pages" if="${files.exist}" depends="if.chunks.exist">
@@ -316,9 +283,7 @@
             <param name="num_chunks" expression="1"/>
         </xslt>
 
-        <retry retrycount="6">
-            <delete dir="${dev.null}" />
-        </retry>
+        <antcall target="delete-dev.null"/>
 
         <antcall target="_html"/>
 
@@ -348,9 +313,7 @@
 
         <antcall target="_copy_web_resources"/>
 
-        <retry retrycount="6">
-            <delete dir="${chunk.dir}" failonerror="no" />
-        </retry>
+        <antcall target="delete-chunk.dir"/>
     </target>
 
     <target name="_copy_web_resources">
@@ -421,7 +384,7 @@
 
         <antcall if:true="${is.local.environment}" target="_copy_to_dist"/>
         <antcall unless:true="${is.local.environment}" target="_copy_to_s3"/>
-
+        <antcall target="cleanup"/>
     </target>
 
     <target name="_copy_to_dist">
@@ -538,6 +501,41 @@
             <arg value="${solr-json.pending.dir}"/>
             <arg value="s3://${solr-json-s3-dest}"/>
         </exec>
+    </target>
+    
+    <target name="cleanup" depends="delete-transcript-tmp-files, delete-json-tmp.dir">
+        <echo>Cleaning up previous build results</echo>
+        
+        <retry retrycount="6">
+            <delete dir="${dist-pending.dir}" failonerror="no"/>
+        </retry>
+        <mkdir dir="${dist-pending.dir}"/>
+    </target>
+    
+    <target name="delete-json-tmp.dir">
+        <retry retrycount="6">
+            <delete dir="${json-tmp.dir}" failonerror="no" />
+        </retry>
+    </target>
+    
+    <target name="delete-transcript-tmp-files" depends="delete-chunk.dir, delete-dev.null, delete-tmp.dir"/>
+    
+    <target name="delete-chunk.dir">
+        <retry retrycount="6">
+            <delete dir="${chunk.dir}" failonerror="no" />
+        </retry>
+    </target>
+    
+    <target name="delete-dev.null">
+        <retry retrycount="6">
+            <delete dir="${dev.null}" failonerror="no" />
+        </retry>
+    </target>
+    
+    <target name="delete-tmp.dir" depends="delete-chunk.dir">
+        <retry retrycount="6">
+            <delete dir="${tmp.dir}" failonerror="no" />
+        </retry>
     </target>
 
     <target name="if.local.environment">

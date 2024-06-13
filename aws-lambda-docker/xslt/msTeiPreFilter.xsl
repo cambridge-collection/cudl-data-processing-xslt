@@ -1181,7 +1181,7 @@
 
    <xsl:template name="get-doc-watermark-statement">
       <string key="watermarkStatement" xmlns="http://www.w3.org/2005/xpath-functions">
-         <xsl:value-of select="normalize-space(//tei:publicationStmt/tei:availability[@xml:id='watermark'])"/>
+         <xsl:value-of select="normalize-space((//tei:publicationStmt/tei:availability[@xml:id='watermark'])[normalize-space(.)][1])"/>
       </string>
    </xsl:template>
 
