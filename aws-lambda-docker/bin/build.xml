@@ -464,6 +464,97 @@
             <arg value="${www.pending.dir}/cudl-resources"/>
             <arg value="s3://${www-s3-dest}/cudl-resources"/>
         </exec>
+        
+        <echo if:true="${cudl-resources.exists}" message="Fixing mimetypes in S3://${www-s3-dest}/cudl-resources"/>
+        <echo if:true="${cudl-resources.exists}" message="Setting *.woff to font/woff"/>
+        <exec if:true="${cudl-resources.exists}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="cp"/>
+            <arg value="--quiet"/>
+            <arg value="--exclude"/>
+            <arg value="*"/>
+            <arg value="--include"/>
+            <arg value="*.woff"/>
+            <arg value="--metadata-directive"/>
+            <arg value="REPLACE"/>
+            <arg value="--content-type"/>
+            <arg value="font/woff"/>
+            <arg value="--recursive"/>
+            <arg value="${www.pending.dir}/cudl-resources"/>
+            <arg value="s3://${www-s3-dest}/cudl-resources"/>
+        </exec>
+        
+        <echo if:true="${cudl-resources.exists}" message="Setting *.eot to application/vnd.ms-fontobject"/>
+        <exec if:true="${cudl-resources.exists}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="cp"/>
+            <arg value="--quiet"/>
+            <arg value="--exclude"/>
+            <arg value="*"/>
+            <arg value="--include"/>
+            <arg value="*.eot"/>
+            <arg value="--metadata-directive"/>
+            <arg value="REPLACE"/>
+            <arg value="--content-type"/>
+            <arg value="application/vnd.ms-fontobject"/>
+            <arg value="--recursive"/>
+            <arg value="${www.pending.dir}/cudl-resources"/>
+            <arg value="s3://${www-s3-dest}/cudl-resources"/>
+        </exec>
+        
+        <echo if:true="${cudl-resources.exists}" message="Setting *.otf to font/otf"/>
+        <exec if:true="${cudl-resources.exists}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="cp"/>
+            <arg value="--quiet"/>
+            <arg value="--exclude"/>
+            <arg value="*"/>
+            <arg value="--include"/>
+            <arg value="*.otf"/>
+            <arg value="--metadata-directive"/>
+            <arg value="REPLACE"/>
+            <arg value="--content-type"/>
+            <arg value="font/otf"/>
+            <arg value="--recursive"/>
+            <arg value="${www.pending.dir}/cudl-resources"/>
+            <arg value="s3://${www-s3-dest}/cudl-resources"/>
+        </exec>
+        
+        <echo if:true="${cudl-resources.exists}" message="Setting *.ttf to font/ttf"/>
+        <exec if:true="${cudl-resources.exists}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="cp"/>
+            <arg value="--quiet"/>
+            <arg value="--exclude"/>
+            <arg value="*"/>
+            <arg value="--include"/>
+            <arg value="*.ttf"/>
+            <arg value="--metadata-directive"/>
+            <arg value="REPLACE"/>
+            <arg value="--content-type"/>
+            <arg value="font/ttf"/>
+            <arg value="--recursive"/>
+            <arg value="${www.pending.dir}/cudl-resources"/>
+            <arg value="s3://${www-s3-dest}/cudl-resources"/>
+        </exec>
+        
+        <echo if:true="${cudl-resources.exists}" message="Setting *.woff2 to font/woff2"/>
+        <exec if:true="${cudl-resources.exists}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="cp"/>
+            <arg value="--quiet"/>
+            <arg value="--exclude"/>
+            <arg value="*"/>
+            <arg value="--include"/>
+            <arg value="*.woff2"/>
+            <arg value="--metadata-directive"/>
+            <arg value="REPLACE"/>
+            <arg value="--content-type"/>
+            <arg value="font/woff2"/>
+            <arg value="--recursive"/>
+            <arg value="${www.pending.dir}/cudl-resources"/>
+            <arg value="s3://${www-s3-dest}/cudl-resources"/>
+        </exec>
     </target>
 
     <target name="_copy_viewer_json_to_s3">
