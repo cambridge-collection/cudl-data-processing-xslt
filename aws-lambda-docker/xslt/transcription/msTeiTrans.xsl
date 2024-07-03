@@ -34,6 +34,8 @@
    <xsl:variable name="useMathJax" select="$has_stretchies or exists(/*[.//tei:formula/*:math])"/>
    <xsl:variable name="has_dropCap" select="exists(/tei:TEI[exists(descendant::tei:hi[@rend='dropCap'])])"/>
    
+   <xsl:variable name="path-to-cudl-resources" select="'/html/cudl-resources'"/>
+   
    <xsl:variable name="transcriber">
       <xsl:value-of select="//*:transcriber[1]"/>
    </xsl:variable>
@@ -49,25 +51,25 @@
                 <xsl:value-of select="concat('Folio ', $requested_pb/@n)"/>
             </title>
             <xsl:if test="$use_legacy_display eq true()">
-               <link href="/cudl-resources/stylesheets/legacy-cudl/charis-sil.css" rel="stylesheet" type="text/css"/>
+               <link href="{$path-to-cudl-resources}/stylesheets/legacy-cudl/charis-sil.css" rel="stylesheet" type="text/css"/>
             </xsl:if>
             <xsl:if test="$use_junicode eq true()">
-               <link href="/cudl-resources/stylesheets/junicode.css" rel="stylesheet" type="text/css"/>
+               <link href="{$path-to-cudl-resources}/stylesheets/junicode.css" rel="stylesheet" type="text/css"/>
             </xsl:if>
-            <link href="/cudl-resources/stylesheets/texts.css" rel="stylesheet" type="text/css"/>
+            <link href="{$path-to-cudl-resources}/stylesheets/texts.css" rel="stylesheet" type="text/css"/>
             <xsl:choose>
                <xsl:when test="$project_name='darwin correspondence project'">
-                  <link href="/cudl-resources/stylesheets/darwinCorrespondence/texts.css" rel="stylesheet" type="text/css"/>
+                  <link href="{$path-to-cudl-resources}/stylesheets/darwinCorrespondence/texts.css" rel="stylesheet" type="text/css"/>
                </xsl:when>
                <xsl:when test="$project_name='newton project'">
-                  <link href="/cudl-resources/stylesheets/newtonProject/texts.css" rel="stylesheet" type="text/css"/>
+                  <link href="{$path-to-cudl-resources}/stylesheets/newtonProject/texts.css" rel="stylesheet" type="text/css"/>
                </xsl:when>
                <xsl:when test="$project_name=('casebooks project')">
-                  <link href="/cudl-resources/stylesheets/casebooksProject/casebooks-fonts.css" rel="stylesheet" type="text/css"/>
+                  <link href="{$path-to-cudl-resources}/stylesheets/casebooksProject/casebooks-fonts.css" rel="stylesheet" type="text/css"/>
                </xsl:when>
                <xsl:when test="$project_name=('igntp')">
-                  <link href="/cudl-resources/stylesheets/GFSDecker.css" rel="stylesheet" type="text/css"/>
-                  <link href="/cudl-resources/stylesheets/igntp/texts.css" rel="stylesheet" type="text/css"/>
+                  <link href="{$path-to-cudl-resources}/stylesheets/GFSDecker.css" rel="stylesheet" type="text/css"/>
+                  <link href="{$path-to-cudl-resources}/stylesheets/igntp/texts.css" rel="stylesheet" type="text/css"/>
                </xsl:when>
             </xsl:choose>
          </head>

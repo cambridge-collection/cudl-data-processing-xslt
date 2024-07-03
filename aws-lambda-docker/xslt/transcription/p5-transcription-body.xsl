@@ -44,10 +44,12 @@
     
     <xsl:if test="$useMathJax or $has_dropCap">
       <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"/>
-      <script src="/cudl-resources/javascript/jquery.inview/jquery.inview.min.js"/>
+      <script src="{$path-to-cudl-resources}/javascript/jquery.inview/jquery.inview.min.js"/>
       <xsl:if test="$useMathJax">
         <script type="text/x-mathjax-config">
-          <xsl:text disable-output-escaping="yes">MathJax.Hub.Register.StartupHook("End",function () {$('&lt;script>').attr('type', "text/javascript").attr('src', "/cudl-resources/javascript/stretchies.js").appendTo('body');});</xsl:text>
+          <xsl:text disable-output-escaping="yes">MathJax.Hub.Register.StartupHook("End",function () {$('&lt;script>').attr('type', "text/javascript").attr('src', "</xsl:text>
+          <xsl:value-of select="$path-to-cudl-resources"/>
+          <xsl:text disable-output-escaping="yes">/javascript/stretchies.js").appendTo('body');});</xsl:text>
         </script>
       </xsl:if>
       <script type="text/javascript">
@@ -56,7 +58,9 @@
         <xsl:text disable-output-escaping="yes">if (isInView &amp;&amp; ( $('#MathJax-script').length == 0 || $('#dropCap-script').length == 0)) {</xsl:text>
         <xsl:if test="$has_dropCap">
           <xsl:text>&#10;</xsl:text>
-          <xsl:text disable-output-escaping="yes">$('&lt;script>').attr('id', "dropCap-script").attr('type', "text/javascript").attr('src', "/cudl-resources/javascript/dropcap/dropcap.min.js").appendTo('body');</xsl:text>
+          <xsl:text disable-output-escaping="yes">$('&lt;script>').attr('id', "dropCap-script").attr('type', "text/javascript").attr('src', "</xsl:text>
+          <xsl:value-of select="$path-to-cudl-resources"/>
+          <xsl:text disable-output-escaping="yes">/javascript/dropcap/dropcap.min.js").appendTo('body');</xsl:text>
           <xsl:text>&#10;</xsl:text>
           <xsl:text>var dropcaps = document.querySelectorAll(".dropCap");</xsl:text>
           <xsl:text>window.Dropcap.layout(dropcaps, 3);</xsl:text>
@@ -374,7 +378,7 @@
   </xsl:template>
   
   <xsl:template match="tei:figure/tei:graphic/@url" mode="populateImgAttrs">
-    <xsl:attribute name="src" select="."/>
+    <xsl:attribute name="src" select="replace(., '^/cudl-resources/', '/html/cudl-resources/')"/>
   </xsl:template>
   
   <xsl:template match="tei:figure/tei:graphic/@width[.!='']|tei:figure/tei:graphic/@height[.!='']" mode="populateImgAttrs">
