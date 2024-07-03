@@ -593,8 +593,10 @@
   
   <xsl:template match="tei:lb[not(cudl:is_first_significant_child(.))]|tei:lb[@facs]" priority="1" mode="#all">
     <br>
-      <xsl:attribute name="xml:id" select="replace(normalize-space(@facs),'^#', '')"/>
-      <xsl:apply-templates select="@facs" mode="data-points"/>
+      <xsl:if test="normalize-space(@facs)">
+        <xsl:attribute name="xml:id" select="replace(normalize-space(@facs),'^#', '')"/>
+        <xsl:apply-templates select="@facs" mode="data-points"/>
+      </xsl:if>
     </br>
   </xsl:template>
   
