@@ -11,6 +11,8 @@
    
    <xsl:key name="keys" match="json:array[@key='descriptiveMetadata']/json:map[1]//json:*[normalize-space(@key)]" use="@key"/>
    
+   <xsl:variable name="logical_struture_elem" select="/json:map/json:array[@key='logicalStructures']/json:map[1]"/>
+   
    <xsl:mode on-no-match="shallow-copy" />
    
    <xsl:variable name="data_obj_excluded" select="('dataRevisions')"/>
@@ -38,6 +40,17 @@
    
    <xsl:template match="json:array[@key='pages']/json:map">
       <xsl:copy>
+         <json:string key="documentTitle">
+            <xsl:value-of select="$logical_struture_elem/json:string[@key='label']"/>
+         </json:string>
+         
+         <xsl:variable name="documentShelfLocator" select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:map[@key='shelfLocator'][descendant::json:string[@key='displayForm']]//json:string[@key='displayForm']"/>
+         <xsl:if test="normalize-space($documentShelfLocator)">
+            <json:string key="documentShelfLocator">
+               <xsl:value-of select="$documentShelfLocator"/>
+            </json:string>
+         </xsl:if>
+         
          <json:boolean key="hasPage">
             <xsl:value-of select="true()"/>
          </json:boolean>
@@ -116,7 +129,6 @@
                <xsl:apply-templates select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]/json:map[@key='creations']//json:array[@key='century'][descendant::json:string]" mode="flatten"/>
                <xsl:copy-of select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:number[@key=('yearStart', 'yearEnd')]"/>
                <xsl:apply-templates select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:map[@key='subjects'][descendant::json:string[@key='displayForm']]" mode="flatten"/>
-               <xsl:apply-templates select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:map[@key='shelfLocator'][descendant::json:string[@key='displayForm']]" mode="flatten"/>
             </xsl:otherwise>
          </xsl:choose>
          <xsl:apply-templates select="json:map[@key='transcription_content']/json:string[@key='surfaceID']"/>
