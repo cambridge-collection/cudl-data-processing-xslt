@@ -57,7 +57,7 @@
                <xsl:message select="concat('Submitting request to: ', $request_uri)"/>
                <xsl:copy-of select="json-to-xml(unparsed-text($request_uri))"/>
                <xsl:catch>
-                  <xsl:message>ERROR: Search API not responding</xsl:message>
+                  <xsl:message terminate="yes">ERROR: Search API not responding</xsl:message>
                </xsl:catch>
             </xsl:try>
          </xsl:variable>
@@ -67,26 +67,31 @@
 
          <xsl:variable name="collection_names" select="$item_matches/parent::*/parent::*/*:array[@key='name.short']" as="xsd:string*"/>
 
-         <xsl:if test="$collection-query[*/*:map[@key='responseHeader']]">
-            <array key="collection" xmlns="http://www.w3.org/2005/xpath-functions">
-               <xsl:for-each select="$collection_names">
-                  <string xmlns="http://www.w3.org/2005/xpath-functions">
-                     <xsl:value-of select="."/>
+         <xsl:choose>
+            <xsl:when test="$collection-query[*/*:map[@key='responseHeader']]">
+               <array key="collection" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:for-each select="$collection_names">
+                     <string xmlns="http://www.w3.org/2005/xpath-functions">
+                        <xsl:value-of select="."/>
+                     </string>
+                  </xsl:for-each>
+               </array>
+               
+               <xsl:for-each select="$item_matches">
+                  <xsl:variable name="parent_obj" select="./parent::*/parent::*"/>
+                  <xsl:variable name="collection_name" select="$parent_obj/*:array[@key='name.short'][1]"/>
+                  <string key="{$collection_name}_sort" xmlns="http://www.w3.org/2005/xpath-functions">
+                     <xsl:variable name="pos">
+                        <xsl:apply-templates select="." mode="count"/>
+                     </xsl:variable>
+                     <xsl:value-of select="format-number(xsd:int($pos),'000000')"/>
                   </string>
                </xsl:for-each>
-            </array>
-
-            <xsl:for-each select="$item_matches">
-               <xsl:variable name="parent_obj" select="./parent::*/parent::*"/>
-               <xsl:variable name="collection_name" select="$parent_obj/*:array[@key='name.short'][1]"/>
-               <string key="{$collection_name}_sort" xmlns="http://www.w3.org/2005/xpath-functions">
-                  <xsl:variable name="pos">
-                     <xsl:apply-templates select="." mode="count"/>
-                  </xsl:variable>
-                  <xsl:value-of select="format-number(xsd:int($pos),'000000')"/>
-               </string>
-            </xsl:for-each>
-         </xsl:if>
+            </xsl:when>
+            <xsl:otherwise>
+               <xsl:message>WARN: <xsl:value-of select="$fileID"/> does not seem to belong to collection</xsl:message>
+            </xsl:otherwise>
+         </xsl:choose>
       </xsl:if>
    </xsl:template>
 
@@ -2740,7 +2745,7 @@
                <xsl:when test="$isLast = 'true' and count(following::*) = 0"/>
                <!--when there's no content between here and the next pb element do nothing-->
                <xsl:when test="not(key('surfaceIDs', $current_pb/@facs))">
-                  <xsl:message select="concat('ERROR: ', $fileID, ' has invalid pb/@facs or surface/@xml:id: ''', $current_pb/@facs, '''')"/>
+                  <xsl:message select="concat('WARN: ', $fileID, ' has invalid pb/@facs or surface/@xml:id: ''', $current_pb/@facs, '''')"/>
                </xsl:when>
                <xsl:when test="local-name(following-sibling::*[1]) = 'pb' and not(ancestor::tei:div[tokenize(normalize-space(@decls), '\s+')[. = '#unpaginated']])"/>
                <xsl:otherwise>
@@ -3178,7 +3183,7 @@
                    <xsl:apply-templates select="key('surfaceNs', $startPageLabel)" mode="count"/>
                </xsl:when>
                <xsl:otherwise>
-                   <xsl:message select="concat('ERROR: ', $fileID, ' has invalid locus/@from or surface/@n value: ''', $startPageLabel, '''')"/>
+                   <xsl:message select="concat('WARN: ', $fileID, ' has invalid locus/@from or surface/@n value: ''', $startPageLabel, '''')"/>
                   <xsl:value-of select="1"/>
                </xsl:otherwise>
             </xsl:choose>
@@ -3220,7 +3225,7 @@
                   <xsl:apply-templates select="key('surfaceNs', $endPageLabel)" mode="count"/>
                </xsl:when>
                <xsl:otherwise>
-                  <xsl:message select="concat('ERROR: ', $fileID, ' has invalid locus/@to or surface/@n value: ''', $endPageLabel, '''')"/>
+                  <xsl:message select="concat('WARN: ', $fileID, ' has invalid locus/@to or surface/@n value: ''', $endPageLabel, '''')"/>
                   <xsl:value-of select="1"/>
                </xsl:otherwise>
             </xsl:choose>
