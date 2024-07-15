@@ -40,7 +40,7 @@
     </xsl:template>
     
     <xsl:template match="/tei:teiCorpus">
-        <xsl:message select="concat('ERROR: teiCorpus not suppored (', $root_filename, ')')"/>
+        <xsl:message terminate="yes" select="concat('ERROR: teiCorpus not suppored (', $root_filename, ')')"/>
     </xsl:template>
     
     <xsl:template match="comment()" priority="2" mode="#all">
