@@ -68,6 +68,9 @@
          <xsl:variable name="collection_names" select="$item_matches/parent::*/parent::*/*:array[@key='name.short']" as="xsd:string*"/>
 
          <xsl:choose>
+            <xsl:when test="not($item_matches)">
+               <xsl:message>WARN: <xsl:value-of select="$fileID"/> does not seem to belong to collection</xsl:message>
+            </xsl:when>
             <xsl:when test="$collection-query[*/*:map[@key='responseHeader']]">
                <array key="collection" xmlns="http://www.w3.org/2005/xpath-functions">
                   <xsl:for-each select="$collection_names">
@@ -89,7 +92,7 @@
                </xsl:for-each>
             </xsl:when>
             <xsl:otherwise>
-               <xsl:message>WARN: <xsl:value-of select="$fileID"/> does not seem to belong to collection</xsl:message>
+               <xsl:message terminate="yes">ERROR: Response from Search API for <xsl:value-of select="$fileID"/> does not appear to be valid SOLR JSON response</xsl:message>
             </xsl:otherwise>
          </xsl:choose>
       </xsl:if>
