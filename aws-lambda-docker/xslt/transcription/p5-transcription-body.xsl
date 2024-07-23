@@ -264,7 +264,7 @@
              a child
   -->
   
-  <xsl:template match="tei:figure[not(@type)][*][tokenize(@rend,'\s+')='inline']" priority="2" mode="#all">
+  <xsl:template match="tei:figure[not(@type)][*][tokenize(@rend,'\s+')='inline'][not(some $x in tokenize(@rend,'\s+') satisfies matches($x,'width'))]" priority="2" mode="#all">
     <span>
       <xsl:if test="@xml:id">
         <xsl:attribute name="id" select="@xml:id"/>
@@ -273,7 +273,7 @@
     </span>
   </xsl:template>
   
-  <xsl:template match="tei:figure[not(@type)][*][not(tokenize(@rend,'\s+')[matches(.,'^(inline|width\d+)$')])]" priority="2" mode="#all">
+  <xsl:template match="tei:figure[not(@type)][*][count(tokenize(@rend,'\s+')[matches(.,'^(inline|width\d+)$')]) eq 0]" priority="2" mode="#all">
     <xsl:variable name="width_val" as="xs:string*">
       <xsl:if test="not(tokenize(@rend,'\s+')[matches(.,'^width\d+')]) and tei:graphic/@width !=''">
         <!--<xsl:value-of select="floor((number(replace(tei:graphic/@width,'px',''))+20) div $width-size)"/>-->
