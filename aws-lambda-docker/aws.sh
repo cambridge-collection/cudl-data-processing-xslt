@@ -25,7 +25,7 @@ function handler() {
 	S3_BUCKET=$(echo "$1" | jq -r '.Records[].body' | jq -r '.Records[].s3.bucket.name') 1>&2
 	TEI_FILE=$(echo "$1" | jq -r '.Records[].body' | jq -r '.Records[].s3.object.key') 1>&2
 
-	if [[ -v "AWS_OUTPUT_BUCKET" && -v "SEARCH_HOST" && -v "SEARCH_PORT" && -v "SEARCH_COLLECTION_PATH" && -v "ANT_TARGET" && -n "$S3_BUCKET" && -n "$TEI_FILE" ]]; then
+	if [[ -n "${AWS_OUTPUT_BUCKET-}" && -n "${SEARCH_HOST-}" && -n "${SEARCH_PORT-}" && -n "${SEARCH_COLLECTION_PATH-}" && -n "${ANT_TARGET-}" && -n "$S3_BUCKET" && -n "$TEI_FILE" ]]; then
 		if [[ "$EVENTNAME" =~ ^ObjectCreated ]]; then
 
 			echo "Requested file: s3://${S3_BUCKET}/${TEI_FILE}" 1>&2
@@ -49,13 +49,13 @@ function handler() {
 			return 1
 		fi
 	else
-		if [[ ! -v "AWS_OUTPUT_BUCKET" ]]; then echo "ERROR: AWS_OUTPUT_BUCKET environment var not set" 1>&2; fi
-		if [[ ! -v "SEARCH_HOST" ]]; then echo "ERROR: SEARCH_HOST environment var not set" 1>&2; fi
-		if [[ ! -v "SEARCH_PORT" ]]; then echo "ERROR: SEARCH_PORT environment var not set" 1>&2; fi
-		if [[ ! -v "SEARCH_COLLECTION_PATH" ]]; then echo "ERROR: SEARCH_COLLECTION_PATH environment var not set" 1>&2; fi
-		if [[ ! -v "ANT_TARGET" ]]; then echo "ERROR: ANT_TARGET environment var not set" 1>&2; fi
-		if [[ -z "$S3_BUCKET" ]]; then echo "ERROR: Problem parsing event json for S3 Bucket" 1>&2; fi
-		if [[ -z "$TEI_FILE" ]]; then echo "ERROR: Problem parsing event json for TEI filename" 1>&2; fi
+		if [[ ! -v "AWS_OUTPUT_BUCKET" ]]; then echo "ERROR: AWS_OUTPUT_BUCKET environment var not set or empty" 1>&2; fi
+		if [[ ! -v "SEARCH_HOST" ]]; then echo "ERROR: SEARCH_HOST environment var not set or empty" 1>&2; fi
+		if [[ ! -v "SEARCH_PORT" ]]; then echo "ERROR: SEARCH_PORT environment var not set or empty" 1>&2; fi
+		if [[ ! -v "SEARCH_COLLECTION_PATH" ]]; then echo "ERROR: SEARCH_COLLECTION_PATH environment var not set or empty" 1>&2; fi
+		if [[ ! -v "ANT_TARGET" ]]; then echo "ERROR: ANT_TARGET environment var not set or empty" 1>&2; fi
+		if [[ -z "$S3_BUCKET" ]]; then echo "ERROR: Problem parsing event json for S3 Bucket or empty" 1>&2; fi
+		if [[ -z "$TEI_FILE" ]]; then echo "ERROR: Problem parsing event json for TEI filename or empty" 1>&2; fi
 		return 1
 	fi
 }
