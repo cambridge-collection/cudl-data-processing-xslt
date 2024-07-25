@@ -18,6 +18,13 @@ cp -r /opt/cdcp/bin /tmp/opt/cdcp 1>&2
 cp -r /opt/cdcp/xslt /tmp/opt/cdcp 1>&2
 
 function handler() {
+	set -a
+	# Set defaults for env vars that are unlikely to change.
+	: "${SEARCH_PORT:=}"
+	: "${SEARCH_COLLECTION_PATH:=collections}"
+	: "${ANT_TARGET:=full}"
+	set +a
+
 	echo "Parsing event notification" 1>&2
 	echo "$1" 1>&2
 
@@ -25,7 +32,7 @@ function handler() {
 	S3_BUCKET=$(echo "$1" | jq -r '.Records[].body' | jq -r '.Records[].s3.bucket.name') 1>&2
 	TEI_FILE=$(echo "$1" | jq -r '.Records[].body' | jq -r '.Records[].s3.object.key') 1>&2
 
-	if [[ -n "${AWS_OUTPUT_BUCKET-}" && -n "${SEARCH_HOST-}" && -n "${SEARCH_PORT-}" && -n "${SEARCH_COLLECTION_PATH-}" && -n "${ANT_TARGET-}" && -n "$S3_BUCKET" && -n "$TEI_FILE" ]]; then
+	if [[ -n "${AWS_OUTPUT_BUCKET-}" && -n "${SEARCH_HOST-}" && -n "$S3_BUCKET" && -n "$TEI_FILE" ]]; then
 		if [[ "$EVENTNAME" =~ ^ObjectCreated ]]; then
 
 			echo "Requested file: s3://${S3_BUCKET}/${TEI_FILE}" 1>&2

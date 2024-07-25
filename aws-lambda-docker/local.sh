@@ -1,5 +1,12 @@
 #! /bin/sh
 
+set -a
+# Set defaults for env vars that are unlikely to change.
+: "${SEARCH_PORT:=}"
+: "${SEARCH_COLLECTION_PATH:=collections}"
+: "${ANT_TARGET:=full}"
+set +a
+
 cp -r /opt/cdcp/bin /tmp/opt/cdcp 1>&2
 cp -r /opt/cdcp/xslt /tmp/opt/cdcp 1>&2
 
