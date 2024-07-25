@@ -65,31 +65,40 @@
 
          <xsl:variable name="item_matches" select="key('collection_items', $fileID, $collection-query)"/>
 
-         <xsl:variable name="collection_names" select="$item_matches/parent::*/parent::*/*:array[@key='name.short']" as="xsd:string*"/>
+         <xsl:variable name="collection_names" select="$item_matches/parent::*/parent::*/*:string[@key='id']" as="xsd:string*"/>
 
          <xsl:choose>
             <xsl:when test="not($item_matches)">
                <xsl:message>WARN: <xsl:value-of select="$fileID"/> does not seem to belong to collection</xsl:message>
             </xsl:when>
-            <xsl:when test="$collection-query[*/*:map[@key='responseHeader']]">
+            <xsl:when test="$item_matches">
                <array key="collection" xmlns="http://www.w3.org/2005/xpath-functions">
-                  <xsl:for-each select="$collection_names">
-                     <string xmlns="http://www.w3.org/2005/xpath-functions">
-                        <xsl:value-of select="."/>
-                     </string>
+                  <xsl:for-each select="$item_matches">
+                     <xsl:variable name="parent_obj" select="parent::*/parent::*"/>
+                     <map xmlns="http://www.w3.org/2005/xpath-functions">
+                        <xsl:variable name="collection_slug" select="$parent_obj/*:string[@key='id'][1]"/>
+                        <string key="url-slug" xmlns="http://www.w3.org/2005/xpath-functions">
+                           <xsl:value-of select="$collection_slug"/>
+                        </string>
+                        <string key="name-short" xmlns="http://www.w3.org/2005/xpath-functions">
+                           <xsl:value-of select="$parent_obj/*:array[@key='name.short']/*:string"/>
+                        </string>
+                        <map key="sort" xmlns="http://www.w3.org/2005/xpath-functions">
+                           <string key="name" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:value-of select="concat($collection_slug,'_sort')"/>
+                           </string>
+                           <xsl:variable name="pos">
+                              <xsl:apply-templates select="." mode="count"/>
+                           </xsl:variable>
+                           <xsl:if test="$pos castable as xsd:int">
+                              <string key="value" xmlns="http://www.w3.org/2005/xpath-functions">
+                                 <xsl:value-of select="format-number(xsd:int($pos),'000000')"/>
+                              </string>
+                           </xsl:if>
+                        </map>
+                     </map>
                   </xsl:for-each>
                </array>
-               
-               <xsl:for-each select="$item_matches">
-                  <xsl:variable name="parent_obj" select="./parent::*/parent::*"/>
-                  <xsl:variable name="collection_name" select="$parent_obj/*:array[@key='name.short'][1]"/>
-                  <string key="{$collection_name}_sort" xmlns="http://www.w3.org/2005/xpath-functions">
-                     <xsl:variable name="pos">
-                        <xsl:apply-templates select="." mode="count"/>
-                     </xsl:variable>
-                     <xsl:value-of select="format-number(xsd:int($pos),'000000')"/>
-                  </string>
-               </xsl:for-each>
             </xsl:when>
             <xsl:otherwise>
                <xsl:message terminate="yes">ERROR: Response from Search API for <xsl:value-of select="$fileID"/> does not appear to be valid SOLR JSON response</xsl:message>

@@ -210,6 +210,30 @@
       
    </xsl:template>
    
+   <xsl:template match="json:array[@key='collection']">
+      <xsl:copy>
+         <xsl:copy-of select="@key"/>
+         <xsl:for-each select="json:map/json:string[@key='url-slug']">
+            <json:string>
+               <xsl:value-of select="."/>
+            </json:string>
+         </xsl:for-each>
+      </xsl:copy>
+      <json:array key="collection-name">
+         <xsl:for-each select="json:map/json:string[@key='name-short']">
+            <json:string>
+               <xsl:value-of select="."/>
+            </json:string>
+         </xsl:for-each>
+      </json:array>
+      <xsl:for-each select="json:map/json:map[@key='sort'][normalize-space(json:string[@key='name'])]">
+         <json:string>
+            <xsl:attribute name="key" select="json:string[@key='name']"/>
+            <xsl:value-of select="json:string[@key='value']"/>
+         </json:string>
+      </xsl:for-each>
+   </xsl:template>
+   
    <xsl:template match="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]/json:string[@key=('thumbnailUrl', 'thumbnailOrientation')]" mode="#all">
       <xsl:copy>
          <xsl:apply-templates select="@*|child::node()" mode="#current"/>
