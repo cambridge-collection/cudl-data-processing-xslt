@@ -30,12 +30,11 @@ function handler() {
 
 			echo "Requested file: s3://${S3_BUCKET}/${TEI_FILE}" 1>&2
 			clean_source_workspace "Removing previous builds from workspace" &&
-
-			echo "Downloading s3://${S3_BUCKET}/${TEI_FILE}" 1>&2
+				echo "Downloading s3://${S3_BUCKET}/${TEI_FILE}" 1>&2
 			aws s3 cp --quiet s3://${S3_BUCKET}/${TEI_FILE} /tmp/opt/cdcp/cudl-data-source/${TEI_FILE} 1>&2 &&
 				echo "Processing ${TEI_FILE}" 1>&2
 			(/opt/ant/bin/ant -buildfile /tmp/opt/cdcp/bin/build.xml $ANT_TARGET -Dfiles-to-process=$TEI_FILE) 1>&2 &&
-			clean_source_workspace "Cleaning temporary workspace" &&
+				clean_source_workspace "Cleaning temporary workspace" &&
 				echo "Processing of s3://${S3_BUCKET}/${TEI_FILE} finished" 1>&2
 		elif [[ "$EVENTNAME" =~ ^ObjectRemoved ]]; then
 			echo "Removing all outputs for: s3://${S3_BUCKET}/${TEI_FILE} on s3://${AWS_OUTPUT_BUCKET}" 1>&2
