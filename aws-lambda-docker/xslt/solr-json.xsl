@@ -102,8 +102,20 @@
          <xsl:variable name="logical_structure" select="key('logical_structure', json:string[@key='physID'])" as="item()*"/>
          <xsl:variable name="part_num" select="$logical_structure/json:string[@key='descriptiveMetadataID']"/>
          
-         <xsl:choose>
-            <xsl:when test="exists($logical_structure)">
+         <xsl:variable name="sequence" select="json:number[@key='sequence']"/>
+         <xsl:if test="$sequence castable as xsd:integer">
+            <xsl:variable name="listItemPages_container" select="key('listItemPagesSeq', $sequence)" as="item()*"/>
+            <xsl:if test="$listItemPages_container">
+               <json:array key="listItemText">
+                  <xsl:for-each select="$listItemPages_container/json:*[@key=('listItemText')]">
+                     <xsl:copy>
+                        <xsl:value-of select="."/>
+                     </xsl:copy>
+                  </xsl:for-each>
+               </json:array>
+            </xsl:if>
+         </xsl:if>
+         
          <xsl:variable name="metadata" as="item()*">
             <xsl:variable name="t1" as="item()*">
                <xsl:variable name="part_metadata" select="key('part_metadata', $part_num)"/>
@@ -112,19 +124,6 @@
                <xsl:copy-of select="$part_metadata//json:number[@key=('yearStart','yearEnd')]"/>
             </xsl:variable>
             <xsl:for-each-group select="$t1" group-by="@key">
-               <xsl:apply-templates select="$part_metadata[1]//json:map[normalize-space(@key)][not(descendant::json:map[normalize-space(@key)])][descendant::json:string[@key='displayForm']]" mode="flatten"/>
-               <xsl:variable name="sequence" select="json:number[@key='sequence']"/>
-               <xsl:variable name="listItemPages_container" select="key('listItemPagesSeq', $sequence)" as="item()*"/>
-               <xsl:if test="$listItemPages_container">
-                  <json:array key="listItemText">
-                     <xsl:for-each select="$listItemPages_container/json:*[@key=('listItemText')]">
-                        <xsl:copy>
-                           <xsl:value-of select="."/>
-                        </xsl:copy>
-                     </xsl:for-each>
-                  </json:array>
-               </xsl:if>
-               
                <xsl:choose>
                   <xsl:when test="count(current-group()/(descendant-or-self::json:boolean|descendant-or-self::json:string|descendant-or-self::json:number)) eq 1">
                      <xsl:copy-of select="."/>
