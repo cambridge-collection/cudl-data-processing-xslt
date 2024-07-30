@@ -33,6 +33,9 @@
          <xsl:when test="$repository='British Library'">
             <xsl:text>https://forms.bl.uk/permissions/</xsl:text>
          </xsl:when>
+         <xsl:when test="$repository=('Corpus Christi College Cambridge Archives', 'Parker Library', 'Parker Library: on long-term deposit at Cambridge University Library')">
+            <xsl:text>https://www.corpus.cam.ac.uk/parker-library/information-readers/image-and-filming-requests</xsl:text>
+         </xsl:when>
          <xsl:when test="$repository='The John Rylands Library'">
             <xsl:text>https://www.library.manchester.ac.uk/search-resources/manchester-digital-collections/digitisation-services/copyright-and-licensing/</xsl:text>
          </xsl:when>
