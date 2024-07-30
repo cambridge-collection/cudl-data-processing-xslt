@@ -89,6 +89,8 @@
          
          <xsl:choose>
             <xsl:when test="not(json:boolean[@key='unpaginatedAdditionalPb'][. = 'false'])">
+               <!-- Do not include transcription or translation content if page is non-starting page of an unpaginated transcript -->
+               <!-- Should I copy the shelfLocator and other key metadata - authors, etc for these pages? -->
                <xsl:apply-templates select="*[not(@key = 'unpaginatedAdditionalPb')]"/>
             </xsl:when>
             <xsl:otherwise>
@@ -97,12 +99,19 @@
          </xsl:choose>
          
          <!-- Get part metadata based on json:string[@key='physID'] -->
-         <xsl:variable name="logical_structure" select="key('logical_structure', json:string[@key='physID'])[1]" as="item()*"/>
+         <xsl:variable name="logical_structure" select="key('logical_structure', json:string[@key='physID'])" as="item()*"/>
          <xsl:variable name="part_num" select="$logical_structure/json:string[@key='descriptiveMetadataID']"/>
          
          <xsl:choose>
             <xsl:when test="exists($logical_structure)">
+         <xsl:variable name="metadata" as="item()*">
+            <xsl:variable name="t1" as="item()*">
                <xsl:variable name="part_metadata" select="key('part_metadata', $part_num)"/>
+               <xsl:apply-templates select="$part_metadata//json:map[normalize-space(@key)][not(descendant::json:map[normalize-space(@key)])][descendant::json:string[@key='displayForm']]" mode="flatten"/>
+               <xsl:apply-templates select="$part_metadata//json:array[@key='century']" mode="flatten"/>
+               <xsl:copy-of select="$part_metadata//json:number[@key=('yearStart','yearEnd')]"/>
+            </xsl:variable>
+            <xsl:for-each-group select="$t1" group-by="@key">
                <xsl:apply-templates select="$part_metadata[1]//json:map[normalize-space(@key)][not(descendant::json:map[normalize-space(@key)])][descendant::json:string[@key='displayForm']]" mode="flatten"/>
                <xsl:variable name="sequence" select="json:number[@key='sequence']"/>
                <xsl:variable name="listItemPages_container" select="key('listItemPagesSeq', $sequence)" as="item()*"/>
@@ -117,33 +126,49 @@
                </xsl:if>
                
                <xsl:choose>
-                  <xsl:when test="$part_metadata[1]//json:array[@key='century']">
-                     <xsl:apply-templates select="$part_metadata[1]//json:array[@key='century']" mode="flatten"/>
+                  <xsl:when test="count(current-group()/(descendant-or-self::json:boolean|descendant-or-self::json:string|descendant-or-self::json:number)) eq 1">
+                     <xsl:copy-of select="."/>
                   </xsl:when>
                   <xsl:otherwise>
-                     <xsl:apply-templates select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:array[@key='century']" mode="flatten"/>
+                     <json:array key="{current-group()[1]/@key}">
+                        <xsl:for-each-group select="current-group()/(descendant-or-self::json:boolean|descendant-or-self::json:string|descendant-or-self::json:number)" group-by=".">
+                           <xsl:apply-templates select="current-group()[1]" mode="turn-to-array"/>
+                        </xsl:for-each-group>
+                     </json:array>
                   </xsl:otherwise>
                </xsl:choose>
-               
-               <xsl:choose>
-                  <xsl:when test="$part_metadata[1]//json:number[@key=('yearStart','yearEnd')]">
-                     <xsl:copy-of select="$part_metadata[1]//json:number[@key=('yearStart','yearEnd')]"/>
-                  </xsl:when>
-                  <xsl:otherwise>
-                     <xsl:copy-of select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:number[@key=('yearStart', 'yearEnd')]"/>
-                  </xsl:otherwise>
-               </xsl:choose>
-               <xsl:if test="not($part_metadata[1]//json:map[@key='subjects'])">
-                  <xsl:apply-templates select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:map[@key='subjects'][descendant::json:string[@key='displayForm']]" mode="flatten"/>
-               </xsl:if>
-            </xsl:when>
-            <xsl:otherwise>
-               <xsl:apply-templates select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]/json:map[@key='creations']//json:array[@key='century'][descendant::json:string]" mode="flatten"/>
-               <xsl:copy-of select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:number[@key=('yearStart', 'yearEnd')]"/>
-               <xsl:apply-templates select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:map[@key='subjects'][descendant::json:string[@key='displayForm']]" mode="flatten"/>
-            </xsl:otherwise>
-         </xsl:choose>
+            </xsl:for-each-group>
+         </xsl:variable>
+         
+         <xsl:copy-of select="$metadata"/>
+         
+         <xsl:if test="not($metadata[@key='creations-century'])">
+            <!-- or should it be 
+                     /json:map/json:array[@key='descriptiveMetadata']/json:map[1]/json:map[@key='creations']//json:array[@key='century'][descendant::json:string]
+                     -->
+            <xsl:apply-templates select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]/json:map[@key='creations']//json:array[@key='century']" mode="flatten"/>
+         </xsl:if>
+         
+         <xsl:if test="count($metadata[@key=('yearStart', 'yearEnd')]) ne 2">
+            <xsl:variable name="missing_dates" select="('yearStart','yearEnd')[not(. = $metadata/@key)]"/>
+            <xsl:copy-of select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:number[@key=$missing_dates]"/>
+         </xsl:if>
+         
+         <xsl:if test="not($metadata[@key='subjects'])">
+            <xsl:apply-templates select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:map[@key='subjects'][descendant::json:string[@key='displayForm']]" mode="flatten"/>
+         </xsl:if>
+         
+         <xsl:if test="not($metadata[@key='languageStrings'])">
+            <xsl:apply-templates select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:map[@key='languageStrings'][descendant::json:string[@key='displayForm']]" mode="flatten"/>
+         </xsl:if>
+         
          <xsl:apply-templates select="json:map[@key='transcription_content']/json:string[@key='surfaceID']"/>
+      </xsl:copy>
+   </xsl:template>
+   
+   <xsl:template match="json:boolean|json:string|json:number" mode="turn-to-array">
+      <xsl:copy>
+         <xsl:value-of select="."/>
       </xsl:copy>
    </xsl:template>
    
