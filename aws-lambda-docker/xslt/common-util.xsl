@@ -6,6 +6,7 @@
    xmlns:lambda="http://cudl.lib.cam.ac.uk/lambda/">
    
    <xsl:include href="language.xsl"/>
+   
    <!--Capitalises first letter of text-->
    <xsl:function name="cudl:capitalise-first">
       <xsl:param name="text" />

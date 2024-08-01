@@ -165,6 +165,7 @@
          <xsl:if test="not($metadata[@key='languages'])">
             <xsl:copy-of select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:array[@key='languages'][json:string[normalize-space(.)]]"/>
          </xsl:if>
+         
          <xsl:apply-templates select="json:map[@key='transcription_content']/json:string[@key='surfaceID']"/>
       </xsl:copy>
    </xsl:template>
