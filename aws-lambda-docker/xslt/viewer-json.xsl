@@ -16,6 +16,6 @@
       <xsl:value-of select="replace(xml-to-json($result, map{'indent': true()}), '\\/', '/')"/>
    </xsl:template>
    
-   <xsl:template match="json:map[@key = ('transcription_content', 'translation_content')]| json:boolean[@key = 'unpaginatedAdditionalPb']"/>
+   <xsl:template match="json:map[@key = ('transcription_content', 'translation_content')]| json:boolean[@key = ('unpaginatedAdditionalPb', 'itemAppearsInMultipleCollections')]|json:number[@key='itemCollectionCount']"/>
   
 </xsl:stylesheet>
