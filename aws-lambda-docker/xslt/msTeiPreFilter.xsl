@@ -2486,6 +2486,14 @@
                </string>
             </xsl:for-each>
          </array>
+         <array key="languages" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:for-each select="$language-elems[exists((@mainLang,@ident)[normalize-space(.)])]">
+               <xsl:variable name="lang_code" select="(@mainLang,@ident)[normalize-space(.)][1]"/>
+               <string xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="cudl:get-language-name($lang_code)"/>
+               </string>
+            </xsl:for-each>
+         </array>
       </xsl:if>
 
       <xsl:if test="if ($level eq 'doc') then $language-elems else $language-elems[normalize-space(.)]">

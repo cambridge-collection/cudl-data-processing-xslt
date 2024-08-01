@@ -122,6 +122,7 @@
                <xsl:apply-templates select="$part_metadata//json:map[normalize-space(@key)][not(descendant::json:map[normalize-space(@key)])][descendant::json:string[@key='displayForm']]" mode="flatten"/>
                <xsl:apply-templates select="$part_metadata//json:array[@key='century']" mode="flatten"/>
                <xsl:copy-of select="$part_metadata//json:number[@key=('yearStart','yearEnd')]"/>
+               <xsl:copy-of select="$part_metadata//json:array[@key=('languages')]"/>
             </xsl:variable>
             <xsl:for-each-group select="$t1" group-by="@key">
                <xsl:choose>
@@ -161,6 +162,9 @@
             <xsl:apply-templates select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:map[@key='languageStrings'][descendant::json:string[@key='displayForm']]" mode="flatten"/>
          </xsl:if>
          
+         <xsl:if test="not($metadata[@key='languages'])">
+            <xsl:copy-of select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:array[@key='languages'][json:string[normalize-space(.)]]"/>
+         </xsl:if>
          <xsl:apply-templates select="json:map[@key='transcription_content']/json:string[@key='surfaceID']"/>
       </xsl:copy>
    </xsl:template>
