@@ -130,6 +130,7 @@
          <xsl:call-template name="get-collection"/>
          <xsl:call-template name="get-numberOfPages"/>
          <xsl:call-template name="get-embeddable"/>
+         <xsl:call-template name="get-document-level-facets"/>
          <xsl:call-template name="get-text-direction"/>
          <xsl:call-template name="get-transcription-flags"/>
          <xsl:call-template name="get-sourceData"/>
@@ -183,6 +184,10 @@
       <boolean key="embeddable" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:value-of select="exists($images)"/>
       </boolean>
+   </xsl:template>
+   
+   <xsl:template name="get-document-level-facets">
+      
    </xsl:template>
 
    <xsl:template name="get-text-direction">
