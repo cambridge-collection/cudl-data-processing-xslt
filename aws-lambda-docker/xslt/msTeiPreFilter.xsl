@@ -72,6 +72,9 @@
                <xsl:message>WARN: <xsl:value-of select="$fileID"/> does not seem to belong to collection</xsl:message>
             </xsl:when>
             <xsl:when test="$item_matches">
+               <boolean key="itemAppearsInMultipleCollections" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="count($collection_names) gt 1"/>
+               </boolean>
                <array key="collection" xmlns="http://www.w3.org/2005/xpath-functions">
                   <xsl:for-each select="$item_matches">
                      <xsl:variable name="parent_obj" select="parent::*/parent::*"/>
@@ -99,6 +102,9 @@
                      </map>
                   </xsl:for-each>
                </array>
+               <number key="itemCollectionCount" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="count($collection_names)"/>
+               </number>
             </xsl:when>
             <xsl:otherwise>
                <xsl:message terminate="yes">ERROR: Response from Search API for <xsl:value-of select="$fileID"/> does not appear to be valid SOLR JSON response</xsl:message>
@@ -2614,9 +2620,9 @@
                                      Convert to in-house TEI and remove all these shims?
                            -->
                            <map key="transcription_content" xmlns="http://www.w3.org/2005/xpath-functions">
-                              <boolean key="pageHasTranscription" xmlns="http://www.w3.org/2005/xpath-functions">
-                                 <xsl:value-of select="true()"/>
-                              </boolean>
+                              <string key="pageHasTranscription" xmlns="http://www.w3.org/2005/xpath-functions">
+                                 <xsl:value-of select="cudl:convert-boolean-to-yes-no(true())"/>
+                              </string>
                            </map>
                         </xsl:when>
                         <xsl:otherwise>
@@ -2647,9 +2653,9 @@
                               <xsl:otherwise>
 
                                  <map key="transcription_content" xmlns="http://www.w3.org/2005/xpath-functions">
-                                    <boolean key="pageHasTranscription" xmlns="http://www.w3.org/2005/xpath-functions">
-                                       <xsl:value-of select="false()"/>
-                                    </boolean>
+                                    <string key="pageHasTranscription" xmlns="http://www.w3.org/2005/xpath-functions">
+                                       <xsl:value-of select="cudl:convert-boolean-to-yes-no(false())"/>
+                                    </string>
                                  </map>
                               </xsl:otherwise>
                            </xsl:choose>
@@ -2679,17 +2685,17 @@
                         <xsl:otherwise>
                            <map key="translation_content" xmlns="http://www.w3.org/2005/xpath-functions">
                               <xsl:message select="parent::tei:surface"></xsl:message>
-                              <boolean key="pageHasTranslation" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <string key="pageHasTranslation" xmlns="http://www.w3.org/2005/xpath-functions">
                                  <xsl:choose>
                                     <xsl:when test="tei:media[@mimeType='translation']">
-                                       <xsl:value-of select="true()"/>
+                                       <xsl:value-of select="cudl:convert-boolean-to-yes-no(true())"/>
 
                                     </xsl:when>
                                     <xsl:otherwise>
-                                       <xsl:value-of select="false()"/>
+                                       <xsl:value-of select="cudl:convert-boolean-to-yes-no(false())"/>
                                     </xsl:otherwise>
                                  </xsl:choose>
-                              </boolean>
+                              </string>
                            </map>
                         </xsl:otherwise>
                      </xsl:choose>
@@ -2737,9 +2743,9 @@
       <xsl:choose>
          <xsl:when test="unparsed-text-available($html_file)">
             <map key="{$type}_content" xmlns="http://www.w3.org/2005/xpath-functions">
-               <boolean key="pageHas{cudl:capitalise-first($type)}" xmlns="http://www.w3.org/2005/xpath-functions">
-                  <xsl:value-of select="true()"/>
-               </boolean>
+               <string key="pageHas{cudl:capitalise-first($type)}" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="cudl:convert-boolean-to-yes-no(true())"/>
+               </string>
                <string key="filename" xmlns="http://www.w3.org/2005/xpath-functions">
                   <xsl:value-of select="replace(tokenize($html_file,'/')[last()],'\.html$','')"/>
                </string>
@@ -2786,9 +2792,9 @@
          </xsl:when>
          <xsl:otherwise>
             <map key="{$type}_content" xmlns="http://www.w3.org/2005/xpath-functions">
-               <boolean key="pageHas{cudl:capitalise-first($type)}" xmlns="http://www.w3.org/2005/xpath-functions">
-                  <xsl:value-of select="false()"/>
-               </boolean>
+               <string key="pageHas{cudl:capitalise-first($type)}" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="cudl:convert-boolean-to-yes-no(false())"/>
+               </string>
             </map>
          </xsl:otherwise>
       </xsl:choose>

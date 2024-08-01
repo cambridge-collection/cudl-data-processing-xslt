@@ -52,38 +52,38 @@
             </json:string>
          </xsl:if>
          
-         <json:boolean key="hasPage">
-            <xsl:value-of select="true()"/>
-         </json:boolean>
+         <json:string key="hasPage">
+            <xsl:value-of select="cudl:convert-boolean-to-yes-no(true())"/>
+         </json:string>
          
-         <json:boolean key="hasImage">
-            <xsl:value-of select="exists(json:string[@key='IIIFImageURL'][normalize-space(.)])"/>
-         </json:boolean>
+         <json:string key="hasImage">
+            <xsl:value-of select="cudl:convert-boolean-to-yes-no(exists(json:string[@key='IIIFImageURL'][normalize-space(.)]))"/>
+         </json:string>
          
          <xsl:choose>
             <xsl:when test=". is $firstPage">
-               <json:boolean key="firstPage">
+               <json:boolean key="itemLevel">
                   <xsl:value-of select="true()"/>
                </json:boolean>
                
                <xsl:apply-templates select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]/json:string[@key=('thumbnailUrl', 'thumbnailOrientation')]" mode="embed_documentThumbnail"/>
             </xsl:when>
             <xsl:otherwise>
-               <json:boolean key="firstPage">
+               <json:boolean key="itemLevel">
                   <xsl:value-of select="false()"/>
                </json:boolean>
             </xsl:otherwise>
          </xsl:choose>
          <xsl:choose>
             <xsl:when test=". is $lastPage">
-            <json:boolean key="lastPage">
-               <xsl:value-of select="true()"/>
-            </json:boolean>
+               <json:string key="lastPage">
+               <xsl:value-of select="cudl:convert-boolean-to-yes-no(true())"/>
+            </json:string>
          </xsl:when>
             <xsl:otherwise>
-               <json:boolean key="lastPage">
-                  <xsl:value-of select="false()"/>
-               </json:boolean>
+               <json:string key="lastPage">
+                  <xsl:value-of select="cudl:convert-boolean-to-yes-no(false())"/>
+               </json:string>
             </xsl:otherwise>
          </xsl:choose>
          
@@ -172,7 +172,7 @@
    </xsl:template>
    
    <xsl:template match="json:map[@key = ('transcription_content','translation_content')]">
-      <xsl:apply-templates select="json:string[@key='text']|json:boolean[@key=('pageHasTranscription', 'pageHasTranslation')]|json:string[@key=('pageXMLTranscriptionURL', 'pageXMLTranslationURL')]"/>
+      <xsl:apply-templates select="json:string[@key='text']|json:string[@key=('pageHasTranscription', 'pageHasTranslation')]|json:string[@key=('pageXMLTranscriptionURL', 'pageXMLTranslationURL')]"/>
       
       <xsl:if test="not(json:string[@key='text'][normalize-space(.)])">
          <json:string key="{@key}"/>
@@ -187,7 +187,7 @@
       </json:string>
    </xsl:template>
    
-   <xsl:template match="json:map[@key = ('transcription_content','translation_content')]/json:boolean[@key=('pageHasTranscription', 'pageHasTranslation')]">
+   <xsl:template match="json:map[@key = ('transcription_content','translation_content')]/json:string[@key=('pageHasTranscription', 'pageHasTranslation')]">
       <xsl:copy-of select="."/>
    </xsl:template>
    

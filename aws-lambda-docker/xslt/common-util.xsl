@@ -12,6 +12,20 @@
       <xsl:value-of select="concat(upper-case(substring($text,1,1)),substring($text, 2))" />
    </xsl:function>
    
+   <!--Convert boolean to Yes/No -->
+   <xsl:function name="cudl:convert-boolean-to-yes-no">
+      <xsl:param name="var" />
+      
+      <xsl:choose>
+         <xsl:when test="matches(normalize-space(string($var)), '^true$', 'i')">
+            <xsl:sequence select="'Yes'"/>
+         </xsl:when>
+         <xsl:otherwise>
+            <xsl:sequence select="'No'"/>
+         </xsl:otherwise>
+      </xsl:choose>
+   </xsl:function>
+   
    <!-- Provide page for reproduction requests, based on repository. Temporary hack: this really neeeds to come from data -->
    <xsl:function name="cudl:get-imageReproPageURL">
       <xsl:param name="repository"/>
