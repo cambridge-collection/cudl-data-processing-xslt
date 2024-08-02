@@ -262,15 +262,14 @@
    </xsl:template>
    
    <xsl:template match="json:array[@key='collection']">
-      <xsl:copy>
-         <xsl:copy-of select="@key"/>
+      <json:array key="collection-slug">
          <xsl:for-each select="json:map/json:string[@key='url-slug']">
             <json:string>
                <xsl:value-of select="."/>
             </json:string>
          </xsl:for-each>
-      </xsl:copy>
-      <json:array key="collection-name">
+      </json:array>
+      <json:array key="collection">
          <xsl:for-each select="json:map/json:string[@key='name-short']">
             <json:string>
                <xsl:value-of select="."/>
