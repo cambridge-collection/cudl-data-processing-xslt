@@ -167,6 +167,28 @@
          </xsl:if>
          
          <xsl:apply-templates select="json:map[@key='transcription_content']/json:string[@key='surfaceID']"/>
+         
+         <xsl:variable name="item_sort" select="string-join((/json:map/json:string[@key='fileID'], format-number(json:number[@key='sequence'], '0000000')), '::')"/>
+         
+         <json:string key="browse_sort">
+            <xsl:variable name="hasImage" select="cudl:convert-boolean-to-yes-no(exists(json:string[@key='IIIFImageURL'][normalize-space(.)]))"/>
+            <xsl:variable name="image_sort_val">
+               <xsl:choose>
+                  <xsl:when test="$hasImage=('Yes')">
+                     <xsl:text>AAAAAA</xsl:text>
+                  </xsl:when>
+                  <xsl:when test="$hasImage=('No')">
+                     <xsl:text>ZZZZZZ</xsl:text>
+                  </xsl:when>
+               </xsl:choose>
+            </xsl:variable>
+            <xsl:value-of select="string-join(($image_sort_val, $item_sort), '::')"/>
+            
+         </json:string>
+         <json:string key="browse_all_sort">
+            <xsl:value-of select="$item_sort"/>
+            
+         </json:string>
       </xsl:copy>
    </xsl:template>
    
