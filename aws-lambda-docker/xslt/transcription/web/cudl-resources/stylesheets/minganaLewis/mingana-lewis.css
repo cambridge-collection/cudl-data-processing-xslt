@@ -1,0 +1,115 @@
+body.mingana {
+    font-family: LateefRW, Junicode;
+}
+
+body.mingana .body {
+    direction: rtl;
+    font-size: 1.5em;
+    color: SaddleBrown;
+    margin: 0 3em;
+}
+
+body.mingana .transcription-credit {
+    float:right;
+}
+
+span.editorialnote, span.localnote {
+    direction: ltr;
+    font-size: 1em;
+}
+
+span.pageheader {
+    font-size: 0.8em;
+    direction: ltr;
+    color: grey;
+}
+
+
+span.verse_number, span.chapter_number {
+    color: grey;
+    font-size: 0.8em;
+    float: right;
+    width: 0px;
+    text-align: left;
+    margin: 0.2em -3em 0 0px;
+}
+
+span.chapter_number {
+    text-align: right;
+    margin: 0.2em -1.5em 0 -40px;
+}
+
+span.line_number {
+    color: grey;
+    font-size: 0.8em;
+    width: 20px;
+    float: left;
+    vertical-align: text-bottom;
+    margin: 0.2em 2px 0 0;
+}
+
+span.catalogues {
+    color: black;
+    font-size: 1em;
+}
+
+span.title {
+    color: black;
+    font-size: 1.3em;
+}
+
+.supplied {
+    color: red;
+}
+
+.supplied.lacuna {
+    color: lavender;
+}
+
+.supplied.illegible {
+    color: khaki;
+}
+
+span.editioprinceps {
+    color: #44d8d1;
+}
+
+span.correction {
+    color: black;
+}
+
+span.headertext {
+    float: left;
+}
+
+span.floatright {
+    float: right;
+}
+
+span.original {
+    color: green;
+}
+
+.mingana .footnote_indicator {
+    color: blue;
+    font-size: 0.75em;
+    vertical-align: 0.5em;
+}
+
+span.black {
+    color: black;
+}
+
+span.Peru {
+    color: Peru
+}
+
+br.clear {
+    clear: both;
+}
+
+span#attribution {
+    color: black;
+    font-size: .7em;
+    float: right;
+}

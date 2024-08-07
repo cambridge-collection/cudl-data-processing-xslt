@@ -130,14 +130,21 @@
     
     <xsl:template name="number-footnote">
         <xsl:choose>
-            <xsl:when test="@type='editorial'">
+            <xsl:when test="not($project_name='mingana lewis') and @type='editorial'">
                 <xsl:number format="1" count="//tei:text//tei:note[@type='editorial']" level="any"/>
             </xsl:when>
             <xsl:when test="@type='imageLink'">
                 <xsl:number format="1" count="//tei:text//tei:note[@type='imageLink']" level="any"/>
             </xsl:when>
             <xsl:otherwise>
-                <xsl:number format="1" count="//tei:anchor[key('note-target',concat('#',@xml:id))]|//tei:text//tei:note[not(@target) and not(@type=('editorial','imageLink'))]" level="any"/>
+                <xsl:choose>
+                    <xsl:when test="$project_name='mingana lewis'">
+                        <xsl:number format="1" count="//tei:anchor[key('note-target',concat('#',@xml:id))]|//tei:text//tei:note[not(@target) and not(@type=('imageLink'))]" level="any"/>
+                    </xsl:when>
+                    <xsl:otherwise>
+                        <xsl:number format="1" count="//tei:anchor[key('note-target',concat('#',@xml:id))]|//tei:text//tei:note[not(@target) and not(@type=('editorial','imageLink'))]" level="any"/>
+                    </xsl:otherwise>
+                </xsl:choose>
             </xsl:otherwise>
         </xsl:choose>
     </xsl:template>
@@ -148,7 +155,7 @@
         
         <xsl:variable name="prefix">
             <xsl:choose>
-                <xsl:when test="$note-type = 'editorial'">
+                <xsl:when test="not($project_name='mingana lewis') and $note-type = 'editorial'">
                     <xsl:text>ed</xsl:text>
                 </xsl:when>
                 <xsl:when test="$note-type = 'imageLink'">
@@ -168,7 +175,7 @@
         
         <xsl:variable name="prefix">
             <xsl:choose>
-                <xsl:when test="$note-type = 'editorial'">
+                <xsl:when test="not($project_name='mingana lewis') and $note-type = 'editorial'">
                     <xsl:text>Editorial&#160;Note&#160;</xsl:text>
                 </xsl:when>
                 <xsl:when test="$note-type = 'imageLink'">

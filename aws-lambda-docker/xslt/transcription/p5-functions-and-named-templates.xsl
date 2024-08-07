@@ -93,18 +93,21 @@
     <xsl:param name="node" />
     
     <xsl:choose>
-      <xsl:when test="exists($node//tei:publisher[matches(.,'Casebooks Project','i')])">
+      <xsl:when test="exists($node//tei:publisher[matches(normalize-space(.),'Casebooks Project','i')])">
         <xsl:text>casebooks project</xsl:text>
       </xsl:when>
-      <xsl:when test="exists($node//tei:publisher[matches(.,'Newton Project','i')])">
+      <xsl:when test="exists($node//tei:publisher[matches(normalize-space(.),'Newton Project','i')])">
         <xsl:text>newton project</xsl:text>
       </xsl:when>
-      <xsl:when test="exists($node//tei:authority[matches(.,'Darwin Correspondence Project','i')])">
+      <xsl:when test="exists($node//tei:authority[matches(normalize-space(.),'Darwin Correspondence Project','i')])">
         <xsl:text>darwin correspondence project</xsl:text>
       </xsl:when>
-        <xsl:when test="exists($node//tei:publisher[matches(.,'The International Greek New Testament Project','i')])">
+      <xsl:when test="exists($node//tei:publisher[matches(normalize-space(.),'The International Greek New Testament Project','i')])">
             <xsl:text>igntp</xsl:text>
         </xsl:when>
+      <xsl:when test="exists($node//tei:authority[matches(normalize-space(.),'Mingana Lewis Palimpsest','i')])">
+        <xsl:text>mingana lewis</xsl:text>
+      </xsl:when>
       <xsl:otherwise>
         <xsl:text>cudl</xsl:text>
       </xsl:otherwise>
@@ -115,18 +118,21 @@
     <xsl:param name="node" />
     
     <xsl:choose>
-      <xsl:when test="exists($node//tei:publisher[matches(.,'Casebooks Project','i')])">
+      <xsl:when test="exists($node//tei:publisher[matches(normalize-space(.),'Casebooks Project','i')])">
         <xsl:text>casebooks</xsl:text>
       </xsl:when>
-      <xsl:when test="exists($node//tei:publisher[matches(.,'Newton Project','i')])">
+      <xsl:when test="exists($node//tei:publisher[matches(normalize-space(.),'Newton Project','i')])">
         <xsl:text>newton</xsl:text>
       </xsl:when>
-      <xsl:when test="exists($node//tei:authority[matches(.,'Darwin Correspondence Project','i')])">
+      <xsl:when test="exists($node//tei:authority[matches(normalize-space(.),'Darwin Correspondence Project','i')])">
         <xsl:text>dcp</xsl:text>
       </xsl:when>
-        <xsl:when test="exists($node//tei:publisher[matches(.,'The International Greek New Testament Project','i')])">
+      <xsl:when test="exists($node//tei:publisher[matches(normalize-space(.),'The International Greek New Testament Project','i')])">
             <xsl:text>igntp</xsl:text>
         </xsl:when>
+      <xsl:when test="exists($node//tei:authority[matches(normalize-space(.),'Mingana Lewis Palimpsest','i')])">
+        <xsl:text>mingana</xsl:text>
+      </xsl:when>
       <xsl:otherwise>
         <xsl:text>cudl</xsl:text>
       </xsl:otherwise>
@@ -137,7 +143,7 @@
   <xsl:function name="cudl:use-junicode" as="xs:boolean">
     <xsl:param name="project_name" />
     
-    <xsl:sequence select="$project_name=('darwin correspondence project','newton project', 'igntp')"/>
+    <xsl:sequence select="$project_name=('darwin correspondence project','newton project', 'igntp', 'mingana lewis')"/>
   </xsl:function>
   
   <xsl:function name="cudl:use-legacy-character-and-font-processing" as="xs:boolean">

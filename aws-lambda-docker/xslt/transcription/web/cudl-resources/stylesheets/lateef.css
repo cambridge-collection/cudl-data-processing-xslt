@@ -1,0 +1,16 @@
+@font-face {
+    font-family: LateefRW;
+    src: url("../fonts/Lateef-Regular.woff2") format("woff2"), url("../fonts/Lateef-Regular.woff") format("woff"), url("../fonts/Lateef-Regular.ttf") format('truetype');
+    font-style: normal;
+    font-weight: 400;
+    font-size: 200%;
+    unicode-range: U+0600-06FF, U+0750-077F, U+0870-089F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF, U+10E60-10E7F, U+10EC0-10EFF, U+1EC70-1ECBF, U+1ED00-1ED4F, U+1EE00-1EEFF;
+}
+@font-face {
+    font-family: LateefBW;
+    src: url("../fonts/Lateef-Bold.woff2") format("woff2"), url("../fonts/Lateef-Bold.woff") format("woff"), url("../fonts/Lateef-Bold.ttf") format('truetype');
+    font-style: normal;
+    font-weight: 700;
+    font-size: 200%;
+    unicode-range: U+0600-06FF, U+0750-077F, U+0870-089F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF, U+10E60-10E7F, U+10EC0-10EFF, U+1EC70-1ECBF, U+1ED00-1ED4F, U+1EE00-1EEFF;
+}

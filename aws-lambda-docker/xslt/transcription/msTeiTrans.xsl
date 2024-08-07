@@ -23,6 +23,7 @@
    <xsl:include href="project-specific/casebooks.xsl"/>
    <xsl:include href="project-specific/darwinCorrespondence.xsl"/>
    <xsl:include href="project-specific/bezae.xsl"/>
+   <xsl:include href="project-specific/mingana-lewis.xsl"/>
    
    <xsl:variable name="project_name" select="cudl:determine-project(/*)" as="xs:string"/>
    <xsl:variable name="project_className" select="cudl:get-project-abbreviation(/*)" as="xs:string"/>
@@ -48,7 +49,14 @@
          <head>
             <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
             <title>
-                <xsl:value-of select="concat('Folio ', $requested_pb/@n)"/>
+               <xsl:choose>
+                  <xsl:when test="$project_name=('mingana lewis')">
+                     <xsl:value-of select="concat('Folio ', $requested_pb/tokenize(@n, '_')[1])"/>
+                  </xsl:when>
+                  <xsl:otherwise>
+                     <xsl:value-of select="concat('Folio ', $requested_pb/@n)"/>
+                  </xsl:otherwise>
+               </xsl:choose>
             </title>
             <xsl:if test="$use_legacy_display eq true()">
                <link href="{$path-to-cudl-resources}/stylesheets/legacy-cudl/charis-sil.css" rel="stylesheet" type="text/css"/>
@@ -70,6 +78,10 @@
                <xsl:when test="$project_name=('igntp')">
                   <link href="{$path-to-cudl-resources}/stylesheets/GFSDecker.css" rel="stylesheet" type="text/css"/>
                   <link href="{$path-to-cudl-resources}/stylesheets/igntp/texts.css" rel="stylesheet" type="text/css"/>
+               </xsl:when>
+               <xsl:when test="$project_name=('mingana lewis')">
+                  <link href="{$path-to-cudl-resources}/stylesheets/lateef.css" rel="stylesheet" type="text/css"/>
+                  <link href="{$path-to-cudl-resources}/stylesheets/minganaLewis/mingana-lewis.css" rel="stylesheet" type="text/css"/>
                </xsl:when>
             </xsl:choose>
          </head>
@@ -107,6 +119,15 @@
                  <div class="transcription-credit">Transcription by <a target="_blank"
                      href="http://www.igntp.org/bezae.html">IGNTP</a></div>
              </xsl:when>
+            <xsl:when test="$project_name = 'mingana lewis'">
+               <div class="transcription-credit">Transcription by Dr Alba Fedeli, <a target="_blank"
+                  href="http://www.birmingham.ac.uk/itsee">ITSEE, University of Birmingham</a></div>
+               <span class="pagenum">
+                  <xsl:text>&lt;</xsl:text>
+                  <xsl:value-of select="$requested_pb/tokenize(@n,'_')[1]"/>
+                  <xsl:text>&gt;</xsl:text>
+               </span>
+            </xsl:when>
             <xsl:otherwise>
                <p class="pagenum">
                   <xsl:text>&lt;</xsl:text>
