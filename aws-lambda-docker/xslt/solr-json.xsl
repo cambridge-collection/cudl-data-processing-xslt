@@ -154,6 +154,13 @@
             <xsl:copy-of select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:number[@key=$missing_dates]"/>
          </xsl:if>
          
+         <xsl:if test="not($metadata[@key='creations-dateDisplay'])">
+            <!-- or should it be 
+                     /json:map/json:array[@key='descriptiveMetadata']/json:map[1]/json:map[@key='creations']//json:array[@key='century'][descendant::json:string]
+                     -->
+            <xsl:apply-templates select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]/json:map[@key='creations']//json:map[@key='dateDisplay'][descendant::json:string[@key='displayForm']]" mode="flatten"/>
+         </xsl:if>
+         
          <xsl:if test="not($metadata[@key='subjects'])">
             <xsl:apply-templates select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:map[@key='subjects'][descendant::json:string[@key='displayForm']]" mode="flatten"/>
          </xsl:if>
