@@ -73,22 +73,26 @@
             </xsl:when>
             <xsl:when test="$item_matches">
                <boolean key="itemAppearsInMultipleCollections" xmlns="http://www.w3.org/2005/xpath-functions">
-                  <xsl:value-of select="count($collection_names) gt 1"/>
+                  <xsl:value-of select="count($item_matches/parent::*/parent::*) gt 1"/>
                </boolean>
                <array key="collection" xmlns="http://www.w3.org/2005/xpath-functions">
-                  <xsl:for-each select="$item_matches">
-                     <xsl:variable name="parent_obj" select="parent::*/parent::*"/>
+                  <xsl:for-each select="$item_matches[not(. = preceding-sibling::*)]">
+                     <xsl:variable name="current_obj" select="parent::*/parent::*"/>
+                     <xsl:variable name="parent_short" select="$current_obj/*:array[@key='parent.short']/*:string"/>
+                     <xsl:variable name="parent_slug" select="$current_obj/*:array[@key='parent.slug']/*:string"/>
+                     <xsl:variable name="parent_full" select="$current_obj/*:array[@key='parent.full']/*:string"/>
+                     
                      <map xmlns="http://www.w3.org/2005/xpath-functions">
-                        <xsl:variable name="collection_slug" select="$parent_obj/*:string[@key='id'][1]"/>
+                        <xsl:variable name="collection_slug" select="$current_obj/*:string[@key='id'][1]"/>
                         <string key="url-slug" xmlns="http://www.w3.org/2005/xpath-functions">
-                           <xsl:value-of select="$collection_slug"/>
+                           <xsl:value-of select="string-join(($parent_slug, $collection_slug)[normalize-space(.)], '::')"/>
                         </string>
                         <string key="name-short" xmlns="http://www.w3.org/2005/xpath-functions">
-                           <xsl:value-of select="$parent_obj/*:array[@key='name.short']/*:string"/>
+                           <xsl:value-of select="string-join(($parent_short, $current_obj/*:array[@key='name.short']/*:string)[normalize-space(.)], '::')"/>
                         </string>
                         <map key="sort" xmlns="http://www.w3.org/2005/xpath-functions">
                            <string key="name" xmlns="http://www.w3.org/2005/xpath-functions">
-                              <xsl:value-of select="concat($collection_slug,'_sort')"/>
+                              <xsl:value-of select="string-join(($parent_slug,concat($collection_slug,'_sort'))[normalize-space(.)], '::')"/>
                            </string>
                            <xsl:variable name="pos">
                               <xsl:apply-templates select="." mode="count"/>
