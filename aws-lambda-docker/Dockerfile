@@ -1,9 +1,11 @@
 FROM public.ecr.aws/lambda/provided:al2
 
+ARG TARGETARCH
+
 ENV ANT_VERSION=1.10.14
 ENV ANT_HOME=/opt/ant
 
-RUN yum install -y wget tar gzip unzip java jq aws-cli
+RUN yum install -y wget tar gzip unzip java jq
 
 ENV JAVA_HOME=/usr/lib/jvm
 
@@ -38,5 +40,7 @@ COPY ./*.sh ${LAMBDA_TASK_ROOT}
 COPY ./xslt xslt
 
 RUN chmod a+x ${LAMBDA_TASK_ROOT}/*.sh
+
+RUN ${LAMBDA_TASK_ROOT}/install-awscli-${TARGETARCH}.sh
 
 CMD [ "aws.sh.handler" ]
