@@ -16,6 +16,13 @@
       <xsl:value-of select="replace(xml-to-json($result, map{'indent': true()}), '\\/', '/')"/>
    </xsl:template>
    
+   <xsl:template match="json:array[@key='collection']">
+      <xsl:copy>
+         <xsl:copy-of select="@*"/>
+         <xsl:apply-templates select="json:map[not(json:string[@key='url-slug'][matches(.,'::')])]"/>
+      </xsl:copy>
+   </xsl:template>
+   
    <xsl:template match="json:map[@key = ('transcription_content', 'translation_content')]| json:boolean[@key = ('unpaginatedAdditionalPb', 'itemAppearsInMultipleCollections')]|json:number[@key='itemCollectionCount']"/>
   
 </xsl:stylesheet>

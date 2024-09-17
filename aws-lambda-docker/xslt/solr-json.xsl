@@ -270,20 +270,20 @@
    
    <xsl:template match="json:array[@key='collection']">
       <json:array key="collection-slug">
-         <xsl:for-each select="json:map/json:string[@key='url-slug']">
+         <xsl:for-each select="json:map/json:string[@key='url-slug'][not(matches(.,'::'))]">
             <json:string>
                <xsl:value-of select="."/>
             </json:string>
          </xsl:for-each>
       </json:array>
       <json:array key="collection">
-         <xsl:for-each select="json:map/json:string[@key='name-short']">
+         <xsl:for-each select="json:map/json:string[@key='name-short'][not(matches(.,'::'))]">
             <json:string>
                <xsl:value-of select="."/>
             </json:string>
          </xsl:for-each>
       </json:array>
-      <xsl:for-each select="json:map/json:map[@key='sort'][normalize-space(json:string[@key='name'])]">
+      <xsl:for-each select="json:map/json:map[@key='sort'][normalize-space(json:string[@key='name'][not(matches(.,'::'))])]">
          <json:string>
             <xsl:attribute name="key" select="json:string[@key='name']"/>
             <xsl:value-of select="json:string[@key='value']"/>

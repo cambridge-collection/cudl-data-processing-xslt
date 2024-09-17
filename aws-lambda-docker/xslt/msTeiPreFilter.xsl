@@ -72,27 +72,88 @@
                <xsl:message>WARN: <xsl:value-of select="$fileID"/> does not seem to belong to collection</xsl:message>
             </xsl:when>
             <xsl:when test="$item_matches">
-               <boolean key="itemAppearsInMultipleCollections" xmlns="http://www.w3.org/2005/xpath-functions">
-                  <xsl:value-of select="count($item_matches/parent::*/parent::*) gt 1"/>
-               </boolean>
+               
                <array key="collection" xmlns="http://www.w3.org/2005/xpath-functions">
                   <xsl:for-each select="$item_matches[not(. = preceding-sibling::*)]">
-                     <xsl:variable name="current_obj" select="parent::*/parent::*"/>
-                     <xsl:variable name="parent_short" select="$current_obj/*:array[@key='parent.short']/*:string"/>
-                     <xsl:variable name="parent_slug" select="$current_obj/*:array[@key='parent.slug']/*:string"/>
-                     <xsl:variable name="parent_full" select="$current_obj/*:array[@key='parent.full']/*:string"/>
+                     <xsl:variable name="current_item_obj" select="parent::*/parent::*"/>
+                     <xsl:variable name="item_collection_slug" select="$current_item_obj/*:string[@key='id'][1]"/>
+                     
+                     <xsl:variable name="parent-query">
+                        <xsl:try>
+                           <xsl:variable name="request_uri" select="concat('http://', $search_addr,'/', $SEARCH_COLLECTION_PATH,'?q=collections._id:%22collections%2F', $item_collection_slug, '.collection.json%22')"/>
+                           <xsl:message select="concat('Submitting request to: ', $request_uri)"/>
+                           <xsl:copy-of select="json-to-xml(unparsed-text($request_uri))"/>
+                           <xsl:catch>
+                              <xsl:message terminate="yes">ERROR: Search API not responding</xsl:message>
+                           </xsl:catch>
+                        </xsl:try>
+                     </xsl:variable>
+                     
+                     <xsl:variable name="parent_object" select="$parent-query//*:map[@key='response']/*:array[@key='docs']/*:map"/>
+                     
+                     <xsl:variable name="parent_short" select="$parent_object/*:array[@key='name.short']/*:string"/>
+                     <xsl:variable name="parent_slug" select="$parent_object/*:string[@key='id'][1]"/>
+                     <xsl:variable name="parent_full" select="$parent_object/*:array[@key='name.full']/*:string"/>
+                     
+                     <xsl:if test="count(($parent_full, $parent_slug, $parent_short)[normalize-space(.)]) gt 0">
+                        <map xmlns="http://www.w3.org/2005/xpath-functions">
+                           <string key="url-slug" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:value-of select="$parent_slug"/>
+                           </string>
+                           <string key="name-short" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:value-of select="$parent_short"/>
+                           </string>
+                           
+                           <map key="sort" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:variable name="parent_pos">
+                                 <xsl:apply-templates select="$parent_object/*:array[@key='collections._id']/*:string[matches(.,concat('collections/', $item_collection_slug, '.collection.json'))]" mode="count"/>
+                              </xsl:variable>
+                              <xsl:variable name="child_pos">
+                                 <xsl:apply-templates select="." mode="count"/>
+                              </xsl:variable>
+                              <xsl:variable name="parent_pos_str">
+                                 <xsl:choose>
+                                    <xsl:when test="$parent_pos castable as xsd:int">
+                                       <xsl:value-of select="format-number(xsd:int($parent_pos),'000')"/>
+                                    </xsl:when>
+                                    <xsl:otherwise>
+                                       <xsl:value-of select="'000'"/>
+                                    </xsl:otherwise>
+                                 </xsl:choose>
+                              </xsl:variable>
+                              <xsl:variable name="child_pos_str">
+                                 <xsl:choose>
+                                    <xsl:when test="$child_pos castable as xsd:int">
+                                       <xsl:value-of select="format-number(xsd:int($child_pos),'000000')"/>
+                                    </xsl:when>
+                                    <xsl:otherwise>
+                                       <xsl:value-of select="'000'"/>
+                                    </xsl:otherwise>
+                                 </xsl:choose>
+                              </xsl:variable>
+                              
+                              <string key="name" xmlns="http://www.w3.org/2005/xpath-functions">
+                                 <xsl:value-of select="concat($parent_slug,'_sort')"/>
+                              </string>
+                              
+                              <string key="value" xmlns="http://www.w3.org/2005/xpath-functions">
+                                 <xsl:value-of select="string-join(($parent_pos_str, $child_pos_str)[normalize-space(.)], '')"/>
+                              </string>
+                              
+                           </map>
+                        </map>
+                     </xsl:if>
                      
                      <map xmlns="http://www.w3.org/2005/xpath-functions">
-                        <xsl:variable name="collection_slug" select="$current_obj/*:string[@key='id'][1]"/>
                         <string key="url-slug" xmlns="http://www.w3.org/2005/xpath-functions">
-                           <xsl:value-of select="string-join(($parent_slug, $collection_slug)[normalize-space(.)], '::')"/>
+                           <xsl:value-of select="string-join(($parent_slug, $item_collection_slug)[normalize-space(.)], '::')"/>
                         </string>
                         <string key="name-short" xmlns="http://www.w3.org/2005/xpath-functions">
-                           <xsl:value-of select="string-join(($parent_short, $current_obj/*:array[@key='name.short']/*:string)[normalize-space(.)], '::')"/>
+                           <xsl:value-of select="string-join(($parent_short, $current_item_obj/*:array[@key='name.short']/*:string)[normalize-space(.)], '::')"/>
                         </string>
                         <map key="sort" xmlns="http://www.w3.org/2005/xpath-functions">
                            <string key="name" xmlns="http://www.w3.org/2005/xpath-functions">
-                              <xsl:value-of select="string-join(($parent_slug,concat($collection_slug,'_sort'))[normalize-space(.)], '::')"/>
+                              <xsl:value-of select="string-join(($parent_slug,concat($item_collection_slug,'_sort'))[normalize-space(.)], '::')"/>
                            </string>
                            <xsl:variable name="pos">
                               <xsl:apply-templates select="." mode="count"/>
@@ -106,6 +167,9 @@
                      </map>
                   </xsl:for-each>
                </array>
+               <boolean key="itemAppearsInMultipleCollections" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="count($item_matches/parent::*/parent::*) gt 1"/>
+               </boolean>
                <number key="itemCollectionCount" xmlns="http://www.w3.org/2005/xpath-functions">
                   <xsl:value-of select="count($collection_names)"/>
                </number>
@@ -117,8 +181,12 @@
       </xsl:if>
    </xsl:template>
 
-   <xsl:template match="*:string" mode="count">
+   <xsl:template match="*:array[@key='items._id']/*:string" mode="count">
       <xsl:number count="/*:map/*:map[@key='response']/*:array[@key='docs']/*:map/*:array[@key='items._id']/*:string" level="single"/>
+   </xsl:template>
+   
+   <xsl:template match="*:array[@key='collections._id']/*:string" mode="count">
+      <xsl:number count="/*:map/*:map[@key='response']/*:array[@key='docs']/*:map/*:array[@key='collections._id']/*:string" level="single"/>
    </xsl:template>
 
    <xsl:template name="get-meta">
