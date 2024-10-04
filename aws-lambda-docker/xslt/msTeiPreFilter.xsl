@@ -4510,7 +4510,21 @@
             </xsl:for-each>
          </array>
       </xsl:if>
-
+      <xsl:choose>
+         <xsl:when test="count(($dateStart, $dateEnd)[. castable as xsd:date]) ge 1">
+            <xsl:call-template name="get-dateRange">
+               <xsl:with-param name="min" select="$dateStart"/>
+               <xsl:with-param name="max" select="$dateEnd"/>
+            </xsl:call-template>
+         </xsl:when>
+         <xsl:when test="count(($yearStart, $yearEnd)[. castable as xsd:integer]) ge 1">
+            <xsl:call-template name="get-dateRange">
+               <xsl:with-param name="min" select="$yearStart"/>
+               <xsl:with-param name="max" select="$yearEnd"/>
+            </xsl:call-template>
+         </xsl:when>
+      </xsl:choose>
+      
       <map key="dateDisplay" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:copy-of select="cudl:display(true())"/>
          <xsl:variable name="dateDisplay">
@@ -4546,6 +4560,38 @@
    <xsl:template match="tei:surface" mode="count">
         <xsl:number count="//tei:facsimile/tei:surface" level="any"/>
     </xsl:template>
+   
+   <xsl:template name="get-dateRange">
+      <xsl:param name="min"/>
+      <xsl:param name="max"/>
+      
+      <xsl:choose>
+         <xsl:when test="count(distinct-values(($min, $max)[. castable as xsd:date])) eq 2 or count(distinct-values(($min, $max)[. castable as xsd:integer])) eq 2">
+            <xsl:choose>
+               <xsl:when test="count(distinct-values(($min, $max)[. castable as xsd:date])) eq 2 and xsd:date($min) lt xsd:date($max)
+                  or count(distinct-values(($min, $max)[. castable as xsd:integer])) eq 2 and xsd:integer($min) lt xsd:integer($max)">
+               <array key="dateRange" xmlns="http://www.w3.org/2005/xpath-functions">
+               <string xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:text>[</xsl:text>
+                  <xsl:value-of select="concat($min, ' TO ', $max)"/>
+                  <xsl:text>]</xsl:text>
+               </string>
+            </array>
+            </xsl:when>
+               <xsl:otherwise>
+                  <xsl:message select="concat('WARN: ', $fileID, ' has date/year where ', $min, ' is not less than ', $max)"/>
+               </xsl:otherwise>
+            </xsl:choose>
+         </xsl:when>
+         <xsl:when test="count(distinct-values(($min, $max)[. castable as xsd:date])) eq 1 or count(distinct-values(($min, $max)[. castable as xsd:integer])) eq 1">
+            <array key="dateRange" xmlns="http://www.w3.org/2005/xpath-functions">
+               <string xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="(($min, $max)[. castable as xsd:date], ($min, $max)[. castable as xsd:integer])[1]"/>
+               </string>
+            </array>
+         </xsl:when>
+      </xsl:choose>
+   </xsl:template>
 
    <xsl:function name="cudl:get-date-start" as="xsd:string*">
    <xsl:param name="node"/>
