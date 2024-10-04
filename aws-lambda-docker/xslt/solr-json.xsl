@@ -122,6 +122,7 @@
                <xsl:apply-templates select="$part_metadata//json:map[normalize-space(@key)][not(descendant::json:map[normalize-space(@key)])][descendant::json:string[@key='displayForm']]" mode="flatten"/>
                <xsl:apply-templates select="$part_metadata//json:array[@key='century']" mode="flatten"/>
                <xsl:copy-of select="$part_metadata//json:number[@key=('yearStart','yearEnd')]"/>
+               <xsl:copy-of select="$part_metadata//json:array[@key='dateRange']"/>
                <xsl:copy-of select="$part_metadata//json:array[@key=('languages')]"/>
             </xsl:variable>
             <xsl:for-each-group select="$t1" group-by="@key">
