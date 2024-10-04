@@ -2549,20 +2549,27 @@
          </xsl:choose>
       </xsl:variable>
 
-      <xsl:if test="$language-elems[exists((@mainLang,@ident)[normalize-space(.)])]">
+      <xsl:if test="$language-elems[exists((@mainLang,@ident,@otherLangs)[normalize-space(.)])]">
+         <xsl:variable name="language_codes" as="xsd:string*">
+            <xsl:for-each select="$language-elems[exists((@mainLang,@ident,@otherLangs)[normalize-space(.)])]">
+               <xsl:variable name="primary_lang" select="(@mainLang,@ident)[normalize-space(.)][1]" as="xsd:string*"/>
+               <xsl:sequence select="tokenize(normalize-space($primary_lang), '\s+')[1]"/>
+               <xsl:for-each select="(tokenize(normalize-space(@otherLangs),'\s+'), tokenize(normalize-space($primary_lang), '\s+')[position() gt 1])">
+                  <xsl:sequence select="."/>
+               </xsl:for-each>
+            </xsl:for-each>
+         </xsl:variable>
          <array key="languageCodes" xmlns="http://www.w3.org/2005/xpath-functions">
-            <xsl:for-each select="$language-elems[exists((@mainLang,@ident)[normalize-space(.)])]">
-               <xsl:variable name="lang_code" select="(@mainLang,@ident)[normalize-space(.)][1]"/>
+            <xsl:for-each select="$language_codes">
                <string xmlns="http://www.w3.org/2005/xpath-functions">
-                  <xsl:value-of select="normalize-space($lang_code)"/>
+                  <xsl:value-of select="normalize-space(.)"/>
                </string>
             </xsl:for-each>
          </array>
          <array key="languages" xmlns="http://www.w3.org/2005/xpath-functions">
-            <xsl:for-each select="$language-elems[exists((@mainLang,@ident)[normalize-space(.)])]">
-               <xsl:variable name="lang_code" select="(@mainLang,@ident)[normalize-space(.)][1]"/>
+            <xsl:for-each select="$language_codes">
                <string xmlns="http://www.w3.org/2005/xpath-functions">
-                  <xsl:value-of select="cudl:get-language-name($lang_code)"/>
+                  <xsl:value-of select="cudl:get-language-name(normalize-space(.))"/>
                </string>
             </xsl:for-each>
          </array>
