@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="TranformsXml" default="full"
+    xmlns:if="ant:if"
+    xmlns:unless="ant:unless">
+    <dirname property="buildfile.dir" file="${ant.file}"/>
+
+    <property environment="env"/>
+    <property name="ENVIRONMENT" value="${env.ENVIRONMENT}"/>
+
+    <!-- The following switches can be passed when invoking ant to provide custom values -->
+    <property name="data.dir"  value="../source"/><!-- Source of the original data files -->
+    <property name="dist.dir"  value="../out"/><!-- Final dist dir (local build only) -->
+
+    <property name="dist-pending.dir"  value="../dist-pending"/><!-- Initial output directory -->
+    <property name="files-to-process" value="*.xml"/><!-- File(s) to build -->
+
+    <property name="tmp.dir"  value="../tmp"/><!-- Target directory for the TEI XML page extract files -->
+    <property name="dev.null"  value="../dev.null"/><!-- Destination directory for empty junk files created by ant's xslt task when running pagify.xsl -->
+
+    <!-- Initial output subdirectories within $dist-pending.dir -->
+    <property name="www.pending.dir"  value="${dist-pending.dir}/www"/><!-- Target directory for www resources -->
+
+    <!-- Final S3 Destinations -->
+    <property name="AWS_OUTPUT_BUCKET" value="${env.AWS_OUTPUT_BUCKET}"/>
+    <property name="www-s3-dest" value="${AWS_OUTPUT_BUCKET}/html"/>
+
+    <!-- Comprehensive builds -->
+
+    <target name="full" depends="transcripts">
+        <antcall target="release-outputs"/>
+    </target>
+
+    <target name="transcripts">
+        <echo message="${data.dir}"/>
+        <echo message="${dist.dir}"/>
+        <echo>Transforming TEI xml into html</echo>
+        <fileset id="original_xml" dir="${data.dir}" includes="${files-to-process}" />
+
+        <xslt destdir="${www.pending.dir}" style="../xslt/TEI-to-HTML.xsl" force="true" useimplicitfileset="false" extension=".html" reloadstylesheet="true">
+            <fileset refid="original_xml"/>
+            <factory name="net.sf.saxon.TransformerFactoryImpl">
+                <attribute name="http://saxon.sf.net/feature/xinclude-aware" value="true"/>
+            </factory>
+        </xslt>
+    </target>
+
+     <!-- Private tasks called from main tasks -->
+
+    <target name="release-outputs" depends="if.local.environment">
+        <antcall if:true="${is.local.environment}" target="_copy_to_dist"/>
+        <antcall unless:true="${is.local.environment}" target="_copy_to_s3"/>
+    </target>
+
+    <target name="_copy_to_dist">
+        <copy todir="${dist.dir}">
+            <fileset dir="${dist-pending.dir}">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+    </target>
+
+    <target name="_copy_to_s3">
+        <parallel>
+            <!-- NB: Uncomment the following line to copy original TEI to dist -->
+            <!--<antcall target="_copy_tei_full_to_s3"/>-->
+            <antcall target="_copy_www_to_s3"/>
+        </parallel>
+    </target>
+
+    <target name="_copy_www_to_s3">
+        <condition property="www.exists" value="true" else="false">
+            <available file="${www.pending.dir}" type="dir"/>
+        </condition>
+        <echo if:true="${www.exists}" message="Copying ${www.pending.dir}/items/ to S3://${www-s3-dest}"/>
+        <exec if:true="${www.exists}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="sync"/>
+            <arg value="--quiet"/>
+            <arg value="${www.pending.dir}"/>
+            <arg value="s3://${www-s3-dest}"/>
+        </exec>
+    </target>
+
+    <target name="if.local.environment">
+        <condition property="is.local.environment" value="true" else="false">
+            <equals arg1="${ENVIRONMENT}" arg2="local" trim="true"/>
+        </condition>
+    </target>
+
+</project>

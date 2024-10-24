@@ -1,0 +1,13 @@
+services:
+  cudl-tei-processing:
+    extends:
+      file: docker-compose-base.yml
+      service: cudl-tei-processing
+    environment:
+      ENVIRONMENT: aws-local
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
+      SEARCH_HOST: host.docker.internal
+    ports:
+      - 9000:8080
