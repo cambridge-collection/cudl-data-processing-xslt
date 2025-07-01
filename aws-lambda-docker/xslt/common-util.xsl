@@ -55,6 +55,12 @@
           <xsl:when test="$repository=('Trinity College Library, Cambridge')">
               <xsl:text>https://www.trin.cam.ac.uk/library/wren-digital-library/</xsl:text>
           </xsl:when>
+         <xsl:when test="starts-with($repository, 'Fitzwilliam Museum')">
+            <xsl:text>https://www.fitzmuseum.cam.ac.uk/commercial-services/image-library/</xsl:text>
+         </xsl:when>
+         <xsl:when test="$repository='Pepys Library'">
+            <xsl:text>https://www.magd.cam.ac.uk/pepys/photography/</xsl:text>
+         </xsl:when>
          <xsl:when test="$repository='The John Rylands Library'">
             <xsl:text>https://www.library.manchester.ac.uk/search-resources/manchester-digital-collections/digitisation-services/copyright-and-licensing/</xsl:text>
          </xsl:when>
