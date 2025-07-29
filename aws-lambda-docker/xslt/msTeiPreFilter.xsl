@@ -31,8 +31,9 @@
 
    <xsl:variable name="fileID" select="substring-before(tokenize(document-uri(/), '/')[last()], '.xml')"/>
 
-   <xsl:key name="surfaceIDs" match="//tei:surface" use="(@xml:id, concat('#',@xml:id))"/>
-   <xsl:key name="surfaceNs" match="//tei:surface" use="normalize-space(@n)"/>
+    <xsl:key name="surfaceIDs" match="//tei:surface[not(key('iiif_rti_corresp',@xml:id))]" use="(@xml:id, concat('#',@xml:id))"/>
+    <xsl:key name="surfaceNs" match="//tei:surface[not(key('iiif_rti_corresp',@xml:id))]" use="normalize-space(@n)"/>
+    <xsl:key name="surfaceAll" match="//tei:surface" use="(@xml:id, concat('#',@xml:id))"/>
    <xsl:key name="pbNs" match="//tei:pb[normalize-space(@n)]" use="@n"/>
 
    <xsl:template match="/">
@@ -241,8 +242,8 @@
    <xsl:template name="get-numberOfPages">
       <number key="numberOfPages" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:choose>
-            <xsl:when test="//tei:facsimile/tei:surface">
-               <xsl:value-of select="count(//tei:facsimile/tei:surface)"/>
+             <xsl:when test="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
+                 <xsl:value-of select="count(//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))])"/>
             </xsl:when>
             <xsl:otherwise>
                <xsl:text>1</xsl:text>
@@ -252,7 +253,7 @@
    </xsl:template>
 
    <xsl:template name="get-embeddable">
-      <xsl:variable name="images" select="//tei:facsimile/tei:surface[1]/tei:graphic[1][normalize-space(@url)]"/>
+       <xsl:variable name="images" select="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))][1]/tei:graphic[1][normalize-space(@url)]"/>
       <boolean key="embeddable" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:value-of select="exists($images)"/>
       </boolean>
@@ -2616,9 +2617,12 @@
          </map>
       </xsl:if>
    </xsl:template>
+    
+    <xsl:key name="iiif_rti_corresp" match="//tei:facsimile/tei:surface[@corresp]" use="replace(normalize-space(@corresp),'^#','')"/>
 
-   <xsl:template match="tei:facsimile/tei:surface" mode="count">
-      <xsl:number format="1" level="any" count="tei:facsimile/tei:surface"/>
+   <xsl:template match="tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]" mode="count">
+       <xsl:message>COUNT FULL XPATH</xsl:message>
+       <xsl:number format="1" level="any" count="tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]"/>
    </xsl:template>
 
    <xsl:template name="make-pages">
@@ -2626,8 +2630,8 @@
 
       <array key="pages" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:choose>
-            <xsl:when test="//tei:facsimile/tei:surface">
-               <xsl:for-each select="//tei:facsimile/tei:surface">
+             <xsl:when test="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
+                 <xsl:for-each select="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
                      <xsl:variable name="surface-elem" select="."/>
                      <xsl:variable name="label" select="normalize-space(@n)"/>
                   <map xmlns="http://www.w3.org/2005/xpath-functions">
@@ -2648,13 +2652,44 @@
                      <string key="itemURL" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:value-of select="string-join(($fileID, string(position()))[normalize-space(.)], '/')"/>
                      </string>
+                      
+                      <xsl:choose>
+                          <xsl:when test="tei:graphic[tokenize(@decls,'\s+') = '#rti']">
+                              <string key="mainDisplay" xmlns="http://www.w3.org/2005/xpath-functions">
+                                  <xsl:text>rti</xsl:text>
+                              </string>
+                          </xsl:when>
+                          <xsl:otherwise>
+                              <!--<string key="mainDisplay" xmlns="http://www.w3.org/2005/xpath-functions">
+                                  <xsl:text>iiif</xsl:text>
+                              </string>-->
+                          </xsl:otherwise>
+                      </xsl:choose>
+                      
+                      <xsl:variable name="target_iiif_surface" as="item()">
+                          <xsl:choose>
+                              <xsl:when test="normalize-space(@corresp)">
+                                  <xsl:copy-of select="key('surfaceAll', replace(@corresp,'^#', ''))[1]"/>
+                              </xsl:when>
+                              <xsl:otherwise>
+                                  <xsl:copy-of select="." />
+                              </xsl:otherwise>
+                          </xsl:choose>
+                      </xsl:variable>
+                      
+                      <xsl:if test="tei:graphic[tokenize(@decls,'\s+') = '#rti']">
+                          <string key="RTIImageURL" xmlns="http://www.w3.org/2005/xpath-functions">
+                              <xsl:value-of select="tei:graphic[tokenize(@decls,'\s+') = '#rti']/normalize-space(@url)"/>
+                          </string>
+                      </xsl:if>
 
-                     <xsl:variable name="imageUrl" select="normalize-space(tei:graphic[contains(@decls, '#download')]/@url)"/>
-                     <xsl:variable name="thumbnailOrientation" select="normalize-space(tei:graphic[contains(@decls, '#download')]/@rend)"/>
+                      <xsl:variable name="imageUrl" select="normalize-space($target_iiif_surface/tei:graphic[contains(@decls, '#download')]/@url)"/>
+                      
+                      <xsl:variable name="thumbnailOrientation" select="normalize-space($target_iiif_surface/tei:graphic[contains(@decls, '#download')]/@rend)"/>
 
-                     <xsl:variable name="imageWidth" select="replace(normalize-space(tei:graphic[contains(@decls, '#download')]/@width), 'px', '')"/>
+                      <xsl:variable name="imageWidth" select="replace(normalize-space($target_iiif_surface/tei:graphic[contains(@decls, '#download')]/@width), 'px', '')"/>
 
-                     <xsl:variable name="imageHeight" select="replace(normalize-space(tei:graphic[contains(@decls, '#download')]/@height), 'px', '')"/>
+                      <xsl:variable name="imageHeight" select="replace(normalize-space($target_iiif_surface/tei:graphic[contains(@decls, '#download')]/@height), 'px', '')"/>
 
                      <string key="IIIFImageURL" xmlns="http://www.w3.org/2005/xpath-functions">
                         <xsl:value-of select="$imageUrl"/>
@@ -3011,8 +3046,8 @@
 
          <string key="startPageLabel" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
-               <xsl:when test="//tei:facsimile/tei:surface">
-                  <xsl:value-of select="//tei:facsimile/tei:surface[1]/@n"/>
+                <xsl:when test="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
+                    <xsl:value-of select="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))][1]/@n"/>
                </xsl:when>
                <xsl:otherwise>
                   <xsl:text>cover</xsl:text>
@@ -3030,8 +3065,8 @@
 
          <string key="endPageLabel" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
-               <xsl:when test="//tei:facsimile/tei:surface">
-                  <xsl:value-of select="//tei:facsimile/tei:surface[last()]/@n"/>
+                <xsl:when test="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
+                    <xsl:value-of select="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))][last()]/@n"/>
                </xsl:when>
                <xsl:otherwise>
                   <xsl:text>cover</xsl:text>
@@ -3041,8 +3076,8 @@
 
          <number key="endPagePosition" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
-               <xsl:when test="//tei:facsimile/tei:surface">
-                  <xsl:value-of select="count(//tei:facsimile/tei:surface)"/>
+                <xsl:when test="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
+                    <xsl:value-of select="count(//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))])"/>
                </xsl:when>
                <xsl:otherwise>
                   <xsl:value-of select="1"/>
@@ -3140,8 +3175,8 @@
                   </xsl:when>
                   <xsl:otherwise>
                      <xsl:choose>
-                        <xsl:when test="//tei:facsimile/tei:surface">
-                           <xsl:value-of select="//tei:facsimile/tei:surface[1]/@n"/>
+                         <xsl:when test="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
+                             <xsl:value-of select="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))][1]/@n"/>
                         </xsl:when>
                         <xsl:otherwise>
                            <xsl:text>cover</xsl:text>
@@ -3181,8 +3216,8 @@
                </xsl:when>
                <xsl:otherwise>
                   <xsl:choose>
-                     <xsl:when test="//tei:facsimile/tei:surface">
-                        <xsl:value-of select="//tei:facsimile/tei:surface[last()]/@n"/>
+                      <xsl:when test="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
+                          <xsl:value-of select="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))][last()]/@n"/>
                      </xsl:when>
                      <xsl:otherwise>
                         <xsl:text>cover</xsl:text>
@@ -3272,8 +3307,8 @@
                </xsl:when>
                <xsl:otherwise>
                   <xsl:choose>
-                     <xsl:when test="//tei:facsimile/tei:surface">
-                        <xsl:value-of select="//tei:facsimile/tei:surface[1]/@n"/>
+                      <xsl:when test="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
+                          <xsl:value-of select="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))][1]/@n"/>
                      </xsl:when>
                      <xsl:otherwise>
                         <xsl:text>cover</xsl:text>
@@ -3314,8 +3349,8 @@
                </xsl:when>
                <xsl:otherwise>
                   <xsl:choose>
-                     <xsl:when test="//tei:facsimile/tei:surface">
-                        <xsl:value-of select="//tei:facsimile/tei:surface[last()]/@n"/>
+                      <xsl:when test="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
+                          <xsl:value-of select="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))][last()]/@n"/>
                      </xsl:when>
                      <xsl:otherwise>
                         <xsl:text>cover</xsl:text>
@@ -4557,8 +4592,8 @@
       </xsl:if>
    </xsl:template>
 
-   <xsl:template match="tei:surface" mode="count">
-        <xsl:number count="//tei:facsimile/tei:surface" level="any"/>
+    <xsl:template match="tei:surface[not(key('iiif_rti_corresp',@xml:id))]" priority="2" mode="count">
+        <xsl:number count="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]" level="any"/>
     </xsl:template>
    
    <xsl:template name="get-dateRange">
@@ -4979,8 +5014,10 @@
                <cudl:element name="label" jsontype="string" />
                <cudl:element name="physID" jsontype="string" />
                <cudl:element name="sequence" jsontype="number" />
+               <cudl:element name="mainDisplay" jsontype="string" />
                <cudl:element name="displayImageURL" jsontype="string" />
                <cudl:element name="downloadImageURL" jsontype="string" />
+               <cudl:element name="RTIImageURL" jsontype="string" />
                <cudl:element name="IIIFImageURL" jsontype="string" />
                <cudl:element name="thumbnailImageURL" jsontype="string" />
                <cudl:element name="thumbnailImageOrientation" jsontype="string" />
