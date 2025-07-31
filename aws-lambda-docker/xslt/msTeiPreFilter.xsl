@@ -239,11 +239,13 @@
       <xsl:copy-of select="$t"/>
    </xsl:template>
 
+    <xsl:variable name="valid_surfaces" select="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]" as="item()*"/>
+    
    <xsl:template name="get-numberOfPages">
       <number key="numberOfPages" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:choose>
-             <xsl:when test="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
-                 <xsl:value-of select="count(//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))])"/>
+             <xsl:when test="not(empty($valid_surfaces))">
+                 <xsl:value-of select="count($valid_surfaces)"/>
             </xsl:when>
             <xsl:otherwise>
                <xsl:text>1</xsl:text>
@@ -253,7 +255,7 @@
    </xsl:template>
 
    <xsl:template name="get-embeddable">
-       <xsl:variable name="images" select="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))][1]/tei:graphic[1][normalize-space(@url)]"/>
+       <xsl:variable name="images" select="$valid_surfaces[1]/tei:graphic[1][normalize-space(@url)]"/>
       <boolean key="embeddable" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:value-of select="exists($images)"/>
       </boolean>
@@ -2630,8 +2632,8 @@
 
       <array key="pages" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:choose>
-             <xsl:when test="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
-                 <xsl:for-each select="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
+             <xsl:when test="not(empty($valid_surfaces))">
+                 <xsl:for-each select="$valid_surfaces">
                      <xsl:variable name="surface-elem" select="."/>
                      <xsl:variable name="label" select="normalize-space(@n)"/>
                   <map xmlns="http://www.w3.org/2005/xpath-functions">
@@ -3046,8 +3048,8 @@
 
          <string key="startPageLabel" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
-                <xsl:when test="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
-                    <xsl:value-of select="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))][1]/@n"/>
+                <xsl:when test="not(empty($valid_surfaces))">
+                    <xsl:value-of select="$valid_surfaces[1]/@n"/>
                </xsl:when>
                <xsl:otherwise>
                   <xsl:text>cover</xsl:text>
@@ -3065,8 +3067,8 @@
 
          <string key="endPageLabel" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
-                <xsl:when test="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
-                    <xsl:value-of select="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))][last()]/@n"/>
+                <xsl:when test="not(empty($valid_surfaces))">
+                    <xsl:value-of select="$valid_surfaces[last()]/@n"/>
                </xsl:when>
                <xsl:otherwise>
                   <xsl:text>cover</xsl:text>
@@ -3076,8 +3078,8 @@
 
          <number key="endPagePosition" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:choose>
-                <xsl:when test="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
-                    <xsl:value-of select="count(//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))])"/>
+                <xsl:when test="not(empty($valid_surfaces))">
+                    <xsl:value-of select="count($valid_surfaces)"/>
                </xsl:when>
                <xsl:otherwise>
                   <xsl:value-of select="1"/>
@@ -3175,8 +3177,8 @@
                   </xsl:when>
                   <xsl:otherwise>
                      <xsl:choose>
-                         <xsl:when test="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
-                             <xsl:value-of select="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))][1]/@n"/>
+                         <xsl:when test="not(empty($valid_surfaces))">
+                             <xsl:value-of select="$valid_surfaces[1]/@n"/>
                         </xsl:when>
                         <xsl:otherwise>
                            <xsl:text>cover</xsl:text>
@@ -3216,8 +3218,8 @@
                </xsl:when>
                <xsl:otherwise>
                   <xsl:choose>
-                      <xsl:when test="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
-                          <xsl:value-of select="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))][last()]/@n"/>
+                      <xsl:when test="not(empty($valid_surfaces))">
+                          <xsl:value-of select="$valid_surfaces[last()]/@n"/>
                      </xsl:when>
                      <xsl:otherwise>
                         <xsl:text>cover</xsl:text>
@@ -3307,8 +3309,8 @@
                </xsl:when>
                <xsl:otherwise>
                   <xsl:choose>
-                      <xsl:when test="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
-                          <xsl:value-of select="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))][1]/@n"/>
+                      <xsl:when test="not(empty($valid_surfaces))">
+                          <xsl:value-of select="$valid_surfaces[1]/@n"/>
                      </xsl:when>
                      <xsl:otherwise>
                         <xsl:text>cover</xsl:text>
@@ -3349,8 +3351,8 @@
                </xsl:when>
                <xsl:otherwise>
                   <xsl:choose>
-                      <xsl:when test="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]">
-                          <xsl:value-of select="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))][last()]/@n"/>
+                      <xsl:when test="not(empty($valid_surfaces))">
+                          <xsl:value-of select="$valid_surfaces[last()]/@n"/>
                      </xsl:when>
                      <xsl:otherwise>
                         <xsl:text>cover</xsl:text>
