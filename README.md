@@ -64,7 +64,7 @@ You must specify the file you want to process in the environment variable called
  
 To process MS-ADD-03975:
 
-    export TEI_FILE=items/data/tei/MS-ADD-0397*/MS-ADD-*.xml
+    export TEI_FILE=items/data/tei/MS-ADD-03975/MS-ADD-03975.xml
     docker compose -f docker-compose-local.yml up --build
 
 `TEI_FILE` also accepts wildcards. The following will rebuild files for MS-ADD-04000 to MS-ADD-04009:
