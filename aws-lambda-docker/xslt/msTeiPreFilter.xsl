@@ -31,6 +31,7 @@
 
    <xsl:variable name="fileID" select="substring-before(tokenize(document-uri(/), '/')[last()], '.xml')"/>
 
+    <xsl:key name="surface-id-points-to-corresp" match="//tei:facsimile/tei:surface[@corresp]" use="replace(normalize-space(@corresp),'^#','')"/>
     <xsl:key name="surfaceIDs" match="//tei:surface[not(key('surface-id-points-to-corresp',@xml:id))]" use="(@xml:id, concat('#',@xml:id))"/>
     <xsl:key name="surfaceNs" match="//tei:surface[not(key('surface-id-points-to-corresp',@xml:id))]" use="normalize-space(@n)"/>
     <xsl:key name="surfaceAll" match="//tei:surface" use="(@xml:id, concat('#',@xml:id))"/>
@@ -2619,8 +2620,6 @@
          </map>
       </xsl:if>
    </xsl:template>
-    
-    <xsl:key name="surface-id-points-to-corresp" match="//tei:facsimile/tei:surface[@corresp]" use="replace(normalize-space(@corresp),'^#','')"/>
 
    <xsl:template match="tei:facsimile/tei:surface[not(key('surface-id-points-to-corresp',@xml:id))]" mode="count">
        <xsl:message>COUNT FULL XPATH</xsl:message>
