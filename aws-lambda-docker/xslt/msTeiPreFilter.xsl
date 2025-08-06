@@ -31,8 +31,8 @@
 
    <xsl:variable name="fileID" select="substring-before(tokenize(document-uri(/), '/')[last()], '.xml')"/>
 
-    <xsl:key name="surfaceIDs" match="//tei:surface[not(key('iiif_rti_corresp',@xml:id))]" use="(@xml:id, concat('#',@xml:id))"/>
-    <xsl:key name="surfaceNs" match="//tei:surface[not(key('iiif_rti_corresp',@xml:id))]" use="normalize-space(@n)"/>
+    <xsl:key name="surfaceIDs" match="//tei:surface[not(key('surface-id-points-to-corresp',@xml:id))]" use="(@xml:id, concat('#',@xml:id))"/>
+    <xsl:key name="surfaceNs" match="//tei:surface[not(key('surface-id-points-to-corresp',@xml:id))]" use="normalize-space(@n)"/>
     <xsl:key name="surfaceAll" match="//tei:surface" use="(@xml:id, concat('#',@xml:id))"/>
    <xsl:key name="pbNs" match="//tei:pb[normalize-space(@n)]" use="@n"/>
 
@@ -239,7 +239,7 @@
       <xsl:copy-of select="$t"/>
    </xsl:template>
 
-    <xsl:variable name="valid_surfaces" select="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]" as="item()*"/>
+    <xsl:variable name="valid_surfaces" select="//tei:facsimile/tei:surface[not(key('surface-id-points-to-corresp',@xml:id))]" as="item()*"/>
     
    <xsl:template name="get-numberOfPages">
       <number key="numberOfPages" xmlns="http://www.w3.org/2005/xpath-functions">
@@ -2620,11 +2620,11 @@
       </xsl:if>
    </xsl:template>
     
-    <xsl:key name="iiif_rti_corresp" match="//tei:facsimile/tei:surface[@corresp]" use="replace(normalize-space(@corresp),'^#','')"/>
+    <xsl:key name="surface-id-points-to-corresp" match="//tei:facsimile/tei:surface[@corresp]" use="replace(normalize-space(@corresp),'^#','')"/>
 
-   <xsl:template match="tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]" mode="count">
+   <xsl:template match="tei:facsimile/tei:surface[not(key('surface-id-points-to-corresp',@xml:id))]" mode="count">
        <xsl:message>COUNT FULL XPATH</xsl:message>
-       <xsl:number format="1" level="any" count="tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]"/>
+       <xsl:number format="1" level="any" count="tei:facsimile/tei:surface[not(key('surface-id-points-to-corresp',@xml:id))]"/>
    </xsl:template>
 
    <xsl:template name="make-pages">
@@ -4594,8 +4594,8 @@
       </xsl:if>
    </xsl:template>
 
-    <xsl:template match="tei:surface[not(key('iiif_rti_corresp',@xml:id))]" priority="2" mode="count">
-        <xsl:number count="//tei:facsimile/tei:surface[not(key('iiif_rti_corresp',@xml:id))]" level="any"/>
+    <xsl:template match="tei:surface[not(key('surface-id-points-to-corresp',@xml:id))]" priority="2" mode="count">
+        <xsl:number count="//tei:facsimile/tei:surface[not(key('surface-id-points-to-corresp',@xml:id))]" level="any"/>
     </xsl:template>
    
    <xsl:template name="get-dateRange">
