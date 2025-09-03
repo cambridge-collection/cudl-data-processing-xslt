@@ -4295,6 +4295,59 @@
       </xsl:choose>
       <xsl:text>&lt;/div&gt;</xsl:text>
    </xsl:template>
+    
+    <xsl:template match="tei:figure" mode="html">
+        <xsl:apply-templates mode="#current"/>
+    </xsl:template>
+    
+   <xsl:template match="tei:figure/tei:head" mode="html"/>
+    
+    <xsl:template match="*:media" mode="html" priority="99999">
+        <xsl:message>TEST</xsl:message>
+        <xsl:variable name="service" as="xsd:string">
+            <xsl:choose>
+                <xsl:when test="matches(@url,'(youtube.com|youtube-nocookie.com|youtu.be)', 'i')">
+                    <xsl:text>youtube</xsl:text>
+                </xsl:when>
+            </xsl:choose>
+        </xsl:variable>
+        
+        <xsl:variable name="title" select="parent::tei:figure/tei:head[normalize-space(.)]"/>
+        
+        <xsl:variable name="item_id">
+            <xsl:variable name="url_tidied" select="replace(normalize-space(@url),'^(https*:)*//', '', 'i')"/>
+            <xsl:message select="$url_tidied"></xsl:message>
+            <xsl:choose>
+                <xsl:when test="$service = 'youtube'">
+                    <xsl:choose>
+                        <xsl:when test="matches($url_tidied, 'youtu.be')">
+                            <xsl:value-of select="tokenize(tokenize($url_tidied, '/')[2],'\?')[1]"/>
+                        </xsl:when>
+                        <xsl:when test="matches($url_tidied, '(youtube.com|youtube-nocookie.com)/embed')">
+                            <xsl:value-of select="tokenize(tokenize($url_tidied, '/')[3],'\?')[1]"/>
+                        </xsl:when>
+                        <xsl:otherwise>
+                            <xsl:message>WARN: Unknown media service - <xsl:value-of select="$service"/></xsl:message>
+                        </xsl:otherwise>
+                    </xsl:choose>
+                </xsl:when>
+            </xsl:choose>
+        </xsl:variable>
+        <xsl:text>&lt;media-embed service="</xsl:text>
+        <xsl:value-of select="$service"/>
+        <xsl:text>" itemid="</xsl:text>
+        <xsl:value-of select="$item_id"/>
+        <xsl:text>"</xsl:text>
+        <xsl:if test="normalize-space($title)">
+            <xsl:text> title="</xsl:text>
+            <xsl:value-of select="normalize-space($title)"/>
+            <xsl:text> (</xsl:text>
+            <xsl:value-of select="cudl:capitalise-first($service)"/>
+            <xsl:text>)</xsl:text>
+            <xsl:text>"</xsl:text>
+        </xsl:if>
+        <xsl:text>>&lt;/media-embed></xsl:text>
+    </xsl:template>
 
    <!--names processing for bibliography-->
    <xsl:template name="get-names-first-surname-first">
