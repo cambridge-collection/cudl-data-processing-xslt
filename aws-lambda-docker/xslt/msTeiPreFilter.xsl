@@ -4303,7 +4303,6 @@
    <xsl:template match="tei:figure/tei:head" mode="html"/>
     
     <xsl:template match="*:media" mode="html" priority="99999">
-        <xsl:message>TEST</xsl:message>
         <xsl:variable name="service" as="xsd:string">
             <xsl:choose>
                 <xsl:when test="matches(@url,'(youtube.com|youtube-nocookie.com|youtu.be)', 'i')">
@@ -4314,17 +4313,57 @@
         
         <xsl:variable name="title" select="parent::tei:figure/tei:head[normalize-space(.)]"/>
         
+        <xsl:variable name="url_tidied" select="replace(normalize-space(@url),'^(https*:)*//', '', 'i')"/>
+        
+        <xsl:variable name="playlist_id" as="xsd:string?">
+            <xsl:choose>
+                <xsl:when test="matches($url_tidied, '(\?|&amp;)list=')">
+                    <xsl:sequence select="
+                        substring-after(
+                        (tokenize(
+                        (if (contains($url_tidied,'?')) then substring-after($url_tidied,'?') else ''),
+                        '&amp;'
+                        )[matches(., '^list=')][1]),
+                        'list='
+                        )
+                        "/>
+                </xsl:when>
+                <xsl:when test="matches($url_tidied, '(youtube.com|youtube-nocookie.com)/embed/videoseries')">
+                    <xsl:sequence select="
+                        substring-after(
+                        (tokenize(
+                        (if (contains($url_tidied,'?')) then substring-after($url_tidied,'?') else ''),
+                        '&amp;'
+                        )[matches(., '^list=')][1]),
+                        'list='
+                        )
+                        "/>
+                </xsl:when>
+                <xsl:otherwise/>
+            </xsl:choose>
+        </xsl:variable>
+        
         <xsl:variable name="item_id">
-            <xsl:variable name="url_tidied" select="replace(normalize-space(@url),'^(https*:)*//', '', 'i')"/>
-            <xsl:message select="$url_tidied"></xsl:message>
             <xsl:choose>
                 <xsl:when test="$service = 'youtube'">
                     <xsl:choose>
-                        <xsl:when test="matches($url_tidied, 'youtu.be')">
+                        <xsl:when test="matches($url_tidied, '^youtu\.be/', 'i')">
                             <xsl:value-of select="tokenize(tokenize($url_tidied, '/')[2],'\?')[1]"/>
                         </xsl:when>
-                        <xsl:when test="matches($url_tidied, '(youtube.com|youtube-nocookie.com)/embed')">
+                        <xsl:when test="matches($url_tidied, '(youtube.com|youtube-nocookie.com)/embed/videoseries(\?)', 'i')"/>
+                        <xsl:when test="matches($url_tidied, '(youtube.com|youtube-nocookie.com)/embed/[^/?]+', 'i')">
                             <xsl:value-of select="tokenize(tokenize($url_tidied, '/')[3],'\?')[1]"/>
+                        </xsl:when>
+                        <xsl:when test="matches($url_tidied, '(youtube.com|youtube-nocookie.com)/watch', 'i')">
+                            <xsl:value-of select="
+                                substring-after(
+                                (tokenize(
+                                (if (contains($url_tidied,'?')) then substring-after($url_tidied,'?') else ''),
+                                '&amp;'
+                                )[matches(., '^v=')][1]),
+                                'v='
+                                )
+                                "/>
                         </xsl:when>
                         <xsl:otherwise>
                             <xsl:message>WARN: Unknown media service - <xsl:value-of select="$service"/></xsl:message>
@@ -4333,21 +4372,34 @@
                 </xsl:when>
             </xsl:choose>
         </xsl:variable>
-        <xsl:text>&lt;media-embed service="</xsl:text>
+        
+        <xsl:text>&lt;media-embed</xsl:text>
+        <xsl:text> service="</xsl:text>
         <xsl:value-of select="$service"/>
-        <xsl:text>" itemid="</xsl:text>
-        <xsl:value-of select="$item_id"/>
         <xsl:text>"</xsl:text>
+        
+        <xsl:if test="normalize-space($item_id)">
+            <xsl:text> itemid="</xsl:text>
+            <xsl:value-of select="$item_id"/>
+            <xsl:text>"</xsl:text>
+        </xsl:if>
+        
+        <xsl:if test="normalize-space($playlist_id)">
+            <xsl:text> playlistid="</xsl:text>
+            <xsl:value-of select="$playlist_id"/>
+            <xsl:text>"</xsl:text>
+        </xsl:if>
+        
         <xsl:if test="normalize-space($title)">
             <xsl:text> title="</xsl:text>
             <xsl:value-of select="normalize-space($title)"/>
             <xsl:text> (</xsl:text>
             <xsl:value-of select="cudl:capitalise-first($service)"/>
-            <xsl:text>)</xsl:text>
-            <xsl:text>"</xsl:text>
+            <xsl:text>)"</xsl:text>
         </xsl:if>
         <xsl:text>>&lt;/media-embed></xsl:text>
     </xsl:template>
+    
 
    <!--names processing for bibliography-->
    <xsl:template name="get-names-first-surname-first">
