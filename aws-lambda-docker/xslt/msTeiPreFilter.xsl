@@ -59,7 +59,7 @@
                <xsl:message select="concat('Submitting request to: ', $request_uri)"/>
                <xsl:copy-of select="json-to-xml(unparsed-text($request_uri))"/>
                <xsl:catch>
-                  <xsl:message terminate="yes">ERROR: Search API not responding</xsl:message>
+                  <xsl:message terminate="yes">ERROR: Search API not responding for <xsl:value-of select="$fileID"/></xsl:message>
                </xsl:catch>
             </xsl:try>
          </xsl:variable>

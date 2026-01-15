@@ -26,7 +26,6 @@ function handler() {
 	set +a
 
 	echo "Parsing event notification" 1>&2
-	echo "$1" 1>&2
 
 	EVENTNAME=$(echo "$1" | jq -r '.Records[].body' | jq -r '.Records[].eventName') 1>&2
 	S3_BUCKET=$(echo "$1" | jq -r '.Records[].body' | jq -r '.Records[].s3.bucket.name') 1>&2
