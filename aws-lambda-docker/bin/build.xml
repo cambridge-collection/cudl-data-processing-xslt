@@ -268,6 +268,7 @@
 
     <target name="_transform-pages" if="${files.exist}" depends="if.chunks.exist">
         <echo>Paginating XML</echo>
+        <mkdir dir="${page-xml.pending.dir}"/>
 
         <fileset id="chunk_xml" dir="${chunk.dir}" includes="**/*.xml" />
 
@@ -430,8 +431,17 @@
             <arg value="s3://${core_xml-s3-dest}"/>
         </exec>
 
-        <echo unless:true="${no.copy.page-xml}" message="Copying ${page-xml.pending.dir} to S3://${page-xml-s3-dest}"/>
-        <exec unless:true="${no.copy.page-xml}" executable="aws" resolveexecutable="true">
+        <condition property="page-xml.copy" value="true" else="false">
+            <and>
+                <available file="${page-xml.pending.dir}" type="dir"/>
+                <resourcecount when="greater" count="0">
+                    <fileset dir="${page-xml.pending.dir}" includes="**/*.xml" erroronmissingdir="false"/>
+                </resourcecount>
+            </and>
+        </condition>
+
+        <echo if:true="${page-xml.copy}" unless:true="${no.copy.page-xml}" message="Copying ${page-xml.pending.dir} to S3://${page-xml-s3-dest}"/>
+        <exec if:true="${page-xml.copy}" unless:true="${no.copy.page-xml}" executable="aws" resolveexecutable="true">
             <arg value="s3"/>
             <arg value="sync"/>
             <arg value="--quiet"/>
