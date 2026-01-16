@@ -54,12 +54,12 @@
          <xsl:variable name="search_addr" select="string-join(($SEARCH_HOST, $SEARCH_PORT)[normalize-space(.)], ':')"/>
          
          <xsl:variable name="collection-query">
+             <xsl:variable name="request_uri" select="concat('http://', $search_addr,'/', $SEARCH_COLLECTION_PATH,'?q=items._id:%22%2F', $fileID, '.json%22&amp;spellcheck=false&amp;hl=false&amp;facet=false&amp;omitHeader=true&amp;echoParams=none')"/>
             <xsl:try>
-               <xsl:variable name="request_uri" select="concat('http://', $search_addr,'/', $SEARCH_COLLECTION_PATH,'?q=items._id:%22%2F', $fileID, '.json%22')"/>
                <xsl:message select="concat('Submitting request to: ', $request_uri)"/>
                <xsl:copy-of select="json-to-xml(unparsed-text($request_uri))"/>
                <xsl:catch>
-                  <xsl:message terminate="yes">ERROR: Search API not responding for <xsl:value-of select="$fileID"/></xsl:message>
+                  <xsl:message terminate="yes">ERROR: Search API not responding for <xsl:value-of select="$request_uri"/></xsl:message>
                </xsl:catch>
             </xsl:try>
          </xsl:variable>
@@ -81,12 +81,12 @@
                      <xsl:variable name="item_collection_slug" select="$current_item_obj/*:string[@key='id'][1]"/>
                      
                      <xsl:variable name="parent-query">
+                         <xsl:variable name="request_uri" select="concat('http://', $search_addr,'/', $SEARCH_COLLECTION_PATH,'?q=collections._id:%22collections%2F', $item_collection_slug, '.collection.json%22&amp;spellcheck=false&amp;hl=false&amp;facet=false&amp;omitHeader=true&amp;echoParams=none')"/>
                         <xsl:try>
-                           <xsl:variable name="request_uri" select="concat('http://', $search_addr,'/', $SEARCH_COLLECTION_PATH,'?q=collections._id:%22collections%2F', $item_collection_slug, '.collection.json%22')"/>
                            <xsl:message select="concat('Submitting request to: ', $request_uri)"/>
                            <xsl:copy-of select="json-to-xml(unparsed-text($request_uri))"/>
                            <xsl:catch>
-                              <xsl:message terminate="yes">ERROR: Search API not responding</xsl:message>
+                              <xsl:message terminate="yes">ERROR: Search API not responding: <xsl:value-of select="$request_uri"/></xsl:message>
                            </xsl:catch>
                         </xsl:try>
                      </xsl:variable>
