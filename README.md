@@ -27,7 +27,7 @@ The application is dockerised. There are two versions:
 Environment variables with the necessary AWS credentials stored in the following variables:
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
-- `AWS_SECRET_ACCESS_KEY`
+- `AWS_SESSION_TOKEN`
 
 All other environment variables necessary for CUDL are stored in `.env`, such as the source and destination buckets.
 
