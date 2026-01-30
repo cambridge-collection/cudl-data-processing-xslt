@@ -47,8 +47,14 @@ function handler() {
 			FILENAME=$(basename $TEI_FILE ".xml")
 			CONTAINING_DIR=$(dirname "$TEI_FILE")
 			HTML_INNER_PATH=$(echo $CONTAINING_DIR | sed -E 's/^items\///g')
-			aws s3 rm s3://${AWS_OUTPUT_BUCKET} --recursive --exclude "*" --include "**/${FILENAME}.json" --include "html/${HTML_INNER_PATH}/${FILENAME}-*.html" --include "page-xml/${CONTAINING_DIR}/${FILENAME}-*.xml" --include "core-xml/${TEI_FILE}" --include "${TEI_FILE}" 1>&2 &&
-				echo "All outputs of s3://${S3_BUCKET}/${TEI_FILE} removed from s3://${AWS_OUTPUT_BUCKET}" 1>&2
+			aws s3 rm "s3://${AWS_OUTPUT_BUCKET}/json/${FILENAME}.json" 1>&2 && 
+			aws s3 rm "s3://${AWS_OUTPUT_BUCKET}/solr-json/${FILENAME}.json" 1>&2 &&
+			aws s3 rm "s3://${AWS_OUTPUT_BUCKET}/dp-json/${FILENAME}.json" 1>&2 &&
+			aws s3 rm "s3://${AWS_OUTPUT_BUCKET}/core-xml/${TEI_FILE}" 1>&2 &&
+			aws s3 rm "s3://${AWS_OUTPUT_BUCKET}/${TEI_FILE}" 1>&2
+			aws s3 rm "s3://${AWS_OUTPUT_BUCKET}/html/${HTML_INNER_PATH}/" --recursive --exclude "*" --include "${FILENAME}-*.html" 1>&2 &&
+			aws s3 rm "s3://${AWS_OUTPUT_BUCKET}/page-xml/${CONTAINING_DIR}/" --recursive --exclude "*" --include "${FILENAME}-*.xml" 1>&2 &&
+			echo "All outputs of s3://${S3_BUCKET}/${TEI_FILE} removed from s3://${AWS_OUTPUT_BUCKET}" 1>&2
 		else
 			echo "ERROR: Unsupported event: ${EVENTNAME}" 1>&2
 			return 1
