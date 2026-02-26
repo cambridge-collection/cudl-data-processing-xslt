@@ -37,9 +37,6 @@
          <xsl:when test="$repository='National Maritime Museum'">
             <xsl:text>http://images.rmg.co.uk/en/page/show_home_page.html</xsl:text>
          </xsl:when>
-         <xsl:when test="$repository='Cambridge University Collection of Aerial Photography'">
-            <xsl:text>https://www.cambridgeairphotos.com/</xsl:text>
-         </xsl:when>
          <xsl:when test="$repository='Bodleian Library'">
             <xsl:text>https://www.bodleian.ox.ac.uk/using/imaging_services</xsl:text>
          </xsl:when>
@@ -64,20 +61,60 @@
          <xsl:when test="$repository='The John Rylands Library'">
             <xsl:text>https://www.library.manchester.ac.uk/search-resources/manchester-digital-collections/digitisation-services/copyright-and-licensing/</xsl:text>
          </xsl:when>
-         <xsl:when test="$repository='Cavendish Laboratory'">
-            <xsl:variable name="shelflocator_short">
-               <xsl:choose>
-                  <xsl:when test="contains($shelflocator, ' ')">
-                     <xsl:value-of select="substring-before($shelflocator, ' ')"/>
-                  </xsl:when>
-                  <xsl:otherwise>
-                     <xsl:value-of select="$shelflocator"/>
-                  </xsl:otherwise>
-               </xsl:choose>
-            </xsl:variable>
-            <xsl:variable name="urltext" select="concat('https://www.phy.cam.ac.uk/about/image-licensing-form?id=',$shelflocator_short)"/>
-            <xsl:value-of select="$urltext"/>
-         </xsl:when>
+      	<xsl:when test="$repository='Ancient India and Iran Trust'">
+      		<xsl:text>https://www.indiran.org/library/</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="$repository='Cavendish Laboratory'">
+      		<xsl:text>https://www.phy.cam.ac.uk/about/photo-archive-and-filming/image-request-form/</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="$repository='Department of Engineering'">
+      		<xsl:text>https://www.indiran.org/library/</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="$repository='Girton College Archive, Cambridge'">
+      		<xsl:text>https://www.girton.cam.ac.uk/about-girton/library-archive/archive-special-collections#copying-or-publishing-material</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="$repository='Downing College Archive'">
+      		<xsl:text>https://www.dow.cam.ac.uk/about/downing-college-archive</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="$repository='Faculty of Classics Archives, University of Cambridge'">
+      		<xsl:text>https://www.classics.cam.ac.uk/library/archives</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="$repository='Gonville and Caius College, Lower Library'">
+      		<xsl:text>https://www.cai.cam.ac.uk/discover/library/contacting-library</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="normalize-space($repository)='Needham Research Institute'">
+      		<xsl:text>https://www.nri.cam.ac.uk/</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="$repository=('King&quot;s College Library', 'King&quot;s College Archive Centre, Cambridge')">
+      		<xsl:text>https://www.kings.cam.ac.uk/using-archives</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="$repository='Newnham College Library'">
+      		<xsl:text>https://newn.cam.ac.uk/student-hub/newnham-college-library</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="$repository='Newnham College Archive, Cambridge'">
+      		<xsl:text>https://newn.cam.ac.uk/research/college-archive</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="$repository='Skilliter Centre Research Library and Archives'">
+      		<xsl:text>https://newn.cam.ac.uk/research/skilliter-centre</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="$repository=('Pembroke College Library', 'Pembroke College Library: on long-term deposit at Cambridge University Library', 'Pembroke College Archives')">
+      		<xsl:text>https://www.pem.cam.ac.uk/college/library/archives-special-collections</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="$repository='St Catharine&quot;s College Library'">
+      		<xsl:text>https://www.caths.cam.ac.uk/college-life/library/special-collections</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="$repository='Trinity Hall Library'">
+      		<xsl:text>http://www.trinhall.cam.ac.uk/about/library/old-library/special-collections</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="$repository='Trinity Hall Archive'">
+      		<xsl:text>https://www.trinhall.cam.ac.uk/about/library/archives/access-and-enquiries/</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="$repository='Westminster College, Cambridge'">
+      		<xsl:text>https://www.westminster.cam.ac.uk/library-archives-history/visiting-and-contacting-us</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="$repository='Christ&quot;s College Library'">
+      		<xsl:text>https://www.christs.cam.ac.uk/library-contactus</xsl:text>
+      	</xsl:when>
          <xsl:otherwise>
             <xsl:text>https://imagingservices.lib.cam.ac.uk/</xsl:text>
          </xsl:otherwise>
