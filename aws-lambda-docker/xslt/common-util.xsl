@@ -85,7 +85,7 @@
       	<xsl:when test="normalize-space($repository)='Needham Research Institute'">
       		<xsl:text>https://www.nri.cam.ac.uk/</xsl:text>
       	</xsl:when>
-      	<xsl:when test="$repository=('King&quot;s College Library', 'King&quot;s College Archive Centre, Cambridge')">
+      	<xsl:when test="$repository=('King''s College Library', 'King''s College Archive Centre, Cambridge')">
       		<xsl:text>https://www.kings.cam.ac.uk/using-archives</xsl:text>
       	</xsl:when>
       	<xsl:when test="$repository='Newnham College Library'">
@@ -100,7 +100,7 @@
       	<xsl:when test="$repository=('Pembroke College Library', 'Pembroke College Library: on long-term deposit at Cambridge University Library', 'Pembroke College Archives')">
       		<xsl:text>https://www.pem.cam.ac.uk/college/library/archives-special-collections</xsl:text>
       	</xsl:when>
-      	<xsl:when test="$repository='St Catharine&quot;s College Library'">
+      	<xsl:when test="$repository='St Catharine''s College Library'">
       		<xsl:text>https://www.caths.cam.ac.uk/college-life/library/special-collections</xsl:text>
       	</xsl:when>
       	<xsl:when test="$repository='Trinity Hall Library'">
@@ -112,7 +112,7 @@
       	<xsl:when test="$repository='Westminster College, Cambridge'">
       		<xsl:text>https://www.westminster.cam.ac.uk/library-archives-history/visiting-and-contacting-us</xsl:text>
       	</xsl:when>
-      	<xsl:when test="$repository='Christ&quot;s College Library'">
+      	<xsl:when test="$repository='Christ''s College Library'">
       		<xsl:text>https://www.christs.cam.ac.uk/library-contactus</xsl:text>
       	</xsl:when>
          <xsl:otherwise>
