@@ -115,6 +115,23 @@
       	<xsl:when test="$repository='Christ''s College Library'">
       		<xsl:text>https://www.christs.cam.ac.uk/library-contactus</xsl:text>
       	</xsl:when>
+      	<xsl:when test="$repository=('Clare College Library', 'Clare College Library')">
+      		<xsl:text>https://www.clare.cam.ac.uk/about/college-history/college-archives</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="normalize-space($repository)='Cambridge University: Kettle''s Yard Museum and Art Gallery'">
+      		<xsl:text>https://www.kettlesyard.cam.ac.uk/about-us/#image-licensing</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="$repository=('Perne Library, Peterhouse', 'Peterhouse Library', 'Perne Library: on long-term deposit at Cambridge University Library')">
+      		<xsl:text>https://www.pet.cam.ac.uk/libraries-and-archives</xsl:text>
+      	</xsl:when>
+      	<xsl:when test="$repository=('Queens'' College Library')">
+      		<xsl:text>https://www.queens.cam.ac.uk/life-at-queens/library/library-and-archives-staff/</xsl:text>
+      		<xsl:when test="$repository=('Sidney Sussex College, Cambridge', 'Sidney Sussex College Library', 'Sidney Sussex College Muniment Room')">
+      			<xsl:text>https://www.sid.cam.ac.uk/life-sidney/library/special-collections</xsl:text>
+      		</xsl:when>
+      		<xsl:when test="$repository=('St John''s College Library')">
+      			<xsl:text>https://archives.joh.cam.ac.uk/contact</xsl:text>
+      		</xsl:when>
          <xsl:otherwise>
             <xsl:text>https://imagingservices.lib.cam.ac.uk/</xsl:text>
          </xsl:otherwise>
