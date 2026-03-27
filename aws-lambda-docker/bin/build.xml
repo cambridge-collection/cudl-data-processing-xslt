@@ -34,7 +34,11 @@
 
     <property name="tei_full.pending.dest"  value="${dist-pending.dir}"/><!-- target directory for original TEI file (along with its path hierarchy) -->
     <property name="tei_full.pending.src"  value="${dist-pending.dir}/items"/><!-- source directory for the original TEI file copied to the pending dist dir -->
-    <property name="default.core_xml.pending.dir"  value="${dist-pending.dir}/core-xml"/><!-- target of the xtf indexing results. Source for json xslt -->
+    <!-- Priority: SKIP_CORE_XML_COPY=true (tmp, auto-cleaned) > default (dist-pending, copy to destination) -->
+    <condition property="default.core_xml.pending.dir" value="${tmp.dir}/core-xml">
+        <equals arg1="${env.SKIP_CORE_XML_COPY}" arg2="true" casesensitive="false"/>
+    </condition>
+    <property name="default.core_xml.pending.dir" value="${dist-pending.dir}/core-xml"/><!-- target of the xtf indexing results. Source for json xslt -->
 
     <property name="viewer-json.pending.dir"  value="${dist-pending.dir}/json-viewer"/><!-- Destination dir for json viewer -->
     <property name="solr-json.pending.dir"  value="${dist-pending.dir}/json-solr"/><!-- Destination dir for json solr -->
@@ -77,13 +81,17 @@
         <equals arg1="${env.SKIP_PAGE_XML_COPY}" arg2="true" casesensitive="false"/>
     </condition>
 
+    <condition property="skip.core.xml.copy" value="true" else="false">
+        <equals arg1="${env.SKIP_CORE_XML_COPY}" arg2="true" casesensitive="false"/>
+    </condition>
+
     <condition property="skip.copy.tei.web.assets" value="true" else="false">
         <equals arg1="${env.SKIP_COPY_TEI_WEB_ASSETS}" arg2="true" casesensitive="false"/>
     </condition>
 
     <target name="if.core.source.overide">
-        <property if:set="${env.CORE_XML_SOURCE}" name="core_xml.pending.dir" value="${env.CORE_XML_SOURCE}"/>
-        <property unless:set="${env.CORE_XML_SOURCE}" name="core_xml.pending.dir" value="${dist-pending.dir}/core-xml"/>
+        <property if:set="env.CORE_XML_SOURCE" name="core_xml.pending.dir" value="${env.CORE_XML_SOURCE}"/>
+        <property unless:set="env.CORE_XML_SOURCE" name="core_xml.pending.dir" value="${default.core_xml.pending.dir}"/>
     </target>
 
     <!-- Comprehensive builds -->
@@ -431,8 +439,8 @@
     </target>
 
     <target name="_copy_xml_derivs_to_s3">
-        <echo message="Copying ${core_xml.pending.dir} to S3://${core_xml-s3-dest}"/>
-        <exec executable="aws" resolveexecutable="true">
+        <echo unless:true="${skip.core.xml.copy}" message="Copying ${core_xml.pending.dir} to S3://${core_xml-s3-dest}"/>
+        <exec unless:true="${skip.core.xml.copy}" executable="aws" resolveexecutable="true">
             <arg value="s3"/>
             <arg value="sync"/>
             <arg value="--quiet"/>

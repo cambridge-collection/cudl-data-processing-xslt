@@ -11,5 +11,6 @@ services:
       SEARCH_HOST: host.docker.internal
       SKIP_COPY_TEI_WEB_ASSETS: ${SKIP_COPY_TEI_WEB_ASSETS:-true}
       SKIP_PAGE_XML_COPY: ${SKIP_PAGE_XML_COPY:-true}
+      SKIP_CORE_XML_COPY: ${SKIP_CORE_XML_COPY:-true}
     ports:
       - 9000:8080
