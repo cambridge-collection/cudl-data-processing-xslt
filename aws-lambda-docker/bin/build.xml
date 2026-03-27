@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project name="TranformXml" default="full"
+<project name="TransformXml" default="full"
     xmlns:if="ant:if"
     xmlns:unless="ant:unless">
     <dirname property="buildfile.dir" file="${ant.file}"/>
@@ -89,18 +89,18 @@
         <equals arg1="${env.SKIP_COPY_TEI_WEB_ASSETS}" arg2="true" casesensitive="false"/>
     </condition>
 
-    <target name="if.core.source.overide">
+    <target name="if.core.source.override">
         <property if:set="env.CORE_XML_SOURCE" name="core_xml.pending.dir" value="${env.CORE_XML_SOURCE}"/>
         <property unless:set="env.CORE_XML_SOURCE" name="core_xml.pending.dir" value="${default.core_xml.pending.dir}"/>
     </target>
 
     <!-- Comprehensive builds -->
 
-    <target name="full" depends="if.core.source.overide, cleanup, metadata-and-transcripts, _json">
+    <target name="full" depends="if.core.source.override, cleanup, metadata-and-transcripts, _json">
         <antcall target="release-outputs"/>
     </target>
 
-    <target name="full-metadata-update" depends="if.core.source.overide, metadata, _json">
+    <target name="full-metadata-update" depends="if.core.source.override, metadata, _json">
         <antcall target="release-outputs"/>
     </target>
 
@@ -145,9 +145,9 @@
     <target name="viewer" depends="_viewer-json, release-outputs"/>
     <target name="dp" depends="_dp-json, release-outputs"/>
     <target name="json" depends="_json, release-outputs"/>
-    <target name="html" depends="_html, if.core.source.overide, metadata, _json, release-outputs"/>
+    <target name="html" depends="_html, if.core.source.override, metadata, _json, release-outputs"/>
 
-    <target name="_viewer-json" depends="if.core.source.overide">
+    <target name="_viewer-json" depends="if.core.source.override">
         <echo message="Generating viewer json files"/>
 
         <antcall target="delete-json-tmp.dir"/>
@@ -174,7 +174,7 @@
         <antcall target="delete-json-tmp.dir"/>
     </target>
 
-    <target name="_dp-json" depends="if.core.source.overide">
+    <target name="_dp-json" depends="if.core.source.override">
         <echo message="Generating DP json file"/>
 
         <antcall target="delete-json-tmp.dir"/>
@@ -201,7 +201,7 @@
         <antcall target="delete-json-tmp.dir"/>
     </target>
 
-    <target name="_solr-json" depends="if.core.source.overide">
+    <target name="_solr-json" depends="if.core.source.override">
         <echo message="Generating solr json files"/>
 
         <antcall target="delete-json-tmp.dir"/>
