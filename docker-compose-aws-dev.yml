@@ -10,5 +10,6 @@ services:
       AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
       SEARCH_HOST: host.docker.internal
       SKIP_COPY_TEI_WEB_ASSETS: ${SKIP_COPY_TEI_WEB_ASSETS:-true}
+      SKIP_PAGE_XML_COPY: ${SKIP_PAGE_XML_COPY:-true}
     ports:
       - 9000:8080

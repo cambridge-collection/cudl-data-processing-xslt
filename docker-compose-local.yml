@@ -8,6 +8,7 @@ services:
       TEI_FILE: ${TEI_FILE}
       SEARCH_HOST: host.docker.internal
       SKIP_COPY_TEI_WEB_ASSETS: ${SKIP_COPY_TEI_WEB_ASSETS:-false}
+      SKIP_PAGE_XML_COPY: ${SKIP_PAGE_XML_COPY:-true}
     volumes:
       - dist:/tmp/opt/cdcp/dist
       - source:/tmp/opt/cdcp/cudl-data-source

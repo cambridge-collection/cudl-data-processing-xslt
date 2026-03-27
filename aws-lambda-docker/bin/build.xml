@@ -22,10 +22,15 @@
     <!-- Initial output subdirectories within $dist-pending.dir -->
     <property name="www.pending.dir"  value="${dist-pending.dir}/www"/><!-- Target directory for www resources -->
 
-    <!-- Target directory for TEI XML page files -->
-
-    <property if:set="${env.PAGE_XML_SOURCE}" name="page-xml.pending.dir" value="${env.PAGE_XML_SOURCE}"/>
-    <property unless:set="${env.PAGE_XML_SOURCE}" name="page-xml.pending.dir" value="${dist-pending.dir}/page-xml"/>
+    <!-- Target directory for TEI XML page files.
+         Priority: PAGE_XML_SOURCE (explicit override) > SKIP_PAGE_XML_COPY=true (tmp, auto-cleaned) > default (dist-pending, copied to final output dest) -->
+    <condition property="page-xml.pending.dir" value="${env.PAGE_XML_SOURCE}">
+        <isset property="env.PAGE_XML_SOURCE"/>
+    </condition>
+    <condition property="page-xml.pending.dir" value="${tmp.dir}/page-xml">
+        <equals arg1="${env.SKIP_PAGE_XML_COPY}" arg2="true" casesensitive="false"/>
+    </condition>
+    <property name="page-xml.pending.dir" value="${dist-pending.dir}/page-xml"/>
 
     <property name="tei_full.pending.dest"  value="${dist-pending.dir}"/><!-- target directory for original TEI file (along with its path hierarchy) -->
     <property name="tei_full.pending.src"  value="${dist-pending.dir}/items"/><!-- source directory for the original TEI file copied to the pending dist dir -->
@@ -68,8 +73,8 @@
         <contains string="json,solr,dp,viewer" substring="${env.ANT_TARGET}"/>
     </condition>
 
-    <condition property="no.copy.page-xml" value="true" else="false">
-        <equals arg1="${env.ANT_TARGET}" arg2="html" />
+    <condition property="skip.page.xml.copy" value="true" else="false">
+        <equals arg1="${env.SKIP_PAGE_XML_COPY}" arg2="true" casesensitive="false"/>
     </condition>
 
     <condition property="skip.copy.tei.web.assets" value="true" else="false">
@@ -444,8 +449,8 @@
             </and>
         </condition>
 
-        <echo if:true="${page-xml.copy}" unless:true="${no.copy.page-xml}" message="Copying ${page-xml.pending.dir} to S3://${page-xml-s3-dest}"/>
-        <exec if:true="${page-xml.copy}" unless:true="${no.copy.page-xml}" executable="aws" resolveexecutable="true">
+        <echo if:true="${page-xml.copy}" unless:true="${skip.page.xml.copy}" message="Copying ${page-xml.pending.dir} to S3://${page-xml-s3-dest}"/>
+        <exec if:true="${page-xml.copy}" unless:true="${skip.page.xml.copy}" executable="aws" resolveexecutable="true">
             <arg value="s3"/>
             <arg value="sync"/>
             <arg value="--quiet"/>
