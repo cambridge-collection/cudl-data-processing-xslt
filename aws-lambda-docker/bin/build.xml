@@ -40,9 +40,9 @@
     </condition>
     <property name="default.core_xml.pending.dir" value="${dist-pending.dir}/core-xml"/><!-- target of the xtf indexing results. Source for json xslt -->
 
-    <property name="viewer-json.pending.dir"  value="${dist-pending.dir}/json-viewer"/><!-- Destination dir for json viewer -->
-    <property name="solr-json.pending.dir"  value="${dist-pending.dir}/json-solr"/><!-- Destination dir for json solr -->
-    <property name="dp-json.pending.dir"  value="${dist-pending.dir}/json-dp"/><!-- Destination dir for json digital preservation -->
+    <property name="viewer-json.pending.dir"  value="${dist-pending.dir}/json"/><!-- Destination dir for json viewer -->
+    <property name="solr-json.pending.dir"  value="${dist-pending.dir}/solr-json"/><!-- Destination dir for json solr -->
+    <property name="dp-json.pending.dir"  value="${dist-pending.dir}/dp-json"/><!-- Destination dir for json digital preservation -->
 
     <property name="checksum-src.dir"  value="${dist-pending.dir}/checksum-src"/>
 
