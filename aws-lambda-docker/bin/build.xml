@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project name="TranformXml" default="full"
+<project name="TransformXml" default="full"
     xmlns:if="ant:if"
     xmlns:unless="ant:unless">
     <dirname property="buildfile.dir" file="${ant.file}"/>
@@ -22,18 +22,27 @@
     <!-- Initial output subdirectories within $dist-pending.dir -->
     <property name="www.pending.dir"  value="${dist-pending.dir}/www"/><!-- Target directory for www resources -->
 
-    <!-- Target directory for TEI XML page files -->
-
-    <property if:set="${env.PAGE_XML_SOURCE}" name="page-xml.pending.dir" value="${env.PAGE_XML_SOURCE}"/>
-    <property unless:set="${env.PAGE_XML_SOURCE}" name="page-xml.pending.dir" value="${dist-pending.dir}/page-xml"/>
+    <!-- Target directory for TEI XML page files.
+         Priority: PAGE_XML_SOURCE (explicit override) > SKIP_PAGE_XML_COPY=true (tmp, auto-cleaned) > default (dist-pending, copied to final output dest) -->
+    <condition property="page-xml.pending.dir" value="${env.PAGE_XML_SOURCE}">
+        <isset property="env.PAGE_XML_SOURCE"/>
+    </condition>
+    <condition property="page-xml.pending.dir" value="${tmp.dir}/page-xml">
+        <equals arg1="${env.SKIP_PAGE_XML_COPY}" arg2="true" casesensitive="false"/>
+    </condition>
+    <property name="page-xml.pending.dir" value="${dist-pending.dir}/page-xml"/>
 
     <property name="tei_full.pending.dest"  value="${dist-pending.dir}"/><!-- target directory for original TEI file (along with its path hierarchy) -->
     <property name="tei_full.pending.src"  value="${dist-pending.dir}/items"/><!-- source directory for the original TEI file copied to the pending dist dir -->
-    <property name="default.core_xml.pending.dir"  value="${dist-pending.dir}/core-xml"/><!-- target of the xtf indexing results. Source for json xslt -->
+    <!-- Priority: SKIP_CORE_XML_COPY=true (tmp, auto-cleaned) > default (dist-pending, copy to destination) -->
+    <condition property="default.core_xml.pending.dir" value="${tmp.dir}/core-xml">
+        <equals arg1="${env.SKIP_CORE_XML_COPY}" arg2="true" casesensitive="false"/>
+    </condition>
+    <property name="default.core_xml.pending.dir" value="${dist-pending.dir}/core-xml"/><!-- target of the xtf indexing results. Source for json xslt -->
 
-    <property name="viewer-json.pending.dir"  value="${dist-pending.dir}/json-viewer"/><!-- Destination dir for json viewer -->
-    <property name="solr-json.pending.dir"  value="${dist-pending.dir}/json-solr"/><!-- Destination dir for json solr -->
-    <property name="dp-json.pending.dir"  value="${dist-pending.dir}/json-dp"/><!-- Destination dir for json digital preservation -->
+    <property name="viewer-json.pending.dir"  value="${dist-pending.dir}/json"/><!-- Destination dir for json viewer -->
+    <property name="solr-json.pending.dir"  value="${dist-pending.dir}/solr-json"/><!-- Destination dir for json solr -->
+    <property name="dp-json.pending.dir"  value="${dist-pending.dir}/dp-json"/><!-- Destination dir for json digital preservation -->
 
     <property name="checksum-src.dir"  value="${dist-pending.dir}/checksum-src"/>
 
@@ -45,9 +54,6 @@
     <property name="tei-full-s3-dest" value="${AWS_OUTPUT_BUCKET}/items"/>
     <property name="dp-json-s3-dest" value="${AWS_OUTPUT_BUCKET}/dp-json"/>
     <property name="solr-json-s3-dest" value="${AWS_OUTPUT_BUCKET}/solr-json"/>
-    <!-- TODO: Viewer JSON dest dir is temporarily set to 'json' so that it can be readily used by legacy code.
-               Once this code has been refactored, it should be changed to json-viewer
-    -->
     <property name="viewer-json-s3-dest" value="${AWS_OUTPUT_BUCKET}/json"/>
 
     <condition property="SEARCH_HOST" value="${env.SEARCH_HOST}" else="">
@@ -68,22 +74,30 @@
         <contains string="json,solr,dp,viewer" substring="${env.ANT_TARGET}"/>
     </condition>
 
-    <condition property="no.copy.page-xml" value="true" else="false">
-        <equals arg1="${env.ANT_TARGET}" arg2="html" />
+    <condition property="skip.page.xml.copy" value="true" else="false">
+        <equals arg1="${env.SKIP_PAGE_XML_COPY}" arg2="true" casesensitive="false"/>
     </condition>
 
-    <target name="if.core.source.overide">
-        <property if:set="${env.CORE_XML_SOURCE}" name="core_xml.pending.dir" value="${env.CORE_XML_SOURCE}"/>
-        <property unless:set="${env.CORE_XML_SOURCE}" name="core_xml.pending.dir" value="${dist-pending.dir}/core-xml"/>
+    <condition property="skip.core.xml.copy" value="true" else="false">
+        <equals arg1="${env.SKIP_CORE_XML_COPY}" arg2="true" casesensitive="false"/>
+    </condition>
+
+    <condition property="skip.copy.tei.web.assets" value="true" else="false">
+        <equals arg1="${env.SKIP_COPY_TEI_WEB_ASSETS}" arg2="true" casesensitive="false"/>
+    </condition>
+
+    <target name="if.core.source.override">
+        <property if:set="env.CORE_XML_SOURCE" name="core_xml.pending.dir" value="${env.CORE_XML_SOURCE}"/>
+        <property unless:set="env.CORE_XML_SOURCE" name="core_xml.pending.dir" value="${default.core_xml.pending.dir}"/>
     </target>
 
     <!-- Comprehensive builds -->
 
-    <target name="full" depends="if.core.source.overide, cleanup, metadata-and-transcripts, _json">
+    <target name="full" depends="if.core.source.override, cleanup, metadata-and-transcripts, _json">
         <antcall target="release-outputs"/>
     </target>
 
-    <target name="full-metadata-update" depends="if.core.source.overide, metadata, _json">
+    <target name="full-metadata-update" depends="if.core.source.override, metadata, _json">
         <antcall target="release-outputs"/>
     </target>
 
@@ -128,9 +142,9 @@
     <target name="viewer" depends="_viewer-json, release-outputs"/>
     <target name="dp" depends="_dp-json, release-outputs"/>
     <target name="json" depends="_json, release-outputs"/>
-    <target name="html" depends="_html, if.core.source.overide, metadata, _json, release-outputs"/>
+    <target name="html" depends="_html, if.core.source.override, metadata, _json, release-outputs"/>
 
-    <target name="_viewer-json" depends="if.core.source.overide">
+    <target name="_viewer-json" depends="if.core.source.override">
         <echo message="Generating viewer json files"/>
 
         <antcall target="delete-json-tmp.dir"/>
@@ -157,7 +171,7 @@
         <antcall target="delete-json-tmp.dir"/>
     </target>
 
-    <target name="_dp-json" depends="if.core.source.overide">
+    <target name="_dp-json" depends="if.core.source.override">
         <echo message="Generating DP json file"/>
 
         <antcall target="delete-json-tmp.dir"/>
@@ -184,7 +198,7 @@
         <antcall target="delete-json-tmp.dir"/>
     </target>
 
-    <target name="_solr-json" depends="if.core.source.overide">
+    <target name="_solr-json" depends="if.core.source.override">
         <echo message="Generating solr json files"/>
 
         <antcall target="delete-json-tmp.dir"/>
@@ -312,12 +326,12 @@
             </factory>
         </xslt>
 
-        <antcall target="_copy_web_resources"/>
+        <antcall unless:true="${skip.copy.tei.web.assets}" target="_copy_tei_web_assets_to_pending"/>
 
         <antcall target="delete-chunk.dir"/>
     </target>
 
-    <target name="_copy_web_resources">
+    <target name="_copy_tei_web_assets_to_pending">
 
         <copy todir="${www.pending.dir}">
             <fileset dir="../xslt/transcription/web/">
@@ -403,7 +417,7 @@
             <!--<antcall target="_copy_tei_full_to_s3"/>-->
             <antcall unless:true="${no.copy.xml}" target="_copy_xml_derivs_to_s3"/>
             <antcall target="_copy_www_to_s3"/>
-            <antcall target="_copy_www_cudl_resources_to_s3"/>
+            <antcall unless:true="${skip.copy.tei.web.assets}" target="_copy_tei_web_assets_to_dest"/>
             <antcall target="_copy_viewer_json_to_s3"/>
             <antcall target="_copy_dp_json_to_s3"/>
             <antcall target="_copy_solr_json_to_s3"/>
@@ -422,8 +436,8 @@
     </target>
 
     <target name="_copy_xml_derivs_to_s3">
-        <echo message="Copying ${core_xml.pending.dir} to S3://${core_xml-s3-dest}"/>
-        <exec executable="aws" resolveexecutable="true">
+        <echo unless:true="${skip.core.xml.copy}" message="Copying ${core_xml.pending.dir} to S3://${core_xml-s3-dest}"/>
+        <exec unless:true="${skip.core.xml.copy}" executable="aws" resolveexecutable="true">
             <arg value="s3"/>
             <arg value="sync"/>
             <arg value="--quiet"/>
@@ -440,8 +454,8 @@
             </and>
         </condition>
 
-        <echo if:true="${page-xml.copy}" unless:true="${no.copy.page-xml}" message="Copying ${page-xml.pending.dir} to S3://${page-xml-s3-dest}"/>
-        <exec if:true="${page-xml.copy}" unless:true="${no.copy.page-xml}" executable="aws" resolveexecutable="true">
+        <echo if:true="${page-xml.copy}" unless:true="${skip.page.xml.copy}" message="Copying ${page-xml.pending.dir} to S3://${page-xml-s3-dest}"/>
+        <exec if:true="${page-xml.copy}" unless:true="${skip.page.xml.copy}" executable="aws" resolveexecutable="true">
             <arg value="s3"/>
             <arg value="sync"/>
             <arg value="--quiet"/>
@@ -464,7 +478,7 @@
         </exec>
     </target>
     
-    <target name="_copy_www_cudl_resources_to_s3">
+    <target name="_copy_tei_web_assets_to_dest">
         <condition property="cudl-resources.exists" value="true" else="false"><available file="${www.pending.dir}/cudl-resources" type="dir"/></condition>
         <echo if:true="${cudl-resources.exists}" message="Copying ${www.pending.dir}/cudl-resources/ to S3://${www-s3-dest}/cudl-resources"/>
         <exec if:true="${cudl-resources.exists}" executable="aws" resolveexecutable="true">
