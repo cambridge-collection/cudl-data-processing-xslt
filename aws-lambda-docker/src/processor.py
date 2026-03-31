@@ -28,7 +28,6 @@ def setup_workspace() -> None:
         src = os.path.join(OPT_CDCP, subdir)
         dst = os.path.join(TMP_CDCP, subdir)
         if os.path.isdir(src) and not os.path.isdir(dst):
-            logger.info("Copying %s to %s", src, dst)
             shutil.copytree(src, dst)
 
 
@@ -73,10 +72,22 @@ def run_ant(config: Config, tei_file: str) -> None:
 
     result = subprocess.run(cmd, env=env, capture_output=True, text=True)
 
-    if result.stdout:
-        logger.info("Ant stdout:\n%s", result.stdout)
+    for line in result.stdout.splitlines():
+        stripped = line.strip()
+        if "[echo]" in stripped:
+            msg = stripped.split("[echo]", 1)[1].strip()
+            logger.info(msg, extra={"source": "ant"})
+        elif stripped:
+            logger.debug(stripped, extra={"source": "ant"})
+
+    stderr_noise = {"BUILD FAILED", "Total time:"}
+    error_lines: list[str] = []
     if result.stderr:
-        logger.warning("Ant stderr:\n%s", result.stderr)
+        for line in result.stderr.splitlines():
+            stripped = line.strip()
+            if stripped and not any(stripped.startswith(n) for n in stderr_noise):
+                error_lines.append(stripped)
+                logger.error(stripped, extra={"source": "ant"})
 
     if result.returncode != 0:
-        raise RuntimeError(f"Ant build failed (exit code {result.returncode}):\n{result.stderr}")
+        raise RuntimeError(f"Ant build failed for {tei_file} (exit code {result.returncode})")

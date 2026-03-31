@@ -34,12 +34,16 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         extra={"context": {"event": event_name, "bucket": s3_bucket, "tei_file": tei_file}},
     )
 
-    if event_name.startswith("ObjectCreated"):
-        _handle_created(config, s3_bucket, tei_file)
-    elif event_name.startswith("ObjectRemoved"):
-        _handle_removed(config, tei_file)
-    else:
-        raise ValueError(f"Unsupported event: {event_name}")
+    try:
+        if event_name.startswith("ObjectCreated"):
+            _handle_created(config, s3_bucket, tei_file)
+        elif event_name.startswith("ObjectRemoved"):
+            _handle_removed(config, tei_file)
+        else:
+            raise ValueError(f"Unsupported event: {event_name}")
+    except Exception:
+        logger.exception("Failed to process %s", tei_file)
+        raise
 
     return {"statusCode": 200, "body": f"Processed {tei_file}"}
 

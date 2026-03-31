@@ -114,6 +114,7 @@
     </target>
 
     <target name="metadata">
+        <echo message="Generating core metadata file"/>
         <mkdir dir="${core_xml.pending.dir}"/>
 
         <antcall target="_copy_tei_full_to_dist_pending"/>
