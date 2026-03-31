@@ -31,13 +31,9 @@ class Config:
             aws_output_bucket=os.environ.get("AWS_OUTPUT_BUCKET", ""),
             search_host=os.environ.get("SEARCH_HOST", ""),
             search_port=os.environ.get("SEARCH_PORT", ""),
-            search_collection_path=os.environ.get(
-                "SEARCH_COLLECTION_PATH", "collections"
-            ),
+            search_collection_path=os.environ.get("SEARCH_COLLECTION_PATH", "collections"),
             ant_target=os.environ.get("ANT_TARGET", "full"),
-            skip_copy_tei_web_assets=os.environ.get(
-                "SKIP_COPY_TEI_WEB_ASSETS", "false"
-            ),
+            skip_copy_tei_web_assets=os.environ.get("SKIP_COPY_TEI_WEB_ASSETS", "false"),
         )
 
     def validate_for_aws(self) -> None:
@@ -48,6 +44,4 @@ class Config:
         if not self.search_host:
             missing.append("SEARCH_HOST")
         if missing:
-            raise ValueError(
-                f"Missing required environment variables: {', '.join(missing)}"
-            )
+            raise ValueError(f"Missing required environment variables: {', '.join(missing)}")

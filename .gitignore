@@ -1,4 +1,30 @@
+# IDE
 .idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+dist-packages/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.venv/
+/venv/
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Project
 staging-cudl-data-source
 /delete-me/
 /chunk/
@@ -6,5 +32,4 @@ staging-cudl-data-source
 /json/
 /tmp/
 /data/
-/venv/
 /test.log

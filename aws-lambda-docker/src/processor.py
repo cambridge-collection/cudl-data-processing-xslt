@@ -79,6 +79,4 @@ def run_ant(config: Config, tei_file: str) -> None:
         logger.warning("Ant stderr:\n%s", result.stderr)
 
     if result.returncode != 0:
-        raise RuntimeError(
-            f"Ant build failed (exit code {result.returncode}):\n{result.stderr}"
-        )
+        raise RuntimeError(f"Ant build failed (exit code {result.returncode}):\n{result.stderr}")
