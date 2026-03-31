@@ -1,8 +1,11 @@
-# macOS metadata
-.DS_Store
 bin/test-xslt
 bin/test.xml
 
+# Docker build files (not needed inside the image)
+Dockerfile
+.dockerignore
+
+# macOS metadata
 **/.DS_Store
 
 # editor/VCS noise (if present in context)
@@ -11,6 +14,9 @@ bin/test.xml
 .gitattributes
 .idea/
 .vscode/
+
+# docs
+*.md
 
 # transient files
 *.log
