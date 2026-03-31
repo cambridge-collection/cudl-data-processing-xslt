@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import mimetypes
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from fnmatch import fnmatch
 from typing import TYPE_CHECKING
 
@@ -55,29 +56,63 @@ def download_file(bucket: str, key: str, local_path: str) -> None:
     s3.download_file(bucket, key, local_path)
 
 
-def upload_dist(dist_dir: str, bucket: str) -> None:
-    """Upload dist directory contents to S3 with correct prefix mapping."""
+MAX_UPLOAD_WORKERS = 10
+
+
+def _upload_single_file(s3: S3Client, file_path: str, bucket: str, s3_key: str) -> None:
+    """Upload a single file to S3 with correct content type."""
+    extra_args: dict[str, str] = {}
+    content_type = _get_content_type(file_path)
+    if content_type:
+        extra_args["ContentType"] = content_type
+    s3.upload_file(file_path, bucket, s3_key, ExtraArgs=extra_args)
+
+
+def upload_dist(dist_dir: str, bucket: str, *, max_workers: int = MAX_UPLOAD_WORKERS) -> None:
+    """Upload dist directory contents to S3 with correct prefix mapping.
+
+    Uses a thread pool for concurrent uploads since S3 PutObject is I/O-bound.
+    """
     s3 = boto3.client("s3")
 
+    # Collect all (local_file, s3_key) pairs first
+    uploads: list[tuple[str, str]] = []
     for local_subdir, s3_prefix in DIST_TO_S3_MAPPING:
         local_path = os.path.join(dist_dir, local_subdir)
         if not os.path.isdir(local_path):
             logger.debug("Skipping %s (not found)", local_path)
             continue
 
-        logger.info("Uploading %s to s3://%s/%s", local_path, bucket, s3_prefix)
         for root, _, files in os.walk(local_path):
             for filename in files:
                 file_path = os.path.join(root, filename)
                 rel_path = os.path.relpath(file_path, local_path)
                 s3_key = f"{s3_prefix}/{rel_path}"
+                uploads.append((file_path, s3_key))
 
-                extra_args: dict[str, str] = {}
-                content_type = _get_content_type(file_path)
-                if content_type:
-                    extra_args["ContentType"] = content_type
+    if not uploads:
+        logger.info("No files to upload from %s", dist_dir)
+        return
 
-                s3.upload_file(file_path, bucket, s3_key, ExtraArgs=extra_args)
+    logger.info("Uploading %d files to s3://%s (workers=%d)", len(uploads), bucket, max_workers)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = {
+            pool.submit(_upload_single_file, s3, file_path, bucket, s3_key): s3_key
+            for file_path, s3_key in uploads
+        }
+        errors: list[str] = []
+        for future in as_completed(futures):
+            s3_key = futures[future]
+            exc = future.exception()
+            if exc is not None:
+                logger.error("Failed to upload %s: %s", s3_key, exc)
+                errors.append(s3_key)
+
+    if errors:
+        raise RuntimeError(f"Failed to upload {len(errors)} file(s): {errors}")
+
+    logger.info("Uploaded %d files to s3://%s", len(uploads), bucket)
 
 
 def delete_outputs(bucket: str, tei_file: str) -> None:

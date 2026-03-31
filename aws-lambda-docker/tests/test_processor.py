@@ -61,9 +61,7 @@ class TestRunAnt:
 
     @patch("processor.subprocess.run")
     def test_nonzero_exit_raises(self, mock_run: MagicMock, config: Config) -> None:
-        mock_run.return_value = MagicMock(
-            returncode=1, stdout="", stderr="BUILD FAILED"
-        )
+        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="BUILD FAILED")
 
         with pytest.raises(RuntimeError, match="Ant build failed"):
             run_ant(config, TEI_FILE)

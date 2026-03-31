@@ -4,7 +4,8 @@ services:
       file: docker-compose-base.yml
       service: cudl-tei-processing
     environment:
-      ENVIRONMENT: aws-local
+      # Python/boto3 handles S3 uploads; Ant always runs in local mode
+      ENVIRONMENT: local
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}

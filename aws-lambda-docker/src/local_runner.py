@@ -7,12 +7,10 @@ import os
 import sys
 
 from config import Config
+from logging_config import configure_logging
 from processor import run_ant, setup_workspace
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-)
+configure_logging()
 logger = logging.getLogger(__name__)
 
 

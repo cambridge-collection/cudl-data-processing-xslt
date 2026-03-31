@@ -153,9 +153,9 @@ class TestJsonContent:
         path = DIST_DIR / "json" / f"{ITEM_ID}.json"
         if not path.exists():
             pytest.skip("JSON output missing (covered by TestJsonOutputs)")
-        data = json.loads(path.read_text())
-        # The JSON should reference the item in some form
+        # Validate JSON is parseable, then check content
         raw = path.read_text()
+        json.loads(raw)
         assert ITEM_ID in raw, f"{ITEM_ID} not found in JSON output"
 
     def test_dp_json_has_pages(self, pipeline_run: dict[str, Any]) -> None:
