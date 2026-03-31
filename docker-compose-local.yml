@@ -13,7 +13,7 @@ services:
     volumes:
       - dist:/tmp/opt/cdcp/dist
       - source:/tmp/opt/cdcp/cudl-data-source
-    entrypoint: ["bash", "-c", "-l", "/var/task/local.sh"]
+    entrypoint: ["python", "/var/task/local_runner.py"]
 volumes:
   dist:
     driver: local

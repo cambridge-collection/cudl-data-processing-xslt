@@ -1,13 +1,12 @@
-FROM public.ecr.aws/lambda/provided:al2
-
-ARG TARGETARCH
+FROM public.ecr.aws/lambda/python:3.12
 
 ENV ANT_VERSION=1.10.14
 ENV ANT_HOME=/opt/ant
 
-RUN yum install -y wget tar gzip unzip java jq
+# Install system dependencies for Ant and Saxon
+RUN dnf install -y wget tar gzip unzip java-11-amazon-corretto-headless && dnf clean all
 
-ENV JAVA_HOME=/usr/lib/jvm
+ENV JAVA_HOME=/usr/lib/jvm/java-11-amazon-corretto
 
 WORKDIR /tmp
 
@@ -28,19 +27,18 @@ RUN mkdir saxon \
 
 ENV CLASSPATH=/opt/saxon/saxon-he-12.4.jar
 
-COPY bootstrap ${LAMBDA_RUNTIME_DIR}
-RUN chmod 755 ${LAMBDA_RUNTIME_DIR}/bootstrap
-
+# Create application directory structure
 RUN mkdir -p /opt/cdcp
 
 WORKDIR /opt/cdcp
 RUN mkdir -p dist && mkdir -p transcriptions && mkdir -p cudl-data-source
+
+# Copy build files and XSLT (unchanged)
 COPY ./bin bin
-COPY ./*.sh ${LAMBDA_TASK_ROOT}
 COPY ./xslt xslt
 
-RUN chmod a+x ${LAMBDA_TASK_ROOT}/*.sh
+# Copy Python source to Lambda task root
+COPY ./src/ ${LAMBDA_TASK_ROOT}/
 
-RUN ${LAMBDA_TASK_ROOT}/install-awscli-${TARGETARCH}.sh
-
-CMD [ "aws.sh.handler" ]
+# Set Lambda handler
+CMD ["handler.handler"]
