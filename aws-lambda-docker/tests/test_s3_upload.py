@@ -104,9 +104,7 @@ class TestUploadDist:
 
             upload_dist(dist_dir, BUCKET)
 
-        obj = s3.get_object(
-            Bucket=BUCKET, Key="html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html"
-        )
+        obj = s3.get_object(Bucket=BUCKET, Key="html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html")
         assert b"<html>" in obj["Body"].read()
 
     def test_sets_font_content_type(self) -> None:
@@ -140,3 +138,35 @@ class TestUploadDist:
 
         resp = s3.list_objects_v2(Bucket=BUCKET)
         assert resp.get("KeyCount", 0) == 0
+
+    def test_concurrent_upload_multiple_files(self) -> None:
+        """Multiple files across different subdirs are all uploaded."""
+        s3 = boto3.client("s3", region_name="eu-west-1")
+        s3.create_bucket(
+            Bucket=BUCKET,
+            CreateBucketConfiguration={"LocationConstraint": "eu-west-1"},
+        )
+
+        with tempfile.TemporaryDirectory() as dist_dir:
+            # Create files in 3 different mapped subdirs
+            for subdir, name in [
+                ("json", "a.json"),
+                ("json", "b.json"),
+                ("dp-json", "c.json"),
+                ("items/data/tei/X", "X.xml"),
+            ]:
+                d = os.path.join(dist_dir, subdir)
+                os.makedirs(d, exist_ok=True)
+                with open(os.path.join(d, name), "w") as f:
+                    f.write(f"content-{name}")
+
+            upload_dist(dist_dir, BUCKET, max_workers=2)
+
+        resp = s3.list_objects_v2(Bucket=BUCKET)
+        keys = sorted(obj["Key"] for obj in resp["Contents"])
+        assert keys == [
+            "dp-json/c.json",
+            "items/data/tei/X/X.xml",
+            "json/a.json",
+            "json/b.json",
+        ]

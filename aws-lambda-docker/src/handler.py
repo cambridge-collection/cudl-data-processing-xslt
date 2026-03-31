@@ -7,11 +7,12 @@ import logging
 from typing import Any
 
 from config import DIST_DIR, SOURCE_DIR, Config
+from logging_config import configure_logging
 from processor import clean_dist, clean_source_workspace, run_ant, setup_workspace
 from s3_ops import delete_outputs, download_file, upload_dist
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+configure_logging()
+logger = logging.getLogger(__name__)
 
 
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
@@ -28,7 +29,10 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     s3_bucket: str = s3_event["s3"]["bucket"]["name"]
     tei_file: str = s3_event["s3"]["object"]["key"]
 
-    logger.info("Event: %s, Bucket: %s, File: %s", event_name, s3_bucket, tei_file)
+    logger.info(
+        "Processing event",
+        extra={"context": {"event": event_name, "bucket": s3_bucket, "tei_file": tei_file}},
+    )
 
     if event_name.startswith("ObjectCreated"):
         _handle_created(config, s3_bucket, tei_file)
@@ -53,11 +57,15 @@ def _handle_created(config: Config, s3_bucket: str, tei_file: str) -> None:
         clean_dist()
         clean_source_workspace()
 
-    logger.info("Finished processing s3://%s/%s", s3_bucket, tei_file)
+    logger.info(
+        "Finished processing",
+        extra={"context": {"bucket": s3_bucket, "tei_file": tei_file}},
+    )
 
 
 def _handle_removed(config: Config, tei_file: str) -> None:
     """Handle ObjectRemoved: delete all derived outputs."""
-    logger.info("Removing outputs for %s from s3://%s", tei_file, config.aws_output_bucket)
+    ctx = {"bucket": config.aws_output_bucket, "tei_file": tei_file}
+    logger.info("Removing outputs", extra={"context": ctx})
     delete_outputs(config.aws_output_bucket, tei_file)
-    logger.info("All outputs removed for %s", tei_file)
+    logger.info("All outputs removed", extra={"context": ctx})
