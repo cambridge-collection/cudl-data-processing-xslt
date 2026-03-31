@@ -23,6 +23,7 @@ function handler() {
 	: "${SEARCH_PORT:=}"
 	: "${SEARCH_COLLECTION_PATH:=collections}"
 	: "${ANT_TARGET:=full}"
+	: "${SKIP_COPY_TEI_WEB_ASSETS:=false}"
 	set +a
 
 	echo "Parsing event notification" 1>&2

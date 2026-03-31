@@ -5,6 +5,7 @@ set -a
 : "${SEARCH_PORT:=}"
 : "${SEARCH_COLLECTION_PATH:=collections}"
 : "${ANT_TARGET:=full}"
+: "${SKIP_COPY_TEI_WEB_ASSETS:=false}"
 set +a
 
 cp -r /opt/cdcp/bin /tmp/opt/cdcp 1>&2
