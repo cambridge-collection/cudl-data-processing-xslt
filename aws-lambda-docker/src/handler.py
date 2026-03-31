@@ -58,8 +58,6 @@ def _handle_created(config: Config, s3_bucket: str, tei_file: str) -> None:
 
 def _handle_removed(config: Config, tei_file: str) -> None:
     """Handle ObjectRemoved: delete all derived outputs."""
-    logger.info(
-        "Removing outputs for %s from s3://%s", tei_file, config.aws_output_bucket
-    )
+    logger.info("Removing outputs for %s from s3://%s", tei_file, config.aws_output_bucket)
     delete_outputs(config.aws_output_bucket, tei_file)
     logger.info("All outputs removed for %s", tei_file)

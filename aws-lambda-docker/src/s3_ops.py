@@ -6,9 +6,14 @@ import logging
 import mimetypes
 import os
 from fnmatch import fnmatch
+from typing import TYPE_CHECKING
 
 import boto3
 from botocore.exceptions import ClientError
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3.client import S3Client
+    from mypy_boto3_s3.type_defs import ObjectIdentifierTypeDef
 
 logger = logging.getLogger(__name__)
 
@@ -100,20 +105,18 @@ def delete_outputs(bucket: str, tei_file: str) -> None:
 
     # Pattern-based deletions (HTML and page-xml with glob patterns)
     _delete_matching(s3, bucket, f"html/{html_inner_path}/", f"{filename}-*.html")
-    _delete_matching(
-        s3, bucket, f"page-xml/{containing_dir}/", f"{filename}-*.xml"
-    )
+    _delete_matching(s3, bucket, f"page-xml/{containing_dir}/", f"{filename}-*.xml")
 
 
 def _delete_matching(
-    s3,  # type: ignore[no-untyped-def]
+    s3: S3Client,
     bucket: str,
     prefix: str,
     pattern: str,
 ) -> None:
     """Delete S3 objects matching a prefix and filename glob pattern."""
     paginator = s3.get_paginator("list_objects_v2")
-    to_delete: list[dict[str, str]] = []
+    to_delete: list[ObjectIdentifierTypeDef] = []
 
     for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
         for obj in page.get("Contents", []):

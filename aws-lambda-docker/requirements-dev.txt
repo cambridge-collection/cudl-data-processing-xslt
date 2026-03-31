@@ -1,0 +1,6 @@
+pytest
+moto[s3]
+mypy
+ruff
+black
+boto3-stubs[s3]

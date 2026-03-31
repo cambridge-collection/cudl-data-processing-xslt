@@ -1,0 +1,29 @@
+[project]
+name = "cudl-tei-processing"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+mypy_path = "src"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 99
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM", "TCH"]
+
+[tool.black]
+target-version = ["py312"]
+line-length = 99
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = ["integration: Docker-based integration tests (require Docker daemon)"]
+addopts = "-m 'not integration'"
