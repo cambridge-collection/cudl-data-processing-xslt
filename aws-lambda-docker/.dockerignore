@@ -1,3 +1,19 @@
+# macOS metadata
 .DS_Store
 bin/test-xslt
 bin/test.xml
+
+**/.DS_Store
+
+# editor/VCS noise (if present in context)
+.git
+.gitignore
+.gitattributes
+.idea/
+.vscode/
+
+# transient files
+*.log
+*.tmp
+*.swp
+*~
