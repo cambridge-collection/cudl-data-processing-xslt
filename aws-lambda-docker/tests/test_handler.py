@@ -1,4 +1,4 @@
-"""Tests for handler.py — SQS event parsing, routing, and partial batch failures."""
+"""Tests for handler.py — SQS event parsing, routing, partial batch failures, and timeout."""
 
 from __future__ import annotations
 
@@ -11,6 +11,13 @@ import pytest
 from conftest import TEI_FILE
 from exceptions import PermanentError, TransientError
 from handler import _parse_record
+
+
+def _make_context(remaining_ms: int) -> MagicMock:
+    """Build a mock Lambda context with a fixed remaining time."""
+    ctx = MagicMock()
+    ctx.get_remaining_time_in_millis.return_value = remaining_ms
+    return ctx
 
 
 def _make_sqs_record(
@@ -195,3 +202,78 @@ class TestPartialBatchFailures:
 
         mock_created.assert_called_once()  # good record still processed
         assert result == {"batchItemFailures": [{"itemIdentifier": "msg-bad"}]}
+
+
+class TestTimeoutSafeProcessing:
+    """Verify early exit when Lambda remaining time drops below margin."""
+
+    @patch("handler._handle_created")
+    @patch("handler.setup_workspace")
+    def test_early_exit_returns_unprocessed_as_failures(
+        self,
+        mock_setup: MagicMock,
+        mock_created: MagicMock,
+        env_config: None,
+    ) -> None:
+        """When time runs low after 2 records, remaining 3 are returned as failures."""
+        from handler import handler
+
+        records = [_make_sqs_record(message_id=f"msg-{i}") for i in range(5)]
+        event = _wrap_records(*records)
+
+        # Enough time for first 2 records, then drop below margin
+        ctx = MagicMock()
+        ctx.get_remaining_time_in_millis.side_effect = [30000, 20000, 3000]
+
+        result = handler(event, ctx)
+
+        assert mock_created.call_count == 2
+        failed_ids = [f["itemIdentifier"] for f in result["batchItemFailures"]]
+        assert failed_ids == ["msg-2", "msg-3", "msg-4"]
+
+    @patch("handler._handle_created")
+    @patch("handler.setup_workspace")
+    def test_no_early_exit_when_time_sufficient(
+        self,
+        mock_setup: MagicMock,
+        mock_created: MagicMock,
+        env_config: None,
+    ) -> None:
+        """All records processed when plenty of time remains."""
+        from handler import handler
+
+        records = [_make_sqs_record(message_id=f"msg-{i}") for i in range(3)]
+        event = _wrap_records(*records)
+
+        ctx = _make_context(60000)
+
+        result = handler(event, ctx)
+
+        assert mock_created.call_count == 3
+        assert result == {"batchItemFailures": []}
+
+    @patch("handler._handle_created")
+    @patch("handler.setup_workspace")
+    def test_succeeded_records_not_in_failures(
+        self,
+        mock_setup: MagicMock,
+        mock_created: MagicMock,
+        env_config: None,
+    ) -> None:
+        """Records that already succeeded before timeout are not in failures."""
+        from handler import handler
+
+        records = [_make_sqs_record(message_id=f"msg-{i}") for i in range(4)]
+        event = _wrap_records(*records)
+
+        # Process 1 record successfully, then timeout on 2nd check
+        ctx = MagicMock()
+        ctx.get_remaining_time_in_millis.side_effect = [30000, 2000]
+
+        result = handler(event, ctx)
+
+        assert mock_created.call_count == 1
+        failed_ids = [f["itemIdentifier"] for f in result["batchItemFailures"]]
+        # msg-0 succeeded — only msg-1, msg-2, msg-3 are failures
+        assert "msg-0" not in failed_ids
+        assert failed_ids == ["msg-1", "msg-2", "msg-3"]
