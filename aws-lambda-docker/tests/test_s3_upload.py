@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import os
 import tempfile
+from unittest import mock
 
 import boto3
 import pytest
+from botocore.exceptions import ClientError
 from moto import mock_aws
 
-from s3_ops import DIST_TO_S3_MAPPING, _get_content_type, upload_dist
+from exceptions import TransientError
+from s3_ops import DIST_TO_S3_MAPPING, _get_content_type, _upload_single_file, upload_dist
 
 BUCKET = "test-output-bucket"
 
@@ -170,3 +173,46 @@ class TestUploadDist:
             "json/a.json",
             "json/b.json",
         ]
+
+
+@mock_aws
+class TestUploadDistErrorInjection:
+    """Error injection: partial upload failure raises TransientError with context."""
+
+    def test_partial_failure_raises_transient_error(self) -> None:
+        """One failed upload in a batch raises TransientError with failed/total counts and keys."""
+        s3 = boto3.client("s3", region_name="eu-west-1")
+        s3.create_bucket(
+            Bucket=BUCKET,
+            CreateBucketConfiguration={"LocationConstraint": "eu-west-1"},
+        )
+
+        failing_key = "json/b.json"
+        original = _upload_single_file
+
+        def upload_or_fail(
+            s3_client: object, file_path: str, bucket: str, s3_key: str
+        ) -> None:
+            if s3_key == failing_key:
+                raise ClientError(
+                    {"Error": {"Code": "InternalError", "Message": "injected"}},
+                    "PutObject",
+                )
+            original(s3_client, file_path, bucket, s3_key)  # type: ignore[arg-type]
+
+        with tempfile.TemporaryDirectory() as dist_dir:
+            for subdir, name in [
+                ("json", "a.json"),
+                ("json", "b.json"),
+                ("json", "c.json"),
+            ]:
+                d = os.path.join(dist_dir, subdir)
+                os.makedirs(d, exist_ok=True)
+                with open(os.path.join(d, name), "w") as f:
+                    f.write(f"content-{name}")
+
+            with mock.patch("s3_ops._upload_single_file", side_effect=upload_or_fail):
+                with pytest.raises(TransientError, match=r"1/3 uploads failed") as exc_info:
+                    upload_dist(dist_dir, BUCKET, max_workers=1)
+
+        assert failing_key in str(exc_info.value)
