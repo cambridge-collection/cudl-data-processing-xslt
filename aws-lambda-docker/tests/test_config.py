@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from config import Config
+from exceptions import ConfigError
 
 
 class TestConfigFromEnv:
@@ -52,19 +53,19 @@ class TestConfigValidation:
     def test_validate_raises_missing_bucket(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("AWS_OUTPUT_BUCKET", raising=False)
         monkeypatch.setenv("SEARCH_HOST", "host")
-        with pytest.raises(ValueError, match="AWS_OUTPUT_BUCKET"):
+        with pytest.raises(ConfigError, match="AWS_OUTPUT_BUCKET"):
             Config.from_env().validate_for_aws()
 
     def test_validate_raises_missing_host(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("AWS_OUTPUT_BUCKET", "bucket")
         monkeypatch.delenv("SEARCH_HOST", raising=False)
-        with pytest.raises(ValueError, match="SEARCH_HOST"):
+        with pytest.raises(ConfigError, match="SEARCH_HOST"):
             Config.from_env().validate_for_aws()
 
     def test_validate_raises_both_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("AWS_OUTPUT_BUCKET", raising=False)
         monkeypatch.delenv("SEARCH_HOST", raising=False)
-        with pytest.raises(ValueError, match="AWS_OUTPUT_BUCKET.*SEARCH_HOST"):
+        with pytest.raises(ConfigError, match="AWS_OUTPUT_BUCKET.*SEARCH_HOST"):
             Config.from_env().validate_for_aws()
 
     def test_frozen(self) -> None:
