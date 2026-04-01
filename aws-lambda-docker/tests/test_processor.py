@@ -20,6 +20,7 @@ def config() -> Config:
         search_collection_path="collections",
         ant_target="full",
         skip_copy_tei_web_assets="false",
+        emit_emf_metrics=False,
     )
 
 
@@ -104,6 +105,7 @@ class TestRunAnt:
             search_collection_path="c",
             ant_target="html-only",
             skip_copy_tei_web_assets="true",
+            emit_emf_metrics=False,
         )
         mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
