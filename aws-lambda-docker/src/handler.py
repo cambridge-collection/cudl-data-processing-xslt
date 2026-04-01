@@ -53,8 +53,31 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     setup_workspace()
 
     batch_item_failures: list[dict[str, str]] = []
+    records = event["Records"]
 
-    for record in event["Records"]:
+    for i, record in enumerate(records):
+        # Check remaining Lambda execution time before each record
+        if context is not None:
+            remaining_ms = context.get_remaining_time_in_millis()
+            if remaining_ms < config.lambda_timeout_margin_ms:
+                unprocessed = records[i:]
+                ids = [r["messageId"] for r in unprocessed]
+                logger.warning(
+                    "Timeout margin reached, returning unprocessed records as failures",
+                    extra={
+                        "context": {
+                            "remaining_ms": remaining_ms,
+                            "margin_ms": config.lambda_timeout_margin_ms,
+                            "unprocessed_count": len(unprocessed),
+                            "unprocessed_ids": ids,
+                        }
+                    },
+                )
+                batch_item_failures.extend(
+                    {"itemIdentifier": mid} for mid in ids
+                )
+                break
+
         message_id = record["messageId"]
         event_type = "unknown"
         try:

@@ -27,6 +27,7 @@ class Config:
     ant_target: str
     skip_copy_tei_web_assets: str
     emit_emf_metrics: bool
+    lambda_timeout_margin_ms: int
 
     @classmethod
     def from_env(cls) -> Config:
@@ -38,6 +39,9 @@ class Config:
             ant_target=os.environ.get("ANT_TARGET", "full"),
             skip_copy_tei_web_assets=os.environ.get("SKIP_COPY_TEI_WEB_ASSETS", "false"),
             emit_emf_metrics=os.environ.get("EMIT_EMF_METRICS", "false").lower() == "true",
+            lambda_timeout_margin_ms=int(
+                os.environ.get("LAMBDA_TIMEOUT_MARGIN_MS", "5000")
+            ),
         )
 
     def validate_for_aws(self) -> None:

@@ -16,6 +16,7 @@ class TestConfigFromEnv:
         monkeypatch.delenv("SEARCH_COLLECTION_PATH", raising=False)
         monkeypatch.delenv("ANT_TARGET", raising=False)
         monkeypatch.delenv("SKIP_COPY_TEI_WEB_ASSETS", raising=False)
+        monkeypatch.delenv("LAMBDA_TIMEOUT_MARGIN_MS", raising=False)
 
         cfg = Config.from_env()
 
@@ -25,6 +26,7 @@ class TestConfigFromEnv:
         assert cfg.search_collection_path == "collections"
         assert cfg.ant_target == "full"
         assert cfg.skip_copy_tei_web_assets == "false"
+        assert cfg.lambda_timeout_margin_ms == 5000
 
     def test_reads_env_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("AWS_OUTPUT_BUCKET", "my-bucket")
@@ -68,6 +70,15 @@ class TestConfigValidation:
         with pytest.raises(ConfigError, match="AWS_OUTPUT_BUCKET.*SEARCH_HOST"):
             Config.from_env().validate_for_aws()
 
+    def test_reads_lambda_timeout_margin_ms(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AWS_OUTPUT_BUCKET", "b")
+        monkeypatch.setenv("SEARCH_HOST", "h")
+        monkeypatch.setenv("LAMBDA_TIMEOUT_MARGIN_MS", "10000")
+
+        cfg = Config.from_env()
+
+        assert cfg.lambda_timeout_margin_ms == 10000
+
     def test_frozen(self) -> None:
         cfg = Config(
             aws_output_bucket="b",
@@ -77,6 +88,7 @@ class TestConfigValidation:
             ant_target="full",
             skip_copy_tei_web_assets="false",
             emit_emf_metrics=False,
+            lambda_timeout_margin_ms=5000,
         )
         with pytest.raises(AttributeError):
             cfg.aws_output_bucket = "other"  # type: ignore[misc]
