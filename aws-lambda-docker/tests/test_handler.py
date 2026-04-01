@@ -1,4 +1,4 @@
-"""Tests for handler.py — SQS event parsing and routing."""
+"""Tests for handler.py — SQS event parsing, routing, and partial batch failures."""
 
 from __future__ import annotations
 
@@ -9,38 +9,58 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from conftest import TEI_FILE
+from exceptions import PermanentError, TransientError
+from handler import _parse_record
 
 
-class TestSQSEventParsing:
-    """The nested SQS→S3 JSON structure is the most fragile part."""
+def _make_sqs_record(
+    event_name: str = "ObjectCreated:Put",
+    bucket: str = "mjh39-sandbox-cudl-data-source",
+    key: str = TEI_FILE,
+    message_id: str = "msg-001",
+) -> dict[str, Any]:
+    """Build a minimal SQS record wrapping an S3 event."""
+    body = {
+        "Records": [
+            {
+                "eventName": event_name,
+                "s3": {
+                    "bucket": {"name": bucket},
+                    "object": {"key": key},
+                },
+            }
+        ]
+    }
+    return {"messageId": message_id, "body": json.dumps(body)}
+
+
+def _wrap_records(*records: dict[str, Any]) -> dict[str, Any]:
+    """Wrap SQS records into a Lambda event."""
+    return {"Records": list(records)}
+
+
+class TestRecordParsing:
+    """_parse_record extracts S3 event fields from a single SQS record."""
 
     def test_parses_real_fixture(self, sqs_event: dict[str, Any]) -> None:
-        """Verify parsing matches the real event fixture."""
         record = sqs_event["Records"][0]
-        body = json.loads(record["body"])
-        s3_event = body["Records"][0]
+        event_name, bucket, key = _parse_record(record)
 
-        assert s3_event["eventName"] == "ObjectCreated:Put"
-        assert s3_event["s3"]["bucket"]["name"] == "mjh39-sandbox-cudl-data-source"
-        assert s3_event["s3"]["object"]["key"] == TEI_FILE
+        assert event_name == "ObjectCreated:Put"
+        assert bucket == "mjh39-sandbox-cudl-data-source"
+        assert key == TEI_FILE
 
-    def test_body_is_string_not_dict(self, sqs_event: dict[str, Any]) -> None:
-        """Body must be JSON string, not already-parsed dict."""
-        body_raw = sqs_event["Records"][0]["body"]
-        assert isinstance(body_raw, str)
+    def test_malformed_body_raises_permanent(self, sqs_event: dict[str, Any]) -> None:
+        record = sqs_event["Records"][0]
+        record["body"] = "not-json"
+        with pytest.raises(PermanentError, match="Cannot parse SQS record"):
+            _parse_record(record)
 
-    def test_malformed_body_raises(self, sqs_event: dict[str, Any]) -> None:
-        """Non-JSON body should raise during parsing."""
-        sqs_event["Records"][0]["body"] = "not-json"
-        with pytest.raises(json.JSONDecodeError):
-            json.loads(sqs_event["Records"][0]["body"])
-
-    def test_missing_s3_records_raises(self, sqs_event: dict[str, Any]) -> None:
-        """Body with no Records key should raise."""
-        sqs_event["Records"][0]["body"] = json.dumps({"noRecords": []})
-        body = json.loads(sqs_event["Records"][0]["body"])
-        with pytest.raises(KeyError):
-            _ = body["Records"][0]
+    def test_missing_s3_records_raises_permanent(self, sqs_event: dict[str, Any]) -> None:
+        record = sqs_event["Records"][0]
+        record["body"] = json.dumps({"noRecords": []})
+        with pytest.raises(PermanentError, match="Cannot parse SQS record"):
+            _parse_record(record)
 
 
 class TestHandlerRouting:
@@ -52,19 +72,19 @@ class TestHandlerRouting:
         self,
         mock_setup: MagicMock,
         mock_created: MagicMock,
-        sqs_event: dict[str, Any],
         env_config: None,
     ) -> None:
         from handler import handler
 
-        result = handler(sqs_event, None)
+        event = _wrap_records(_make_sqs_record())
+        result = handler(event, None)
 
         mock_setup.assert_called_once()
         mock_created.assert_called_once()
         args = mock_created.call_args
-        assert args[0][1] == "mjh39-sandbox-cudl-data-source"  # s3_bucket
-        assert args[0][2] == TEI_FILE  # tei_file
-        assert result["statusCode"] == 200
+        assert args[0][1] == "mjh39-sandbox-cudl-data-source"
+        assert args[0][2] == TEI_FILE
+        assert result == {"batchItemFailures": []}
 
     @patch("handler._handle_removed")
     @patch("handler.setup_workspace")
@@ -72,33 +92,106 @@ class TestHandlerRouting:
         self,
         mock_setup: MagicMock,
         mock_removed: MagicMock,
-        sqs_event: dict[str, Any],
         env_config: None,
     ) -> None:
         from handler import handler
 
-        # Modify event to ObjectRemoved
-        body = json.loads(sqs_event["Records"][0]["body"])
-        body["Records"][0]["eventName"] = "ObjectRemoved:Delete"
-        sqs_event["Records"][0]["body"] = json.dumps(body)
-
-        result = handler(sqs_event, None)
+        record = _make_sqs_record(event_name="ObjectRemoved:Delete")
+        result = handler(_wrap_records(record), None)
 
         mock_removed.assert_called_once()
-        assert result["statusCode"] == 200
+        assert result == {"batchItemFailures": []}
 
     @patch("handler.setup_workspace")
-    def test_unsupported_event_raises(
+    def test_unsupported_event_is_permanent_failure(
         self,
         mock_setup: MagicMock,
-        sqs_event: dict[str, Any],
         env_config: None,
     ) -> None:
         from handler import handler
 
-        body = json.loads(sqs_event["Records"][0]["body"])
-        body["Records"][0]["eventName"] = "SomethingElse"
-        sqs_event["Records"][0]["body"] = json.dumps(body)
+        record = _make_sqs_record(event_name="SomethingElse", message_id="bad-event")
+        result = handler(_wrap_records(record), None)
 
-        with pytest.raises(ValueError, match="Unsupported event"):
-            handler(sqs_event, None)
+        assert result == {"batchItemFailures": [{"itemIdentifier": "bad-event"}]}
+
+
+class TestPartialBatchFailures:
+    """Verify per-record failure isolation and batchItemFailures reporting."""
+
+    @patch("handler._handle_created")
+    @patch("handler.setup_workspace")
+    def test_mixed_batch_one_success_one_transient(
+        self,
+        mock_setup: MagicMock,
+        mock_created: MagicMock,
+        env_config: None,
+    ) -> None:
+        """Only the failed record's messageId appears in batchItemFailures."""
+        from handler import handler
+
+        good = _make_sqs_record(message_id="msg-ok")
+        bad = _make_sqs_record(message_id="msg-fail")
+
+        mock_created.side_effect = [None, TransientError("S3 timeout")]
+
+        result = handler(_wrap_records(good, bad), None)
+
+        assert mock_created.call_count == 2
+        assert result == {"batchItemFailures": [{"itemIdentifier": "msg-fail"}]}
+
+    @patch("handler._handle_created")
+    @patch("handler.setup_workspace")
+    def test_permanent_error_included_in_failures(
+        self,
+        mock_setup: MagicMock,
+        mock_created: MagicMock,
+        env_config: None,
+    ) -> None:
+        """Permanent errors are reported so they exhaust retries and reach DLQ."""
+        from handler import handler
+
+        record = _make_sqs_record(message_id="msg-perm")
+        mock_created.side_effect = PermanentError("Malformed XML")
+
+        result = handler(_wrap_records(record), None)
+
+        assert result == {"batchItemFailures": [{"itemIdentifier": "msg-perm"}]}
+
+    @patch("handler._handle_created")
+    @patch("handler.setup_workspace")
+    def test_all_records_processed(
+        self,
+        mock_setup: MagicMock,
+        mock_created: MagicMock,
+        env_config: None,
+    ) -> None:
+        """Every record in the batch is processed, not just the first."""
+        from handler import handler
+
+        records = [_make_sqs_record(message_id=f"msg-{i}") for i in range(5)]
+        event = _wrap_records(*records)
+
+        result = handler(event, None)
+
+        assert mock_created.call_count == 5
+        assert result == {"batchItemFailures": []}
+
+    @patch("handler._handle_created")
+    @patch("handler.setup_workspace")
+    def test_parse_failure_does_not_block_remaining_records(
+        self,
+        mock_setup: MagicMock,
+        mock_created: MagicMock,
+        env_config: None,
+    ) -> None:
+        """A malformed record doesn't prevent processing subsequent records."""
+        from handler import handler
+
+        bad = {"messageId": "msg-bad", "body": "not-json"}
+        good = _make_sqs_record(message_id="msg-good")
+
+        result = handler(_wrap_records(bad, good), None)
+
+        mock_created.assert_called_once()  # good record still processed
+        assert result == {"batchItemFailures": [{"itemIdentifier": "msg-bad"}]}

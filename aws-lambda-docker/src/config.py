@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from exceptions import ConfigError
+
 # Paths
 OPT_CDCP = "/opt/cdcp"
 TMP_CDCP = "/tmp/opt/cdcp"
@@ -44,4 +46,4 @@ class Config:
         if not self.search_host:
             missing.append("SEARCH_HOST")
         if missing:
-            raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
+            raise ConfigError(f"Missing required environment variables: {', '.join(missing)}")

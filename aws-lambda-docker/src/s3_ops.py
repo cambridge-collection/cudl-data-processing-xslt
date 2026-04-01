@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING
 import boto3
 from botocore.exceptions import ClientError
 
+from exceptions import PermanentError, TransientError
+
 if TYPE_CHECKING:
     from mypy_boto3_s3.client import S3Client
     from mypy_boto3_s3.type_defs import ObjectIdentifierTypeDef
@@ -48,12 +50,24 @@ def _get_content_type(file_path: str) -> str | None:
     return content_type
 
 
+_PERMANENT_S3_CODES = frozenset({"NoSuchKey", "404", "NoSuchBucket", "AccessDenied", "403"})
+
+
 def download_file(bucket: str, key: str, local_path: str) -> None:
     """Download a file from S3 to a local path."""
     s3 = boto3.client("s3")
     os.makedirs(os.path.dirname(local_path), exist_ok=True)
     logger.info("Downloading s3://%s/%s to %s", bucket, key, local_path)
-    s3.download_file(bucket, key, local_path)
+    try:
+        s3.download_file(bucket, key, local_path)
+    except ClientError as e:
+        code = e.response["Error"].get("Code", "")
+        ctx = {"bucket": bucket, "key": key, "error_code": code}
+        if code in _PERMANENT_S3_CODES:
+            logger.error("S3 download permanent failure", extra={"context": ctx})
+            raise PermanentError(f"Source not found: s3://{bucket}/{key} ({code})") from e
+        logger.error("S3 download transient failure", extra={"context": ctx})
+        raise TransientError(f"S3 download failed: s3://{bucket}/{key} ({code})") from e
 
 
 MAX_UPLOAD_WORKERS = 10
@@ -102,17 +116,26 @@ def upload_dist(dist_dir: str, bucket: str, *, max_workers: int = MAX_UPLOAD_WOR
             for file_path, s3_key in uploads
         }
         errors: list[str] = []
+        uploaded = 0
         for future in as_completed(futures):
             s3_key = futures[future]
             exc = future.exception()
             if exc is not None:
-                logger.error("Failed to upload %s: %s", s3_key, exc)
+                logger.error("Upload failed: %s", s3_key, extra={"context": {"error": str(exc)}})
                 errors.append(s3_key)
+            else:
+                uploaded += 1
 
     if errors:
-        raise RuntimeError(f"Failed to upload {len(errors)} file(s): {errors}")
+        logger.error(
+            "Partial upload failure",
+            extra={
+                "context": {"uploaded": uploaded, "failed": len(errors), "failed_keys": errors}
+            },
+        )
+        raise TransientError(f"{len(errors)}/{len(uploads)} uploads failed: {errors}")
 
-    logger.info("Uploaded %d files to s3://%s", len(uploads), bucket)
+    logger.info("Uploaded %d files to s3://%s", uploaded, bucket)
 
 
 def delete_outputs(bucket: str, tei_file: str) -> None:
