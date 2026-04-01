@@ -76,6 +76,7 @@ class TestConfigValidation:
             search_collection_path="c",
             ant_target="full",
             skip_copy_tei_web_assets="false",
+            emit_emf_metrics=False,
         )
         with pytest.raises(AttributeError):
             cfg.aws_output_bucket = "other"  # type: ignore[misc]

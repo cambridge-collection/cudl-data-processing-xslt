@@ -26,6 +26,7 @@ class Config:
     search_collection_path: str
     ant_target: str
     skip_copy_tei_web_assets: str
+    emit_emf_metrics: bool
 
     @classmethod
     def from_env(cls) -> Config:
@@ -36,6 +37,7 @@ class Config:
             search_collection_path=os.environ.get("SEARCH_COLLECTION_PATH", "collections"),
             ant_target=os.environ.get("ANT_TARGET", "full"),
             skip_copy_tei_web_assets=os.environ.get("SKIP_COPY_TEI_WEB_ASSETS", "false"),
+            emit_emf_metrics=os.environ.get("EMIT_EMF_METRICS", "false").lower() == "true",
         )
 
     def validate_for_aws(self) -> None:

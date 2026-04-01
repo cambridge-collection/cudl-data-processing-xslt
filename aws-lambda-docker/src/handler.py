@@ -11,6 +11,7 @@ import logging
 from typing import Any
 
 from config import DIST_DIR, SOURCE_DIR, Config
+from emf import emit_error_metric
 from exceptions import PermanentError
 from logging_config import configure_logging
 from processor import clean_dist, clean_source_workspace, run_ant, setup_workspace
@@ -55,8 +56,10 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
     for record in event["Records"]:
         message_id = record["messageId"]
+        event_type = "unknown"
         try:
             event_name, s3_bucket, tei_file = _parse_record(record)
+            event_type = event_name.split(":")[0] if ":" in event_name else event_name
 
             logger.info(
                 "Processing event",
@@ -80,9 +83,13 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         except PermanentError:
             logger.exception("Permanent failure for %s", message_id)
             batch_item_failures.append({"itemIdentifier": message_id})
+            if config.emit_emf_metrics:
+                emit_error_metric(event_type, "permanent")
         except Exception:
             logger.exception("Transient/unexpected failure for %s", message_id)
             batch_item_failures.append({"itemIdentifier": message_id})
+            if config.emit_emf_metrics:
+                emit_error_metric(event_type, "transient")
 
     return {"batchItemFailures": batch_item_failures}
 
