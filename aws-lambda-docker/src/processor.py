@@ -4,12 +4,56 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import shutil
 import subprocess
 
 from config import ANT_BIN, BUILDFILE, DIST_DIR, OPT_CDCP, SOURCE_DIR, TMP_CDCP, Config
+from exceptions import PermanentError, TransientError
 
 logger = logging.getLogger(__name__)
+
+# Patterns in Ant/Saxon stderr that indicate transient (retryable) failures.
+_TRANSIENT_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"Search API not responding", re.IGNORECASE),
+    re.compile(r"Connection refused", re.IGNORECASE),
+    re.compile(r"Connection timed out", re.IGNORECASE),
+    re.compile(r"UnknownHostException", re.IGNORECASE),
+    re.compile(r"HTTP error", re.IGNORECASE),
+    re.compile(r"\b503\b"),
+    re.compile(r"\b429\b"),
+]
+
+# Patterns that indicate permanent (non-retryable) failures.
+_PERMANENT_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"not well-formed", re.IGNORECASE),
+    re.compile(r"Content is not allowed in prolog", re.IGNORECASE),
+    re.compile(r"invalid item-collections JSON", re.IGNORECASE),
+    re.compile(r"\bXTDE\d+"),  # Saxon dynamic errors
+    re.compile(r"\bXPTY\d+"),  # Saxon type errors
+    re.compile(r"\bXTTE\d+"),  # Saxon type errors (transforms)
+    re.compile(r"\bFORG\d+"),  # Saxon function/operator errors
+    re.compile(r"\bXPST\d+"),  # Saxon static errors
+    re.compile(r"AccessDenied", re.IGNORECASE),
+]
+
+
+def _classify_error(error_lines: list[str]) -> type[TransientError] | type[PermanentError]:
+    """Classify Ant build failure as transient or permanent from stderr.
+
+    Transient wins if any line matches a transient pattern, because a
+    service being down can cause cascading Saxon errors that look permanent.
+    """
+    for line in error_lines:
+        for pattern in _TRANSIENT_PATTERNS:
+            if pattern.search(line):
+                return TransientError
+    for line in error_lines:
+        for pattern in _PERMANENT_PATTERNS:
+            if pattern.search(line):
+                return PermanentError
+    # Default: treat unknown Ant failures as permanent to avoid infinite retries.
+    return PermanentError
 
 WORKSPACE_DIRS = [
     f"{TMP_CDCP}/dist",
@@ -90,4 +134,17 @@ def run_ant(config: Config, tei_file: str) -> None:
                 logger.error(stripped, extra={"source": "ant"})
 
     if result.returncode != 0:
-        raise RuntimeError(f"Ant build failed for {tei_file} (exit code {result.returncode})")
+        error_cls = _classify_error(error_lines)
+        build_context = {
+            "tei_file": tei_file,
+            "target": config.ant_target,
+            "exit_code": result.returncode,
+            "stderr_lines": error_lines,
+            "cmd": " ".join(cmd),
+            "error_type": error_cls.__name__,
+        }
+        logger.error("Ant build failed", extra={"context": build_context})
+        raise error_cls(
+            f"Ant build failed for {tei_file} (exit {result.returncode}): "
+            + "; ".join(error_lines[:3])
+        )

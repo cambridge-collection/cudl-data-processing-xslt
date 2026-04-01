@@ -7,7 +7,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from config import ANT_BIN, BUILDFILE, Config
-from processor import run_ant
+from exceptions import PermanentError, TransientError
+from processor import _classify_error, run_ant
 
 
 @pytest.fixture()
@@ -60,10 +61,38 @@ class TestRunAnt:
         assert env["SKIP_COPY_TEI_WEB_ASSETS"] == "false"
 
     @patch("processor.subprocess.run")
-    def test_nonzero_exit_raises(self, mock_run: MagicMock, config: Config) -> None:
+    def test_nonzero_exit_raises_permanent_by_default(
+        self, mock_run: MagicMock, config: Config
+    ) -> None:
         mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="BUILD FAILED")
 
-        with pytest.raises(RuntimeError, match="Ant build failed"):
+        with pytest.raises(PermanentError, match="Ant build failed"):
+            run_ant(config, TEI_FILE)
+
+    @patch("processor.subprocess.run")
+    def test_nonzero_exit_raises_transient_for_search_api(
+        self, mock_run: MagicMock, config: Config
+    ) -> None:
+        mock_run.return_value = MagicMock(
+            returncode=1,
+            stdout="",
+            stderr="ERROR: Search API not responding for http://solr:8983/items/X/collections",
+        )
+
+        with pytest.raises(TransientError, match="Ant build failed"):
+            run_ant(config, TEI_FILE)
+
+    @patch("processor.subprocess.run")
+    def test_nonzero_exit_raises_permanent_for_malformed_xml(
+        self, mock_run: MagicMock, config: Config
+    ) -> None:
+        mock_run.return_value = MagicMock(
+            returncode=1,
+            stdout="",
+            stderr="Fatal error: not well-formed (invalid token)",
+        )
+
+        with pytest.raises(PermanentError, match="Ant build failed"):
             run_ant(config, TEI_FILE)
 
     @patch("processor.subprocess.run")
@@ -82,3 +111,52 @@ class TestRunAnt:
 
         cmd = mock_run.call_args[0][0]
         assert cmd[3] == "html-only"
+
+
+class TestClassifyError:
+    """Unit tests for stderr pattern classification."""
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            "ERROR: Search API not responding for http://solr:8983/items/X/collections",
+            "java.net.ConnectException: Connection refused",
+            "java.net.ConnectException: Connection timed out",
+            "java.net.UnknownHostException: solr.local",
+            "HTTP error 503",
+            "HTTP error 429",
+        ],
+    )
+    def test_transient_patterns(self, line: str) -> None:
+        assert _classify_error([line]) is TransientError
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            "Fatal error: not well-formed (invalid token)",
+            "Content is not allowed in prolog",
+            "ERROR: Response does not appear to be valid item-collections JSON response",
+            "XTDE0160: Saxon error in template",
+            "XPTY0004: Required item type of first operand",
+            "XTTE0570: Required item type of value",
+            "FORG0001: Cannot convert",
+            "XPST0017: Static error in XPath",
+            "S3 AccessDenied for bucket",
+        ],
+    )
+    def test_permanent_patterns(self, line: str) -> None:
+        assert _classify_error([line]) is PermanentError
+
+    def test_unknown_error_defaults_to_permanent(self) -> None:
+        assert _classify_error(["something completely unexpected"]) is PermanentError
+
+    def test_empty_stderr_defaults_to_permanent(self) -> None:
+        assert _classify_error([]) is PermanentError
+
+    def test_transient_wins_over_permanent(self) -> None:
+        """Transient signal takes priority — a downed service can cause Saxon errors."""
+        lines = [
+            "XTDE0160: Saxon error in template",
+            "ERROR: Search API not responding for http://solr:8983/items/X/collections",
+        ]
+        assert _classify_error(lines) is TransientError
