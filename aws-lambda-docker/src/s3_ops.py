@@ -10,6 +10,7 @@ from fnmatch import fnmatch
 from typing import TYPE_CHECKING
 
 import boto3
+from botocore.config import Config as BotoConfig
 from botocore.exceptions import ClientError
 
 from exceptions import PermanentError, TransientError
@@ -19,6 +20,14 @@ if TYPE_CHECKING:
     from mypy_boto3_s3.type_defs import ObjectIdentifierTypeDef
 
 logger = logging.getLogger(__name__)
+
+S3_RETRY_CONFIG = BotoConfig(retries={"max_attempts": 3, "mode": "adaptive"})
+
+
+def _s3_client() -> S3Client:
+    """Create an S3 client with adaptive retry."""
+    return boto3.client("s3", config=S3_RETRY_CONFIG)
+
 
 FONT_MIME_TYPES: dict[str, str] = {
     ".woff": "font/woff",
@@ -55,7 +64,7 @@ _PERMANENT_S3_CODES = frozenset({"NoSuchKey", "404", "NoSuchBucket", "AccessDeni
 
 def download_file(bucket: str, key: str, local_path: str) -> None:
     """Download a file from S3 to a local path."""
-    s3 = boto3.client("s3")
+    s3 = _s3_client()
     os.makedirs(os.path.dirname(local_path), exist_ok=True)
     logger.info("Downloading s3://%s/%s to %s", bucket, key, local_path)
     try:
@@ -87,7 +96,7 @@ def upload_dist(dist_dir: str, bucket: str, *, max_workers: int = MAX_UPLOAD_WOR
 
     Uses a thread pool for concurrent uploads since S3 PutObject is I/O-bound.
     """
-    s3 = boto3.client("s3")
+    s3 = _s3_client()
 
     # Collect all (local_file, s3_key) pairs first
     uploads: list[tuple[str, str]] = []
@@ -140,7 +149,7 @@ def upload_dist(dist_dir: str, bucket: str, *, max_workers: int = MAX_UPLOAD_WOR
 
 def delete_outputs(bucket: str, tei_file: str) -> None:
     """Delete all derived outputs for a TEI file from S3."""
-    s3 = boto3.client("s3")
+    s3 = _s3_client()
     filename = os.path.splitext(os.path.basename(tei_file))[0]
     containing_dir = os.path.dirname(tei_file)
     html_inner_path = containing_dir.removeprefix("items/")
