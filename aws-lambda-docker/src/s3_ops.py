@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import mimetypes
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from fnmatch import fnmatch
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import boto3
 from botocore.config import Config as BotoConfig
@@ -59,6 +60,37 @@ def _get_content_type(file_path: str) -> str | None:
     return content_type
 
 
+def _compute_sha256(file_path: str) -> str:
+    """Compute lowercase hex SHA-256 of file contents."""
+    h = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _dest_metadata_matches(
+    s3: S3Client,
+    bucket: str,
+    s3_key: str,
+    local_metadata: dict[str, str],
+) -> bool:
+    """Check if destination object metadata matches for all enabled fields.
+
+    Returns True only when the destination exists and every key in
+    local_metadata is present with the same value.
+    """
+    try:
+        response = s3.head_object(Bucket=bucket, Key=s3_key)
+    except ClientError as e:
+        code = e.response["Error"].get("Code", "")
+        if code in ("404", "NoSuchKey"):
+            return False
+        raise
+    dest_metadata = response.get("Metadata", {})
+    return all(dest_metadata.get(k) == v for k, v in local_metadata.items())
+
+
 _PERMANENT_S3_CODES = frozenset({"NoSuchKey", "404", "NoSuchBucket", "AccessDenied", "403"})
 
 
@@ -82,19 +114,67 @@ def download_file(bucket: str, key: str, local_path: str) -> None:
 MAX_UPLOAD_WORKERS = 10
 
 
-def _upload_single_file(s3: S3Client, file_path: str, bucket: str, s3_key: str) -> None:
-    """Upload a single file to S3 with correct content type."""
-    extra_args: dict[str, str] = {}
+def _upload_single_file(
+    s3: S3Client,
+    file_path: str,
+    bucket: str,
+    s3_key: str,
+    metadata: dict[str, str] | None = None,
+) -> None:
+    """Upload a single file to S3 with correct content type and optional metadata."""
+    extra_args: dict[str, Any] = {}
     content_type = _get_content_type(file_path)
     if content_type:
         extra_args["ContentType"] = content_type
+    if metadata:
+        extra_args["Metadata"] = metadata
     s3.upload_file(file_path, bucket, s3_key, ExtraArgs=extra_args)
 
 
-def upload_dist(dist_dir: str, bucket: str, *, max_workers: int = MAX_UPLOAD_WORKERS) -> None:
+def _process_and_upload(
+    s3: S3Client,
+    file_path: str,
+    bucket: str,
+    s3_key: str,
+    *,
+    enable_sha_metadata: bool = False,
+    enable_release_status_metadata: bool = False,
+    release_status: str | None = None,
+) -> bool:
+    """Compute metadata, check destination, and upload if needed.
+
+    Returns True if the file was uploaded, False if skipped.
+    """
+    metadata_enabled = enable_sha_metadata or enable_release_status_metadata
+
+    metadata: dict[str, str] = {}
+    if enable_sha_metadata:
+        metadata["content-sha256"] = _compute_sha256(file_path)
+    if enable_release_status_metadata and release_status is not None:
+        metadata["release-status"] = release_status
+
+    if metadata_enabled and _dest_metadata_matches(s3, bucket, s3_key, metadata):
+        logger.debug("Skipping %s (metadata unchanged)", s3_key)
+        return False
+
+    _upload_single_file(s3, file_path, bucket, s3_key, metadata=metadata or None)
+    return True
+
+
+def upload_dist(
+    dist_dir: str,
+    bucket: str,
+    *,
+    max_workers: int = MAX_UPLOAD_WORKERS,
+    enable_sha_metadata: bool = False,
+    enable_release_status_metadata: bool = False,
+    release_status: str | None = None,
+) -> None:
     """Upload dist directory contents to S3 with correct prefix mapping.
 
     Uses a thread pool for concurrent uploads since S3 PutObject is I/O-bound.
+    When metadata flags are enabled, compares per-object metadata before uploading
+    and skips unchanged files.
     """
     s3 = _s3_client()
 
@@ -121,19 +201,33 @@ def upload_dist(dist_dir: str, bucket: str, *, max_workers: int = MAX_UPLOAD_WOR
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         futures = {
-            pool.submit(_upload_single_file, s3, file_path, bucket, s3_key): s3_key
+            pool.submit(
+                _process_and_upload,
+                s3,
+                file_path,
+                bucket,
+                s3_key,
+                enable_sha_metadata=enable_sha_metadata,
+                enable_release_status_metadata=enable_release_status_metadata,
+                release_status=release_status,
+            ): s3_key
             for file_path, s3_key in uploads
         }
         errors: list[str] = []
         uploaded = 0
+        skipped = 0
         for future in as_completed(futures):
             s3_key = futures[future]
             exc = future.exception()
             if exc is not None:
-                logger.error("Upload failed: %s", s3_key, extra={"context": {"error": str(exc)}})
+                logger.error(
+                    "Upload failed: %s", s3_key, extra={"context": {"error": str(exc)}}
+                )
                 errors.append(s3_key)
-            else:
+            elif future.result():
                 uploaded += 1
+            else:
+                skipped += 1
 
     if errors:
         logger.error(
@@ -144,7 +238,9 @@ def upload_dist(dist_dir: str, bucket: str, *, max_workers: int = MAX_UPLOAD_WOR
         )
         raise TransientError(f"{len(errors)}/{len(uploads)} uploads failed: {errors}")
 
-    logger.info("Uploaded %d files to s3://%s", uploaded, bucket)
+    logger.info(
+        "Upload complete: %d uploaded, %d skipped (unchanged)", uploaded, skipped
+    )
 
 
 def delete_outputs(bucket: str, tei_file: str) -> None:

@@ -28,6 +28,8 @@ class Config:
     skip_copy_tei_web_assets: str
     emit_emf_metrics: bool
     lambda_timeout_margin_ms: int
+    enable_sha_metadata: bool
+    enable_release_status_metadata: bool
 
     @classmethod
     def from_env(cls) -> Config:
@@ -42,6 +44,14 @@ class Config:
             lambda_timeout_margin_ms=int(
                 os.environ.get("LAMBDA_TIMEOUT_MARGIN_MS", "5000")
             ),
+            enable_sha_metadata=os.environ.get(
+                "ENABLE_SHA_METADATA", "false"
+            ).lower()
+            == "true",
+            enable_release_status_metadata=os.environ.get(
+                "ENABLE_RELEASE_STATUS_METADATA", "false"
+            ).lower()
+            == "true",
         )
 
     def validate_for_aws(self) -> None:

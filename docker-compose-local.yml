@@ -10,6 +10,8 @@ services:
       SKIP_COPY_TEI_WEB_ASSETS: ${SKIP_COPY_TEI_WEB_ASSETS:-true}
       SKIP_PAGE_XML_COPY: ${SKIP_PAGE_XML_COPY:-true}
       SKIP_CORE_XML_COPY: ${SKIP_CORE_XML_COPY:-true}
+      ENABLE_SHA_METADATA: ${ENABLE_SHA_METADATA:-false}
+      ENABLE_RELEASE_STATUS_METADATA: ${ENABLE_RELEASE_STATUS_METADATA:-false}
     volumes:
       - dist:/tmp/opt/cdcp/dist
       - source:/tmp/opt/cdcp/cudl-data-source

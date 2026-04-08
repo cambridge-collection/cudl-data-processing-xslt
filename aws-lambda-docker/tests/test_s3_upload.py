@@ -191,7 +191,11 @@ class TestUploadDistErrorInjection:
         original = _upload_single_file
 
         def upload_or_fail(
-            s3_client: object, file_path: str, bucket: str, s3_key: str
+            s3_client: object,
+            file_path: str,
+            bucket: str,
+            s3_key: str,
+            metadata: object = None,
         ) -> None:
             if s3_key == failing_key:
                 raise ClientError(
