@@ -16,6 +16,7 @@ from exceptions import PermanentError
 from logging_config import configure_logging
 from processor import clean_dist, clean_source_workspace, run_ant, setup_workspace
 from s3_ops import delete_outputs, download_file, upload_dist
+from tei import resolve_release_status
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -124,8 +125,19 @@ def _handle_created(config: Config, s3_bucket: str, tei_file: str) -> None:
     try:
         clean_source_workspace()
         download_file(s3_bucket, tei_file, local_path)
+
+        release_status: str | None = None
+        if config.enable_release_status_metadata:
+            release_status = resolve_release_status(local_path)
+
         run_ant(config, tei_file)
-        upload_dist(DIST_DIR, config.aws_output_bucket)
+        upload_dist(
+            DIST_DIR,
+            config.aws_output_bucket,
+            enable_sha_metadata=config.enable_sha_metadata,
+            enable_release_status_metadata=config.enable_release_status_metadata,
+            release_status=release_status,
+        )
     finally:
         clean_dist()
         clean_source_workspace()

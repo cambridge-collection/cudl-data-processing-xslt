@@ -76,6 +76,27 @@ You cannot pass multiple files (with paths) to the container. It only accepts a 
 
 If the `TEI_FILE` environment variable is not set, the container will assume that you want to process all files (**/*.xml) in `./data`.
 
+## Per-object metadata and conditional uploads
+
+When enabled, the Lambda attaches user-metadata to each uploaded output object and uses those metadata fields to skip unchanged uploads.
+
+### Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `ENABLE_SHA_METADATA` | `false` | Attach `content-sha256` (hex SHA-256 of the file bytes) to each uploaded object. |
+| `ENABLE_RELEASE_STATUS_METADATA` | `false` | Derive release status from the TEI via XPath and attach `release-status` (`released` or `draft`) to each uploaded object. |
+
+### Behaviour
+
+- When both flags are `false`, all outputs are uploaded unconditionally (original behaviour).
+- In all cases, if the destination object itself is missing, it is uploaded regardless of flag state.
+- When one or both flags are enabled, the Lambda compares only the enabled metadata fields against the destination object:
+  - If any enabled field is missing or different on the destination, the file is uploaded with the new metadata.
+  - If all enabled fields are present and match, the upload is skipped for that file.
+- Disabled metadata fields are never generated, read, or compared.
+- Release status is derived from the TEI in Python using Saxon XPath evaluation (`exists(/tei:TEI/tei:teiHeader/tei:revisionDesc/tei:change[@status='released'])`). It is only evaluated when `ENABLE_RELEASE_STATUS_METADATA=true`.
+
 ## Building the container for the ECR.
 
 Log into AWS in your shell and have your credentials stored in `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN`. Then, run the following commands:

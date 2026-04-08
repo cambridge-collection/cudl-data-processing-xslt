@@ -22,6 +22,8 @@ def config() -> Config:
         skip_copy_tei_web_assets="false",
         emit_emf_metrics=False,
         lambda_timeout_margin_ms=5000,
+        enable_sha_metadata=False,
+        enable_release_status_metadata=False,
     )
 
 
@@ -108,6 +110,8 @@ class TestRunAnt:
             skip_copy_tei_web_assets="true",
             emit_emf_metrics=False,
             lambda_timeout_margin_ms=5000,
+            enable_sha_metadata=False,
+            enable_release_status_metadata=False,
         )
         mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
 

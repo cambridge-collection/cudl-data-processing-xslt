@@ -17,6 +17,8 @@ class TestConfigFromEnv:
         monkeypatch.delenv("ANT_TARGET", raising=False)
         monkeypatch.delenv("SKIP_COPY_TEI_WEB_ASSETS", raising=False)
         monkeypatch.delenv("LAMBDA_TIMEOUT_MARGIN_MS", raising=False)
+        monkeypatch.delenv("ENABLE_SHA_METADATA", raising=False)
+        monkeypatch.delenv("ENABLE_RELEASE_STATUS_METADATA", raising=False)
 
         cfg = Config.from_env()
 
@@ -27,6 +29,8 @@ class TestConfigFromEnv:
         assert cfg.ant_target == "full"
         assert cfg.skip_copy_tei_web_assets == "false"
         assert cfg.lambda_timeout_margin_ms == 5000
+        assert cfg.enable_sha_metadata is False
+        assert cfg.enable_release_status_metadata is False
 
     def test_reads_env_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("AWS_OUTPUT_BUCKET", "my-bucket")
@@ -79,6 +83,17 @@ class TestConfigValidation:
 
         assert cfg.lambda_timeout_margin_ms == 10000
 
+    def test_reads_sha_and_release_status_flags(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ENABLE_SHA_METADATA", "true")
+        monkeypatch.setenv("ENABLE_RELEASE_STATUS_METADATA", "True")
+
+        cfg = Config.from_env()
+
+        assert cfg.enable_sha_metadata is True
+        assert cfg.enable_release_status_metadata is True
+
     def test_frozen(self) -> None:
         cfg = Config(
             aws_output_bucket="b",
@@ -89,6 +104,8 @@ class TestConfigValidation:
             skip_copy_tei_web_assets="false",
             emit_emf_metrics=False,
             lambda_timeout_margin_ms=5000,
+            enable_sha_metadata=False,
+            enable_release_status_metadata=False,
         )
         with pytest.raises(AttributeError):
             cfg.aws_output_bucket = "other"  # type: ignore[misc]
