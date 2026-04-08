@@ -243,6 +243,64 @@ def upload_dist(
     )
 
 
+def reconcile_stale_page_html(
+    dist_dir: str,
+    bucket: str,
+    tei_file: str,
+) -> None:
+    """Delete stale page HTML for the current item from the destination bucket.
+
+    Compares the full set of local page HTML files against the destination
+    and deletes any destination objects that are no longer present locally.
+
+    Raises TransientError on S3 list or delete failures so the record can retry.
+    """
+    filename = os.path.splitext(os.path.basename(tei_file))[0]
+    containing_dir = os.path.dirname(tei_file)
+    html_inner_path = containing_dir.removeprefix("items/")
+
+    s3_prefix = f"html/{html_inner_path}/"
+    pattern = f"{filename}-*.html"
+
+    # Enumerate local page HTML basenames for this item
+    local_html_dir = os.path.join(dist_dir, "www", "items", html_inner_path)
+    local_basenames: set[str] = set()
+    if os.path.isdir(local_html_dir):
+        for f in os.listdir(local_html_dir):
+            if fnmatch(f, pattern):
+                local_basenames.add(f)
+
+    # Find stale destination objects
+    s3 = _s3_client()
+    try:
+        paginator = s3.get_paginator("list_objects_v2")
+        to_delete: list[ObjectIdentifierTypeDef] = []
+
+        for page in paginator.paginate(Bucket=bucket, Prefix=s3_prefix):
+            for obj in page.get("Contents", []):
+                key = obj["Key"]
+                basename = os.path.basename(key)
+                if fnmatch(basename, pattern) and basename not in local_basenames:
+                    to_delete.append({"Key": key})
+
+        if not to_delete:
+            return
+
+        logger.info(
+            "Deleting %d stale page HTML objects for %s",
+            len(to_delete),
+            tei_file,
+            extra={"context": {"keys": [d["Key"] for d in to_delete]}},
+        )
+        for i in range(0, len(to_delete), 1000):
+            batch = to_delete[i : i + 1000]
+            s3.delete_objects(Bucket=bucket, Delete={"Objects": batch})
+    except ClientError as e:
+        raise TransientError(
+            f"Stale page HTML reconciliation failed for {tei_file}: {e}"
+        ) from e
+
+
 def delete_outputs(bucket: str, tei_file: str) -> None:
     """Delete all derived outputs for a TEI file from S3."""
     s3 = _s3_client()
