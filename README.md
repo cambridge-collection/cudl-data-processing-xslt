@@ -97,6 +97,16 @@ When enabled, the Lambda attaches user-metadata to each uploaded output object a
 - Disabled metadata fields are never generated, read, or compared.
 - Release status is derived from the TEI in Python using Saxon XPath evaluation (`exists(/tei:TEI/tei:teiHeader/tei:revisionDesc/tei:change[@status='released'])`). It is only evaluated when `ENABLE_RELEASE_STATUS_METADATA=true`.
 
+## Stale page HTML cleanup
+
+When an existing TEI item is reprocessed via an `ObjectCreated` event, the Lambda reconciles page HTML in the destination bucket after uploading current outputs.
+
+- Page HTML objects for the current item that are no longer present in the current build are deleted from the destination bucket.
+- This cleanup applies only to page HTML (`html/{item-path}/{item}-*.html`) for the current item.
+- Non-HTML outputs (`json`, `solr-json`, `dp-json`, `core-xml`, `page-xml`, `items`) and page HTML for other items are not affected.
+- If the current build produces no page HTML for the item, all existing page HTML for that item is removed.
+- If the upload step fails, stale-page reconciliation does not run.
+
 ## Building the container for the ECR.
 
 Log into AWS in your shell and have your credentials stored in `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN`. Then, run the following commands:
