@@ -4288,6 +4288,13 @@
                 <xsl:when test="matches(@url,'(youtube.com|youtube-nocookie.com|youtu.be)', 'i')">
                     <xsl:text>youtube</xsl:text>
                 </xsl:when>
+                <xsl:when test="matches(@url,'sketchfab\.com', 'i')">
+                    <xsl:text>sketchfab</xsl:text>
+                </xsl:when>
+                <xsl:otherwise>
+                    <xsl:message>WARN: Unrecognised media service URL - <xsl:value-of select="@url"/></xsl:message>
+                    <xsl:text>unknown</xsl:text>
+                </xsl:otherwise>
             </xsl:choose>
         </xsl:variable>
         
@@ -4350,6 +4357,12 @@
                         </xsl:otherwise>
                     </xsl:choose>
                 </xsl:when>
+                <xsl:when test="$service = 'sketchfab'">
+                    <xsl:value-of select="tokenize(tokenize($url_tidied, '/')[3],'\?')[1]"/>
+                </xsl:when>
+                <xsl:otherwise>
+                    <xsl:message>WARN: Cannot extract item ID for service - <xsl:value-of select="$service"/></xsl:message>
+                </xsl:otherwise>
             </xsl:choose>
         </xsl:variable>
         
