@@ -87,6 +87,10 @@
         <equals arg1="${env.SKIP_COPY_TEI_WEB_ASSETS}" arg2="true" casesensitive="false"/>
     </condition>
 
+    <condition property="skip.tei.full.copy" value="true" else="false">
+        <equals arg1="${env.SKIP_TEI_FULL_COPY}" arg2="true" casesensitive="false"/>
+    </condition>
+
     <!-- Default to failing on XSLT errors unless the env var is explicitly set to false. -->
     <condition property="xslt.fail.on.error" value="false" else="true">
         <equals arg1="${env.XSLT_FAIL_ON_ERROR}" arg2="false" casesensitive="false"/>
@@ -123,7 +127,7 @@
         <echo message="Generating core metadata file"/>
         <mkdir dir="${core_xml.pending.dir}"/>
 
-        <antcall target="_copy_tei_full_to_dist_pending"/>
+        <antcall unless:true="${skip.tei.full.copy}" target="_copy_tei_full_to_dist_pending"/>
 
         <fileset id="original_xml" dir="${data.dir}" includes="${files-to-process}" />
 
