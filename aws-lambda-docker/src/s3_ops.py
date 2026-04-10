@@ -44,8 +44,7 @@ DIST_TO_S3_MAPPING: list[tuple[str, str]] = [
     ("json", "json"),
     ("solr-json", "solr-json"),
     ("dp-json", "dp-json"),
-    ("www/items", "html"),
-    ("www/cudl-resources", "html/cudl-resources"),
+    ("html", "html"),
     ("page-xml", "page-xml"),
     ("items", "items"),
 ]
@@ -263,7 +262,7 @@ def reconcile_stale_page_html(
     pattern = f"{filename}-*.html"
 
     # Enumerate local page HTML basenames for this item
-    local_html_dir = os.path.join(dist_dir, "www", "items", html_inner_path)
+    local_html_dir = os.path.join(dist_dir, "html", html_inner_path)
     local_basenames: set[str] = set()
     if os.path.isdir(local_html_dir):
         for f in os.listdir(local_html_dir):

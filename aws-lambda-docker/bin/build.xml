@@ -20,7 +20,8 @@
     <property name="json-tmp.dir"  value="../json-tmp"/><!-- Destination for all json files - necessary so results can be flattened after files are created -->
 
     <!-- Initial output subdirectories within $dist-pending.dir -->
-    <property name="www.pending.dir"  value="${dist-pending.dir}/www"/><!-- Target directory for www resources -->
+    <property name="www.pending.dir"  value="${dist-pending.dir}/www"/><!-- Target directory for www resources (XSLT writes here; relocated to html.pending.dir before release) -->
+    <property name="html.pending.dir"  value="${dist-pending.dir}/html"/><!-- Final output directory for page transcription HTML -->
 
     <!-- Target directory for TEI XML page files.
          Priority: PAGE_XML_SOURCE (explicit override) > SKIP_PAGE_XML_COPY=true (tmp, auto-cleaned) > default (dist-pending, copied to final output dest) -->
@@ -396,8 +397,28 @@
     </target>
 
 
-    <target name="release-outputs" depends="if.local.environment">
+    <target name="_relocate-html-output">
+        <!-- Move page transcription HTML from XSLT output location to final html/ layout -->
+        <condition property="www.items.exists" value="true" else="false">
+            <available file="${www.pending.dir}/items" type="dir"/>
+        </condition>
+        <mkdir if:true="${www.items.exists}" dir="${html.pending.dir}"/>
+        <move if:true="${www.items.exists}" todir="${html.pending.dir}">
+            <fileset dir="${www.pending.dir}/items"/>
+        </move>
 
+        <!-- Move web assets (CSS/fonts) alongside the HTML -->
+        <condition property="www.cudl-resources.exists" value="true" else="false">
+            <available file="${www.pending.dir}/cudl-resources" type="dir"/>
+        </condition>
+        <mkdir if:true="${www.cudl-resources.exists}" dir="${html.pending.dir}/cudl-resources"/>
+        <move if:true="${www.cudl-resources.exists}" todir="${html.pending.dir}/cudl-resources">
+            <fileset dir="${www.pending.dir}/cudl-resources"/>
+        </move>
+    </target>
+
+    <target name="release-outputs" depends="if.local.environment">
+        <antcall target="_relocate-html-output"/>
         <antcall if:true="${is.local.environment}" target="_copy_to_dist"/>
         <antcall unless:true="${is.local.environment}" target="_copy_to_s3"/>
         <antcall target="cleanup"/>
@@ -468,28 +489,28 @@
 
     <target name="_copy_www_to_s3">
 
-        <condition property="www.exists" value="true" else="false"><available file="${www.pending.dir}/items" type="dir"/></condition>
-        <echo if:true="${www.exists}" message="Copying ${www.pending.dir}/items/ to S3://${www-s3-dest}"/>
-        <exec if:true="${www.exists}" executable="aws" resolveexecutable="true">
+        <condition property="html.exists" value="true" else="false"><available file="${html.pending.dir}" type="dir"/></condition>
+        <echo if:true="${html.exists}" message="Copying ${html.pending.dir}/ to S3://${www-s3-dest}"/>
+        <exec if:true="${html.exists}" executable="aws" resolveexecutable="true">
             <arg value="s3"/>
             <arg value="sync"/>
             <arg value="--quiet"/>
-            <arg value="${www.pending.dir}/items/"/>
+            <arg value="${html.pending.dir}/"/>
             <arg value="s3://${www-s3-dest}"/>
         </exec>
     </target>
     
     <target name="_copy_tei_web_assets_to_dest">
-        <condition property="cudl-resources.exists" value="true" else="false"><available file="${www.pending.dir}/cudl-resources" type="dir"/></condition>
-        <echo if:true="${cudl-resources.exists}" message="Copying ${www.pending.dir}/cudl-resources/ to S3://${www-s3-dest}/cudl-resources"/>
+        <condition property="cudl-resources.exists" value="true" else="false"><available file="${html.pending.dir}/cudl-resources" type="dir"/></condition>
+        <echo if:true="${cudl-resources.exists}" message="Copying ${html.pending.dir}/cudl-resources/ to S3://${www-s3-dest}/cudl-resources"/>
         <exec if:true="${cudl-resources.exists}" executable="aws" resolveexecutable="true">
             <arg value="s3"/>
             <arg value="sync"/>
             <arg value="--quiet"/>
-            <arg value="${www.pending.dir}/cudl-resources"/>
+            <arg value="${html.pending.dir}/cudl-resources"/>
             <arg value="s3://${www-s3-dest}/cudl-resources"/>
         </exec>
-        
+
         <echo if:true="${cudl-resources.exists}" message="Fixing mimetypes in S3://${www-s3-dest}/cudl-resources"/>
         <echo if:true="${cudl-resources.exists}" message="Setting *.woff to font/woff"/>
         <exec if:true="${cudl-resources.exists}" executable="aws" resolveexecutable="true">
@@ -505,10 +526,10 @@
             <arg value="--content-type"/>
             <arg value="font/woff"/>
             <arg value="--recursive"/>
-            <arg value="${www.pending.dir}/cudl-resources"/>
+            <arg value="${html.pending.dir}/cudl-resources"/>
             <arg value="s3://${www-s3-dest}/cudl-resources"/>
         </exec>
-        
+
         <echo if:true="${cudl-resources.exists}" message="Setting *.eot to application/vnd.ms-fontobject"/>
         <exec if:true="${cudl-resources.exists}" executable="aws" resolveexecutable="true">
             <arg value="s3"/>
@@ -523,10 +544,10 @@
             <arg value="--content-type"/>
             <arg value="application/vnd.ms-fontobject"/>
             <arg value="--recursive"/>
-            <arg value="${www.pending.dir}/cudl-resources"/>
+            <arg value="${html.pending.dir}/cudl-resources"/>
             <arg value="s3://${www-s3-dest}/cudl-resources"/>
         </exec>
-        
+
         <echo if:true="${cudl-resources.exists}" message="Setting *.otf to font/otf"/>
         <exec if:true="${cudl-resources.exists}" executable="aws" resolveexecutable="true">
             <arg value="s3"/>
@@ -541,10 +562,10 @@
             <arg value="--content-type"/>
             <arg value="font/otf"/>
             <arg value="--recursive"/>
-            <arg value="${www.pending.dir}/cudl-resources"/>
+            <arg value="${html.pending.dir}/cudl-resources"/>
             <arg value="s3://${www-s3-dest}/cudl-resources"/>
         </exec>
-        
+
         <echo if:true="${cudl-resources.exists}" message="Setting *.ttf to font/ttf"/>
         <exec if:true="${cudl-resources.exists}" executable="aws" resolveexecutable="true">
             <arg value="s3"/>
@@ -559,10 +580,10 @@
             <arg value="--content-type"/>
             <arg value="font/ttf"/>
             <arg value="--recursive"/>
-            <arg value="${www.pending.dir}/cudl-resources"/>
+            <arg value="${html.pending.dir}/cudl-resources"/>
             <arg value="s3://${www-s3-dest}/cudl-resources"/>
         </exec>
-        
+
         <echo if:true="${cudl-resources.exists}" message="Setting *.woff2 to font/woff2"/>
         <exec if:true="${cudl-resources.exists}" executable="aws" resolveexecutable="true">
             <arg value="s3"/>
@@ -577,7 +598,7 @@
             <arg value="--content-type"/>
             <arg value="font/woff2"/>
             <arg value="--recursive"/>
-            <arg value="${www.pending.dir}/cudl-resources"/>
+            <arg value="${html.pending.dir}/cudl-resources"/>
             <arg value="s3://${www-s3-dest}/cudl-resources"/>
         </exec>
     </target>
