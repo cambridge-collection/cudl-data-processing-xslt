@@ -87,6 +87,11 @@
         <equals arg1="${env.SKIP_COPY_TEI_WEB_ASSETS}" arg2="true" casesensitive="false"/>
     </condition>
 
+    <!-- Default to failing on XSLT errors unless the env var is explicitly set to false. -->
+    <condition property="xslt.fail.on.error" value="false" else="true">
+        <equals arg1="${env.XSLT_FAIL_ON_ERROR}" arg2="false" casesensitive="false"/>
+    </condition>
+
     <target name="if.core.source.override">
         <property if:set="env.CORE_XML_SOURCE" name="core_xml.pending.dir" value="${env.CORE_XML_SOURCE}"/>
         <property unless:set="env.CORE_XML_SOURCE" name="core_xml.pending.dir" value="${default.core_xml.pending.dir}"/>
@@ -122,7 +127,7 @@
 
         <fileset id="original_xml" dir="${data.dir}" includes="${files-to-process}" />
 
-        <xslt destdir="${core_xml.pending.dir}" style="../xslt/msTeiPreFilter.xsl" force="true" useimplicitfileset="false" extension=".xml" reloadstylesheet="true">
+        <xslt destdir="${core_xml.pending.dir}" style="../xslt/msTeiPreFilter.xsl" force="true" useimplicitfileset="false" extension=".xml" reloadstylesheet="true" failOnError="${xslt.fail.on.error}" failOnTransformationError="${xslt.fail.on.error}">
             <fileset refid="original_xml"/>
             <factory name="net.sf.saxon.TransformerFactoryImpl">
                 <attribute name="http://saxon.sf.net/feature/xinclude-aware"
@@ -156,7 +161,7 @@
 
         <fileset id="indexed_files" dir="${core_xml.pending.dir}" includes="${files-to-process}" />
 
-        <xslt destdir="${json-tmp.dir}" style="../xslt/viewer-json.xsl" force="true" useimplicitfileset="false" extension=".json" reloadstylesheet="true">
+        <xslt destdir="${json-tmp.dir}" style="../xslt/viewer-json.xsl" force="true" useimplicitfileset="false" extension=".json" reloadstylesheet="true" failOnError="${xslt.fail.on.error}" failOnTransformationError="${xslt.fail.on.error}">
             <fileset refid="indexed_files"/>
             <factory name="net.sf.saxon.TransformerFactoryImpl">
                 <attribute name="http://saxon.sf.net/feature/xinclude-aware"
@@ -183,7 +188,7 @@
 
         <fileset id="indexed_files" dir="${core_xml.pending.dir}" includes="${files-to-process}" />
 
-        <xslt destdir="${json-tmp.dir}" style="../xslt/dp-json.xsl" force="true" useimplicitfileset="false" extension=".json" reloadstylesheet="true">
+        <xslt destdir="${json-tmp.dir}" style="../xslt/dp-json.xsl" force="true" useimplicitfileset="false" extension=".json" reloadstylesheet="true" failOnError="${xslt.fail.on.error}" failOnTransformationError="${xslt.fail.on.error}">
             <fileset refid="indexed_files"/>
             <factory name="net.sf.saxon.TransformerFactoryImpl">
                 <attribute name="http://saxon.sf.net/feature/xinclude-aware"
@@ -210,7 +215,7 @@
 
         <fileset id="indexed_files" dir="${core_xml.pending.dir}" includes="${files-to-process}" />
 
-        <xslt destdir="${json-tmp.dir}" style="../xslt/solr-json.xsl" force="true" useimplicitfileset="false" extension=".json" reloadstylesheet="true">
+        <xslt destdir="${json-tmp.dir}" style="../xslt/solr-json.xsl" force="true" useimplicitfileset="false" extension=".json" reloadstylesheet="true" failOnError="${xslt.fail.on.error}" failOnTransformationError="${xslt.fail.on.error}">
             <fileset refid="indexed_files"/>
             <factory name="net.sf.saxon.TransformerFactoryImpl">
                 <attribute name="http://saxon.sf.net/feature/xinclude-aware"
@@ -267,7 +272,7 @@
 
             None of this is new. It's how the transformation has always run. It's just that I felt the need to document it better now.
         -->
-        <xslt destdir="${dev.null}" style="../xslt/transcription/pagify.xsl" force="true" useimplicitfileset="false" reloadstylesheet="true">
+        <xslt destdir="${dev.null}" style="../xslt/transcription/pagify.xsl" force="true" useimplicitfileset="false" reloadstylesheet="true" failOnError="${xslt.fail.on.error}" failOnTransformationError="${xslt.fail.on.error}">
             <fileset refid="original_xml"/>
             <factory name="net.sf.saxon.TransformerFactoryImpl">
                 <attribute name="http://saxon.sf.net/feature/xinclude-aware"
@@ -288,7 +293,7 @@
 
         <fileset id="chunk_xml" dir="${chunk.dir}" includes="**/*.xml" />
 
-        <xslt destdir="${dev.null}" style="../xslt/transcription/pagify.xsl" force="true" useimplicitfileset="false" reloadstylesheet="true">
+        <xslt destdir="${dev.null}" style="../xslt/transcription/pagify.xsl" force="true" useimplicitfileset="false" reloadstylesheet="true" failOnError="${xslt.fail.on.error}" failOnTransformationError="${xslt.fail.on.error}">
             <fileset refid="chunk_xml"/>
             <factory name="net.sf.saxon.TransformerFactoryImpl">
                 <attribute name="http://saxon.sf.net/feature/xinclude-aware"
@@ -320,7 +325,7 @@
 
         <fileset id="page_files" dir="${page-xml.pending.dir}" includes="${page_xml_items.dir}/*.xml" />
 
-        <xslt destdir="${www.pending.dir}" style="../xslt/transcription/msTeiTrans.xsl" force="true" useimplicitfileset="false" extension=".html" reloadstylesheet="true">
+        <xslt destdir="${www.pending.dir}" style="../xslt/transcription/msTeiTrans.xsl" force="true" useimplicitfileset="false" extension=".html" reloadstylesheet="true" failOnError="${xslt.fail.on.error}" failOnTransformationError="${xslt.fail.on.error}">
             <fileset refid="page_files"/>
             <factory name="net.sf.saxon.TransformerFactoryImpl">
                 <attribute name="http://saxon.sf.net/feature/xinclude-aware"
@@ -356,7 +361,7 @@
 
         <fileset id="core_xml" dir="${core_xml.pending.dir}" includes="${files-to-process}" />
 
-        <xslt destdir="${dest_tmp.dir}" style="../xslt/update-collection-info.xsl" force="true" useimplicitfileset="false" extension=".xml" reloadstylesheet="true">
+        <xslt destdir="${dest_tmp.dir}" style="../xslt/update-collection-info.xsl" force="true" useimplicitfileset="false" extension=".xml" reloadstylesheet="true" failOnError="${xslt.fail.on.error}" failOnTransformationError="${xslt.fail.on.error}">
             <fileset refid="core_xml"/>
             <factory name="net.sf.saxon.TransformerFactoryImpl">
                 <attribute name="http://saxon.sf.net/feature/xinclude-aware"
@@ -384,7 +389,7 @@
 
         <fileset id="original_xml" dir="${data.dir}" includes="${files-to-process}" />
 
-        <xslt destdir="${dev.null}" style="../xslt/transcription/checksum-source.xsl" force="true" useimplicitfileset="false" reloadstylesheet="true">
+        <xslt destdir="${dev.null}" style="../xslt/transcription/checksum-source.xsl" force="true" useimplicitfileset="false" reloadstylesheet="true" failOnError="${xslt.fail.on.error}" failOnTransformationError="${xslt.fail.on.error}">
             <fileset refid="original_xml"/>
             <factory name="net.sf.saxon.TransformerFactoryImpl">
                 <attribute name="http://saxon.sf.net/feature/xinclude-aware"
