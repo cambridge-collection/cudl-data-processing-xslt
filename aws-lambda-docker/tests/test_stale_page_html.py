@@ -34,8 +34,8 @@ def _create_bucket() -> None:
 def _create_local_page_html(
     dist_dir: str, item_dir: str, filenames: list[str]
 ) -> None:
-    """Create local page HTML files under dist/www/items/{item_dir}/."""
-    d = os.path.join(dist_dir, "www", "items", item_dir)
+    """Create local page HTML files under dist/html/{item_dir}/."""
+    d = os.path.join(dist_dir, "html", item_dir)
     os.makedirs(d, exist_ok=True)
     for fn in filenames:
         with open(os.path.join(d, fn), "w") as f:

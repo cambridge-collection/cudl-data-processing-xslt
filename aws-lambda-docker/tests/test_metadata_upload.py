@@ -515,9 +515,9 @@ class TestUploadedObjectMetadata:
         s3 = boto3.client("s3", region_name="eu-west-1")
 
         with tempfile.TemporaryDirectory() as dist_dir:
-            # www/items → html prefix
+            # html → html prefix (identity mapping)
             html_dir = os.path.join(
-                dist_dir, "www", "items", "data", "tei", "MS-ADD-03975"
+                dist_dir, "html", "data", "tei", "MS-ADD-03975"
             )
             os.makedirs(html_dir)
             with open(os.path.join(html_dir, "MS-ADD-03975-001.html"), "w") as f:

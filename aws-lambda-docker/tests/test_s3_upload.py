@@ -26,16 +26,14 @@ class TestDistToS3Mapping:
         assert mapping["json"] == "json"
         assert mapping["solr-json"] == "solr-json"
         assert mapping["dp-json"] == "dp-json"
-        assert mapping["www/items"] == "html"
-        assert mapping["www/cudl-resources"] == "html/cudl-resources"
+        assert mapping["html"] == "html"
         assert mapping["page-xml"] == "page-xml"
         assert mapping["items"] == "items"
 
-    def test_www_items_maps_to_html_not_www(self) -> None:
-        """Critical mapping: www/items → html (not www → html)."""
+    def test_html_maps_to_html(self) -> None:
+        """Critical mapping: html → html (identity)."""
         mapping = dict(DIST_TO_S3_MAPPING)
-        assert mapping["www/items"] == "html"
-        assert "www" not in mapping  # no bare 'www' prefix
+        assert mapping["html"] == "html"
 
 
 class TestGetContentType:
@@ -100,7 +98,7 @@ class TestUploadDist:
         )
 
         with tempfile.TemporaryDirectory() as dist_dir:
-            html_dir = os.path.join(dist_dir, "www", "items", "data", "tei", "MS-ADD-03975")
+            html_dir = os.path.join(dist_dir, "html", "data", "tei", "MS-ADD-03975")
             os.makedirs(html_dir)
             with open(os.path.join(html_dir, "MS-ADD-03975-001.html"), "w") as f:
                 f.write("<html>test</html>")
@@ -118,7 +116,7 @@ class TestUploadDist:
         )
 
         with tempfile.TemporaryDirectory() as dist_dir:
-            font_dir = os.path.join(dist_dir, "www", "cudl-resources", "fonts")
+            font_dir = os.path.join(dist_dir, "html", "cudl-resources", "fonts")
             os.makedirs(font_dir)
             with open(os.path.join(font_dir, "Cardo.woff2"), "wb") as f:
                 f.write(b"\x00woff2data")
