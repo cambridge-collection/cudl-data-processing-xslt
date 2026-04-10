@@ -15,19 +15,6 @@ services:
       ENABLE_RELEASE_STATUS_METADATA: ${ENABLE_RELEASE_STATUS_METADATA:-false}
       XSLT_FAIL_ON_ERROR: ${XSLT_FAIL_ON_ERROR:-true}
     volumes:
-      - dist:/tmp/opt/cdcp/dist
-      - source:/tmp/opt/cdcp/cudl-data-source
+      - ./dist:/tmp/opt/cdcp/dist
+      - ./data:/tmp/opt/cdcp/cudl-data-source
     entrypoint: ["python", "/var/task/local_runner.py"]
-volumes:
-  dist:
-    driver: local
-    driver_opts:
-      o: bind
-      type: none
-      device: ./dist
-  source:
-    driver: local
-    driver_opts:
-      o: bind
-      type: none
-      device: ./data
