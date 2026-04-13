@@ -15,6 +15,22 @@ Dockerfile
 .idea/
 .vscode/
 
+# Python caches
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Dev tooling caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Tests and dev config (not needed in image)
+tests/
+pyproject.toml
+requirements-dev.txt
+
 # docs
 *.md
 
