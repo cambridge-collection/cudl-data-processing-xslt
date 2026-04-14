@@ -2585,7 +2585,7 @@
          </xsl:call-template>
       </xsl:if>
 
-      <xsl:if test="normalize-space(//tei:revisionDesc)">
+       <xsl:if test="exists(//tei:revisionDesc/tei:change/tei:*[self::tei:persName|self::tei:name|self::tei:orgName][normalize-space(.)])">
          <map key="dataRevisions" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:variable name="dataRevisions">
                <xsl:value-of select="distinct-values(//tei:revisionDesc/tei:change/tei:*[self::tei:persName|self::tei:name|self::tei:orgName][normalize-space(.)])" separator=", "/>
