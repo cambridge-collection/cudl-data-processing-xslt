@@ -89,11 +89,15 @@ def clean_dist() -> None:
     os.makedirs(DIST_DIR, exist_ok=True)
 
 
-def run_ant(config: Config, tei_file: str) -> None:
+def run_ant(config: Config, tei_file: str, *, stream_stdout: bool = False) -> None:
     """Run the Ant build for a TEI file.
 
     Always sets ENVIRONMENT=local so Ant outputs to dist/ locally.
     S3 upload is handled separately by Python/boto3.
+
+    When stream_stdout is True, Ant's stdout goes directly to the
+    terminal for real-time progress. Stderr is still captured for
+    error classification.
     """
     cmd = [
         ANT_BIN,
@@ -114,15 +118,17 @@ def run_ant(config: Config, tei_file: str) -> None:
         "SKIP_COPY_TEI_WEB_ASSETS": config.skip_copy_tei_web_assets,
     }
 
-    result = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    stdout_arg = None if stream_stdout else subprocess.PIPE
+    result = subprocess.run(cmd, env=env, stdout=stdout_arg, stderr=subprocess.PIPE, text=True)
 
-    for line in result.stdout.splitlines():
-        stripped = line.strip()
-        if "[echo]" in stripped:
-            msg = stripped.split("[echo]", 1)[1].strip()
-            logger.info(msg, extra={"source": "ant"})
-        elif stripped:
-            logger.debug(stripped, extra={"source": "ant"})
+    if not stream_stdout:
+        for line in result.stdout.splitlines():
+            stripped = line.strip()
+            if "[echo]" in stripped:
+                msg = stripped.split("[echo]", 1)[1].strip()
+                logger.info(msg, extra={"source": "ant"})
+            elif stripped:
+                logger.debug(stripped, extra={"source": "ant"})
 
     stderr_noise = {"BUILD FAILED", "Total time:"}
     error_lines: list[str] = []
