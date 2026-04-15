@@ -314,6 +314,27 @@
          </boolean>
       </xsl:if>
    </xsl:template>
+    
+    <xsl:template name="get-release-status">
+        <xsl:variable name="default" select="'draft'" as="xsd:string"/>
+        <xsl:variable name="release_status_values" as="xsd:string*">
+            <!-- The regex on date is to allow partial dates like yyyy or yyyy-mm -->
+            <xsl:for-each select="root()/tei:TEI/tei:teiHeader/tei:revisionDesc/tei:change[normalize-space(@status) =('draft','redacted','released')][not(@when) or matches(@when, '^\d{4}(-\d{2})?(-\d{2})?$')]">
+                <xsl:sort select="@when" order="ascending"/>
+                <xsl:sequence select="string(@status)"/>
+            </xsl:for-each>
+        </xsl:variable>
+        
+        <xsl:variable name="logical_tei_status" select="$release_status_values[last()]" as="xsd:string?"/>
+        
+        <boolean key="itemReleased" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="($logical_tei_status = 'released')"/>
+        </boolean>
+        
+        <string key="itemStatus" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="($logical_tei_status, $default)[normalize-space(.)][1]"/>
+        </string>
+    </xsl:template>
 
 
    <xsl:template match="tei:msDesc">
@@ -2701,7 +2722,11 @@
                            </xsl:otherwise>
                         </xsl:choose>
                      </number>
-
+                      
+                     <xsl:if test="position() eq 1">
+                         <xsl:call-template name="get-release-status"/>
+                     </xsl:if>
+                      
                      <xsl:if test="normalize-space(tei:media[@mimeType='transcription_diplomatic']/@url)">
                         <string key="transcriptionDiplomaticURL" xmlns="http://www.w3.org/2005/xpath-functions">
                            <xsl:value-of select="normalize-space(replace(tei:media[@mimeType='transcription_diplomatic']/@url, 'http://services.cudl.lib.cam.ac.uk',''))"/>
@@ -2824,6 +2849,10 @@
                   <number key="sequence" xmlns="http://www.w3.org/2005/xpath-functions">
                      <xsl:value-of select="1"/>
                   </number>
+                  
+                   <xsl:if test="position() eq 1">
+                       <xsl:call-template name="get-release-status"/>
+                   </xsl:if>
                </map>
             </xsl:otherwise>
          </xsl:choose>
