@@ -24,7 +24,8 @@ def main() -> None:
     logger.info("Processing %s (target: %s)", tei_file, config.ant_target)
 
     setup_workspace()
-    run_ant(config, tei_file)
+    stream = logging.getLogger().isEnabledFor(logging.INFO)
+    run_ant(config, tei_file, stream_stdout=stream)
 
     logger.info("Processing complete. Output in dist/")
 
