@@ -204,7 +204,6 @@
          <xsl:if test="//tei:list/tei:item[tei:locus]">
             <xsl:call-template name="make-list-item-pages"/>
          </xsl:if>
-
       </xsl:variable>
 
       <!-- Add doc kind and sort fields to the data, and output the result. -->
