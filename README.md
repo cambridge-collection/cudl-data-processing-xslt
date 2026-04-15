@@ -1,24 +1,28 @@
-# XSLT for item TEI -> JSON processing
+# Cambridge Digital Collection TEI Processing
 
 The code in this repository is used for processing TEI item data into all the formats used by the Cambridge Digital Collections Platform, namely:
 
-1. `core-xml` contains the processed metadata (including html page files and collection information)
-1. `json-dp` contains the JSON files that contain the metadata necessary for items to be processed in Cambridge University Library’s Digital Preservation pipeline.
-1. `json-solr` contains the JSON files that contain the metadata and textual content for indexing in solr.
-1. `json-viewer` contains the JSON files required for the viewer to function
-1. `page-xml` contains TEI XML files for each individual page.
-1. 1. The `www` directory contains html files for every page transcription or translation along with associated UI resources (inline diagrams, css, javascript)
+1. `core-xml` [*Optional*] contains the processed metadata (including html page files and collection information)
+2. `dp-json` contains the JSON files that contain the metadata necessary for items to be processed in Cambridge University Library’s Digital Preservation pipeline.
+3. `html` directory contains html files for every page transcription or translation along with associated UI resources (inline diagrams, css, javascript)
+4. `items` [*Optional*] contains a copy of the original, unmodified, source TEI XML file.
+5. `json` contains the JSON files required for the viewer to function
+6. `page-xml` [*Optional*] contains TEI XML files for each individual page.
+7. `solr-json` contains the JSON files that contain the metadata and textual content for indexing in solr.
 
-The lambda additionally places a copy of the original, unmodified, source TEI XML file into `items`.
+The lambda is a python wrapper that receives S3 notifications that trigger an Apache Ant XSLT transformation build to create all the desired outputs. The python wrapper then uploads them to the destination bucket. It also removes any stale page HTML from that item when their pages are no longer part of the original source file. The lambda handles partial batch failures, distinguishes transient from permanent errors, emits structured JSON logs, and optionally attaches SHA-256 and release-status metadata to uploaded objects to skip unchanged files when copying to the destination bucket.
+
+![Architecture diagram](docs/architecture.svg)
 
 The application is dockerised. There are two versions:
 
-1. One that creates the environment for running in an AWS Lambda. which relies on a wide range of AWS infrastructure to function.
+1. One that creates the environment for running in an AWS Lambda, which relies on a wide range of AWS infrastructure to function.
 2. The other version runs off locally stored data files. This is the version that’s best suited for implementation within a CI/CD system or for running local builds.
 
 ## Prerequisites
 
-- Docker [https://docs.docker.com/get-docker/].
+- [Docker](https://docs.docker.com/get-docker/)
+- Python 3.x (if running tests)
 
 ## Instructions for running the AWS Lambda Development version locally
 
@@ -33,21 +37,30 @@ All other environment variables necessary for CUDL are stored in `.env`, such as
 
 ### Running the AWS container locally
 
-    docker compose -f docker-compose-aws-dev.yml up --build
+```bash
+docker compose -f docker-compose-aws-dev.yml up --build
+```
 
-**NB: ** This `docker-compose-aws-dev.yml` must not be used when building the container for deployment within AWS. Instead, follow the instructions below.
+**NB:** This `docker-compose-aws-dev.yml` must not be used when building the container for deployment within AWS. Instead, follow the instructions below.
+
+Set `LOG_LEVEL=DEBUG` in your `.env` file (or export it) for verbose output when debugging.
 
 ### Processing a file
 
 The AWS Lambda responds to SQS messages. To transform a file, you need to submit a JSON file with the SQS structure with a `POST` request to `http://localhost:9000/2015-03-31/functions/function/invocations`:
 
-    curl -X POST -H 'Content-Type: application/json' 'http://localhost:9000/2015-03-31/functions/function/invocations' --data-binary "@./sample/sns-tei-source-change.json"
+```bash
+curl -X POST \
+  -H 'Content-Type: application/json' \
+  'http://localhost:9000/2015-03-31/functions/function/invocations' \
+  --data-binary "@./test/sns-tei-source-change.json"
+```
 
 Assuming you have the required permissions to access the resources, this container will create all the necessary outputs and, if successful, copy them to their S3 bucket destination.
 
 **NOTE:** The lambda will attempt to download the item mentioned in the sample notification. You will consequently only be able to successfully run this lambda locally after you have successfully logged into AWS and stored your access keys (as above).
 
-This information is coded in escaped JSON contained within the `body` property. If you search for ‘bucket’, you will find the name of the bucket (‘rmm98-sandbox-cudl-data-source’ at present) and the filename is stored within object key property (items/data/tei/MS-ADD-03975/MS-ADD-03975.xml` at present). You will need to update these to buckets/items that exist and which you have access to.
+This information is coded in escaped JSON contained within the `body` property. If you search for ‘bucket’, you will find the name of the bucket (‘rmm98-sandbox-cudl-data-source’ at present) and the filename is stored within object key property (`items/data/tei/MS-ADD-03975/MS-ADD-03975.xml` at present). You will need to update these to buckets/items that exist and which you have access to.
 
 ## Instructions for running the local non-AWS container
 
@@ -64,38 +77,94 @@ You must specify the file you want to process in the environment variable called
  
 To process MS-ADD-03975:
 
-    export TEI_FILE=items/data/tei/MS-ADD-03975/MS-ADD-03975.xml
-    docker compose -f docker-compose-local.yml up --build
+```bash
+export TEI_FILE=items/data/tei/MS-ADD-03975/MS-ADD-03975.xml
+docker compose -f docker-compose-local.yml up --build
+```
 
 `TEI_FILE` also accepts wildcards. The following will rebuild files for MS-ADD-04000 to MS-ADD-04009:
 
-    export TEI_FILE=items/data/tei/**/MS-ADD-0400*.xml
-    docker compose -f docker-compose-local.yml up --build
+```bash
+export TEI_FILE=items/data/tei/**/MS-ADD-0400*.xml
+docker compose -f docker-compose-local.yml up --build
+```
 
 You cannot pass multiple files (with paths) to the container. It only accepts a single file or wildcards.
 
 If the `TEI_FILE` environment variable is not set, the container will assume that you want to process all files (**/*.xml) in `./data`.
 
-## Per-object metadata and conditional uploads
+Set `LOG_LEVEL=DEBUG` in your `.env` file (or export it) for verbose output when debugging.
 
-When enabled, the Lambda attaches user-metadata to each uploaded output object and uses those metadata fields to skip unchanged uploads.
+## Environment variables
 
-### Environment variables
+All compose files inherit from `docker-compose-base.yml`, which loads a `.env` file. Variables marked **Lambda** are used when the container runs as an AWS Lambda. Variables marked **Local compose** only apply when running via `docker-compose-local.yml` or `docker-compose-aws-dev.yml`.
+
+### AWS credentials (needed for local development work)
+
+These are only needed when running the container locally against real AWS resources. In Lambda, the execution role provides credentials automatically.
 
 | Variable | Default | Description |
 |---|---|---|
-| `ENABLE_SHA_METADATA` | `false` | Attach `content-sha256` (hex SHA-256 of the file bytes) to each uploaded object. |
-| `ENABLE_RELEASE_STATUS_METADATA` | `false` | Derive release status from the TEI via XPath and attach `release-status` (`released` or `draft`) to each uploaded object. |
+| `AWS_ACCESS_KEY_ID` | — | AWS access key. |
+| `AWS_SECRET_ACCESS_KEY` | — | AWS secret key. |
+| `AWS_SESSION_TOKEN` | — | Temporary session token (required when using SSO/assumed roles). |
 
-### Behaviour
+### Core processing
+
+| Variable | Default | Scope | Description |
+|---|---|---|---|
+| `AWS_OUTPUT_BUCKET` | `""` | Lambda | S3 bucket for processed outputs. **Required** for Lambda. |
+| `ANT_TARGET` | `full` | Lambda, Local compose | Ant build target to execute. |
+| `ENVIRONMENT` | — | Ant build | Set to `local` by both local compose files. Controls whether Ant copies outputs locally or to S3. |
+| `TEI_FILE` | — | Local compose | Path (relative to `./data`) of the TEI file to process. Accepts wildcards. If unset, all `**/*.xml` files in `./data` are processed. |
+| `XSLT_FAIL_ON_ERROR` | `true` | Lambda, Local compose | Whether the XSLT transform should abort on error. Set to `false` when running bulk transformations locally. Otherwise a malformed TEI would cause the batch to fail entirely. |
+
+### Search / Solr integration
+
+Passed through to the XSLT stylesheets via the Ant build. These variables are used for lookups when indexing an item to determine which collection(s) it belongs to.
+
+| Variable | Default | Scope | Description |
+|---|---|---|---|
+| `SEARCH_HOST` | `""` | Lambda, Local compose | Hostname of the Solr/search service. **Required** for Lambda. Local compose defaults to `host.docker.internal`. |
+| `SEARCH_PORT` | `""` | Lambda, Local compose | Port for the search service. |
+| `SEARCH_COLLECTION_PATH` | `collections` | Lambda, Local compose | URL path segment for the collection endpoint. |
+
+### Skip / feature flags
+
+These flags disable individual processing or copy steps. They all default to options that replicate previous behaviour.
+
+| Variable | Default (Lambda) | Default (Local compose) | Description |
+|---|---|---|---|
+| `SKIP_COPY_TEI_WEB_ASSETS` | `false` | `true` | Skip copying TEI web assets (CSS, fonts) to the output. |
+| `SKIP_PAGE_XML_COPY` | — | `true` | Skip copying page XML files to the output destination. |
+| `SKIP_CORE_XML_COPY` | — | `true` | Skip copying core XML files to the output destination. |
+| `SKIP_TEI_FULL_COPY` | — | `false` | Skip copying the full original TEI files to the output. |
+
+### Per-object metadata and conditional uploads
+
+When enabled, the Lambda attaches user-metadata to each uploaded S3 object and uses those metadata fields to skip unchanged uploads.
+
+| Variable | Default | Scope | Description |
+|---|---|---|---|
+| `ENABLE_SHA_METADATA` | `false` | Lambda, Local compose | Attach `content-sha256` (hex SHA-256 of the file bytes) to each uploaded object. |
+| `ENABLE_RELEASE_STATUS_METADATA` | `false` | Lambda, Local compose | Derive release status from the TEI via XPath and attach `release-status` (`released` or `draft`) to each uploaded object. |
+
+**Behaviour:**
 
 - When both flags are `false`, all outputs are uploaded unconditionally (original behaviour).
-- In all cases, if the destination object itself is missing, it is uploaded regardless of flag state.
-- When one or both flags are enabled, the Lambda compares only the enabled metadata fields against the destination object:
-  - If any enabled field is missing or different on the destination, the file is uploaded with the new metadata.
-  - If all enabled fields are present and match, the upload is skipped for that file.
-- Disabled metadata fields are never generated, read, or compared.
-- Release status is derived from the TEI in Python using Saxon XPath evaluation (`exists(/tei:TEI/tei:teiHeader/tei:revisionDesc/tei:change[@status='released'])`). It is only evaluated when `ENABLE_RELEASE_STATUS_METADATA=true`.
+- If the destination object itself is missing, it is always uploaded regardless of flag state.
+- When one or both flags are enabled, the Lambda compares only the enabled metadata fields against the destination object. The file is uploaded if:
+  - the file is missing on the destination
+  - any enabled field is missing or different on the destination
+- If all enabled fields are present and match, the upload is skipped for that file.
+
+### Monitoring and logging
+
+| Variable | Default | Scope | Description |
+|---|---|---|---|
+| `LOG_LEVEL` | `INFO` | Lambda, Local compose | Logging level for structured JSON logs (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`). When running locally at `INFO` level (the default), Ant's stdout is streamed directly to the terminal in real time. At other log levels, stdout is captured and processed through the structured logger. |
+| `EMIT_EMF_METRICS` | `false` | Lambda | Emit [CloudWatch Embedded Metric Format](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Embedded_Metric_Format_Specification.html) metrics. |
+| `LAMBDA_TIMEOUT_MARGIN_MS` | `5000` | Lambda | Milliseconds of execution time to reserve before the Lambda timeout, used to allow graceful shutdown. This will only be useful when the lambda has a batch size larger than 1. Before processing an item, the lambda checks how many ms remain until the lambda will be destroyed. If it is less than `LAMBDA_TIMEOUT_MARGIN_MS`, it will fail gracefully and return the unprocessed items as batch failures so they can be processed in a later batch. |
 
 ## Stale page HTML cleanup
 
@@ -107,30 +176,56 @@ When an existing TEI item is reprocessed via an `ObjectCreated` event, the Lambd
 - If the current build produces no page HTML for the item, all existing page HTML for that item is removed.
 - If the upload step fails, stale-page reconciliation does not run.
 
-## Building the container for the ECR.
+## Building the container for the ECR
 
-Log into AWS in your shell and have your credentials stored in `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN`. Then, run the following commands:
-
-    $ cd aws-lambda-docker
-    $ aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 563181399728.dkr.ecr.eu-west-1.amazonaws.com
-    $ docker build -t cudl-tei-processing --platform linux/amd64 .
-    $ docker tag cudl-tei-processing:latest 563181399728.dkr.ecr.eu-west-1.amazonaws.com/cudl-tei-processing:latest
-    $ docker push 563181399728.dkr.ecr.eu-west-1.amazonaws.com/cudl-tei-processing:latest
+Log into AWS in your shell and have your credentials stored in `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN`. Then, run the commands specified by the container registry. Don't forget to add `--platform linux/amd64` when building the image itself.
 
 ## Tests
 
-The test suite checks that:
+Tests use [pytest](https://docs.pytest.org/) and live in `aws-lambda-docker/tests/`.
 
-- each JSON file is syntactically valid
-- links to transcripts within the JSON resolve to an existing html file 
-- each html file is pointed to by links within the JSON
+To run the tests, you need to have python3 installed. If on OSX, I'd recommend using homebrew:
 
-Run the tests locally using:
+Install [Homebrew](https://brew.sh/) if you don't already have it:
 
-    ant -buildfile bin/test.xml
-    
-This command initiates a full build of the transcripts and json before running the tests. If you have already built the transcripts and json and wish only to run the tests, use:
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
 
-    ant -buildfile bin/build.xml "tests-only"
-    
-The results of the test are written to ./test.log
+Install the latest Python 3 and virtualenv:
+
+```bash
+brew update
+brew install python@3
+brew install virtualenv
+```
+
+Confirm the Homebrew Python is being used:
+
+```bash
+which python3
+# Expected: /opt/homebrew/bin/python3.xx (Apple Silicon) or /usr/local/bin/python3.xx (Intel)
+```
+
+Where xx is the specific version number of your install of python3.
+
+Create and activate a virtual environment:
+
+```bash
+virtualenv -p python3 venv
+source venv/bin/activate
+```
+
+To run the unit tests:
+
+```bash
+cd aws-lambda-docker
+pip install -e ".[dev]"
+pytest
+```
+
+Integration tests (marked `integration`) require a running Docker daemon and are excluded by default. To include them:
+
+```bash
+pytest -m integration
+```

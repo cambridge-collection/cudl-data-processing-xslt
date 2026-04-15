@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 495" font-family="'Segoe UI', Arial, sans-serif" font-size="13">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#555"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#c0392b"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="495" rx="8" fill="#f8f9fa" stroke="#dee2e6" stroke-width="1"/>
+
+  <!-- Title -->
+  <text x="450" y="32" text-anchor="middle" font-size="18" font-weight="bold" fill="#212529">TEI Processing Pipeline</text>
+
+  <!-- S3 Source Bucket -->
+  <rect x="30" y="70" width="150" height="60" rx="6" fill="#ff9900" stroke="#e68a00" stroke-width="1.5"/>
+  <text x="105" y="96" text-anchor="middle" fill="#fff" font-weight="bold" font-size="14">S3</text>
+  <text x="105" y="114" text-anchor="middle" fill="#fff" font-size="11">Source Bucket</text>
+
+  <!-- S3 event arrow -->
+  <line x1="180" y1="100" x2="240" y2="100" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="210" y="90" text-anchor="middle" fill="#555" font-size="10">S3 event</text>
+
+  <!-- SQS -->
+  <rect x="245" y="70" width="120" height="60" rx="6" fill="#ff4f8b" stroke="#e0447a" stroke-width="1.5"/>
+  <text x="305" y="96" text-anchor="middle" fill="#fff" font-weight="bold" font-size="14">SQS</text>
+  <text x="305" y="114" text-anchor="middle" fill="#fff" font-size="11">Queue</text>
+
+  <!-- SQS to Lambda arrow -->
+  <line x1="365" y1="100" x2="425" y2="100" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Lambda boundary -->
+  <rect x="430" y="50" width="440" height="345" rx="8" fill="#fff" stroke="#adb5bd" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="650" y="74" text-anchor="middle" fill="#6c757d" font-size="12" font-style="italic">AWS Lambda</text>
+
+  <!-- Python Handler -->
+  <rect x="455" y="85" width="390" height="55" rx="6" fill="#306998" stroke="#264d73" stroke-width="1.5"/>
+  <text x="650" y="110" text-anchor="middle" fill="#ffd43b" font-weight="bold" font-size="14">Python Handler</text>
+  <text x="650" y="128" text-anchor="middle" fill="#ffffffcc" font-size="10">event parsing, S3 I/O, error handling, logging, metrics</text>
+
+  <!-- Arrow from Python to S3 download -->
+  <line x1="530" y1="140" x2="530" y2="165" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- S3 Download step -->
+  <rect x="460" y="170" width="140" height="40" rx="5" fill="#e8f4f8" stroke="#5dade2" stroke-width="1.2"/>
+  <text x="530" y="195" text-anchor="middle" fill="#2471a3" font-size="12">Download TEI</text>
+
+  <!-- Arrow to Ant -->
+  <line x1="530" y1="210" x2="530" y2="240" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Ant / XSLT -->
+  <rect x="460" y="245" width="140" height="50" rx="5" fill="#f9e79f" stroke="#f4d03f" stroke-width="1.5"/>
+  <text x="530" y="267" text-anchor="middle" fill="#7d6608" font-weight="bold" font-size="13">Apache Ant</text>
+  <text x="530" y="284" text-anchor="middle" fill="#9a7d0a" font-size="10">XSLT Transforms</text>
+
+  <!-- Arrow from Ant to outputs -->
+  <line x1="600" y1="270" x2="660" y2="270" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Outputs box -->
+  <rect x="665" y="170" width="140" height="135" rx="5" fill="#eafaf1" stroke="#58d68d" stroke-width="1.2"/>
+  <text x="735" y="190" text-anchor="middle" fill="#1e8449" font-weight="bold" font-size="12">Outputs</text>
+  <text x="735" y="208" text-anchor="middle" fill="#27ae60" font-size="10">json</text>
+  <text x="735" y="222" text-anchor="middle" fill="#27ae60" font-size="10">solr-json</text>
+  <text x="735" y="236" text-anchor="middle" fill="#27ae60" font-size="10">dp-json</text>
+  <text x="735" y="250" text-anchor="middle" fill="#27ae60" font-size="10">html</text>
+  <text x="735" y="264" text-anchor="middle" fill="#27ae60" font-size="10">core-xml / page-xml</text>
+  <text x="735" y="278" text-anchor="middle" fill="#27ae60" font-size="10">items</text>
+  <text x="735" y="296" text-anchor="middle" fill="#1e8449" font-size="9" font-style="italic">+ SHA / release metadata</text>
+
+  <!-- Arrow from outputs to S3 upload -->
+  <line x1="735" y1="305" x2="735" y2="340" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="765" y="328" fill="#555" font-size="10">upload</text>
+
+  <!-- Upload to S3 box inside lambda -->
+  <rect x="455" y="345" width="390" height="30" rx="4" fill="#d5f5e3" stroke="#58d68d" stroke-width="1"/>
+  <text x="650" y="364" text-anchor="middle" fill="#1e8449" font-size="10">S3 Upload (thread pool) + stale page reconciliation</text>
+
+  <!-- S3 Destination Bucket -->
+  <rect x="30" y="340" width="150" height="60" rx="6" fill="#ff9900" stroke="#e68a00" stroke-width="1.5"/>
+  <text x="105" y="366" text-anchor="middle" fill="#fff" font-weight="bold" font-size="14">S3</text>
+  <text x="105" y="384" text-anchor="middle" fill="#fff" font-size="11">Destination Bucket</text>
+
+  <!-- Arrow from upload bar to S3 Destination -->
+  <line x1="455" y1="355" x2="185" y2="355" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="310" y="349" text-anchor="middle" fill="#555" font-size="10">threaded upload</text>
+
+  <!-- Stale cleanup arrow from upload bar to S3 Destination -->
+  <line x1="455" y1="370" x2="185" y2="370" stroke="#c0392b" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#arrow-red)"/>
+  <text x="310" y="390" text-anchor="middle" fill="#c0392b" font-size="10">delete stale page HTML</text>
+
+  <!-- CloudWatch -->
+  <rect x="30" y="203" width="150" height="55" rx="6" fill="#7b68ee" stroke="#6a5acd" stroke-width="1.5"/>
+  <text x="105" y="226" text-anchor="middle" fill="#fff" font-weight="bold" font-size="13">CloudWatch</text>
+  <text x="105" y="244" text-anchor="middle" fill="#ffffffcc" font-size="10">Logs + EMF Metrics</text>
+
+  <!-- Arrow from Lambda to CloudWatch -->
+  <line x1="430" y1="230" x2="185" y2="230" stroke="#7b68ee" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+  <!-- Legend -->
+  <rect x="30" y="450" width="840" height="35" rx="5" fill="#f1f3f5" stroke="#dee2e6" stroke-width="1"/>
+  <line x1="50" y1="470" x2="90" y2="470" stroke="#555" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="97" y="474" fill="#555" font-size="11">Data flow</text>
+  <line x1="200" y1="470" x2="240" y2="470" stroke="#c0392b" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#arrow-red)"/>
+  <text x="247" y="474" fill="#555" font-size="11">Cleanup</text>
+  <line x1="340" y1="470" x2="380" y2="470" stroke="#7b68ee" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <text x="387" y="474" fill="#555" font-size="11">Observability</text>
+  <rect x="490" y="463" width="16" height="14" rx="3" fill="#fff" stroke="#adb5bd" stroke-width="1" stroke-dasharray="4,2"/>
+  <text x="512" y="474" fill="#555" font-size="11">Lambda boundary</text>
+</svg>
