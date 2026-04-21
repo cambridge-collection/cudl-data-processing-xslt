@@ -77,7 +77,7 @@
          <xsl:text>Cambridge University Library</xsl:text>
       </json:string>
       
-         <json:boolean key="CopyToPreservation">
+      <json:boolean key="CopyToPreservation">
          <xsl:value-of select="true()"/>
       </json:boolean>     
       
