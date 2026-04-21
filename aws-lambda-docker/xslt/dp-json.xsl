@@ -13,6 +13,9 @@
       <xsl:variable name="result" as="item()">
          <xsl:copy>
             <xsl:apply-templates select="json:array[@key='descriptiveMetadata']/json:map[1]"/>
+            <xsl:if test="exists(json:array[@key='pages']/json:map[json:string[@key='IIIFImageURL'][normalize-space(.)]])">
+               <xsl:apply-templates select="json:array[@key='pages']"/>
+            </xsl:if>
          </xsl:copy>
       </xsl:variable>
       
@@ -78,6 +81,16 @@
          <xsl:value-of select="true()"/>
       </json:boolean>     
       
+   </xsl:template>
+   
+   <xsl:template match="/json:map/json:array[@key='pages']">
+      <json:array key="images">
+         <xsl:for-each select="json:map/json:string[@key='IIIFImageURL'][normalize-space(.)]">
+            <json:string>
+               <xsl:value-of select="normalize-space(.)"/>
+            </json:string>
+         </xsl:for-each>
+      </json:array>
    </xsl:template>
    
    <xsl:variable name="target_keys" select="('abstract', 'title', 'shelfLocator', 'publishers', 'subjects', 'authors')"/>
