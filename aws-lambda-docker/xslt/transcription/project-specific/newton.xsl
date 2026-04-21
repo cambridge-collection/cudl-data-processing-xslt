@@ -15,6 +15,8 @@
   <xsl:key name="anchor-targetting-elems" match="tei:delSpan[@target]|tei:note[@target]" use="tokenize(normalize-space(@target),'\s+')"/>
   <!-- Merge these keys? -->
   
+  <xsl:template match="tei:metamark[$project_name='newton project']" mode="#all"/>
+  
   <xsl:template match="tei:g[@type='unknownSymbol'][$project_name='newton project']" mode="#all">
     <span class="flag" title="Symbol in text">
       <xsl:apply-templates mode="#current"/>
