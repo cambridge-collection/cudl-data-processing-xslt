@@ -21,6 +21,8 @@
 
    <xsl:param name="path_to_buildfile" as="xsd:string*" required="no"/>
 
+   <xsl:param name="tei-sha-dir" as="xsd:string?" select="()"/>
+
    <xsl:variable name="clean_dest_dir" select="cudl:path-to-directory($dest_dir, $path_to_buildfile)"/>
    <xsl:variable name="clean_data_dir" select="cudl:path-to-directory($data_dir, $path_to_buildfile)"/>
 
@@ -181,6 +183,16 @@
          <string key="fileID" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="$fileID"/>
          </string>
+         <xsl:if test="$tei-sha-dir">
+            <xsl:variable name="src-path" select="replace(document-uri(/), '^file:/+', '/')"/>
+            <xsl:variable name="rel" select="substring-after($src-path, $clean_data_dir)"/>
+            <xsl:variable name="sha-uri" select="concat('file://', $tei-sha-dir, $rel, '.sha256')"/>
+            <xsl:if test="unparsed-text-available($sha-uri)">
+               <string key="teiSha256" xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="normalize-space(unparsed-text($sha-uri))"/>
+               </string>
+            </xsl:if>
+         </xsl:if>
          <xsl:call-template name="get-collection"/>
          <xsl:call-template name="get-numberOfPages"/>
          <xsl:call-template name="get-embeddable"/>
