@@ -131,6 +131,21 @@
 
         <fileset id="original_xml" dir="${data.dir}" includes="${files-to-process}" />
 
+        <!-- Optionally compute per-file SHA-256 sidecars. Each sidecar lives
+             at ${tei-sha-dir.abs}/<relative-source-path>.sha256 (mirroring
+             the source layout under data.dir). msTeiPreFilter.xsl reads its
+             own file's sidecar via unparsed-text() during the transform.
+             Sidecars are deleted after <xslt> completes. -->
+        <condition property="tei-sha.enabled">
+            <istrue value="${env.ENABLE_TEI_SHA_IN_CORE_XML}"/>
+        </condition>
+       <echo message="Generating SHA" if:set="tei-sha.enabled"/>
+        <property name="tei-sha-dir.abs" location="${tmp.dir}/tei-sha"/>
+        <mkdir if:set="tei-sha.enabled" dir="${tei-sha-dir.abs}"/>
+        <checksum if:set="tei-sha.enabled" algorithm="SHA-256" fileext=".sha256" todir="${tei-sha-dir.abs}" forceoverwrite="yes" format="CHECKSUM">
+            <fileset refid="original_xml"/>
+        </checksum>
+
         <xslt destdir="${core_xml.pending.dir}" style="../xslt/msTeiPreFilter.xsl" force="true" useimplicitfileset="false" extension=".xml" reloadstylesheet="true" failOnError="${xslt.fail.on.error}" failOnTransformationError="${xslt.fail.on.error}">
             <fileset refid="original_xml"/>
             <factory name="net.sf.saxon.TransformerFactoryImpl">
@@ -144,7 +159,10 @@
             <param name="SEARCH_HOST" expression="${SEARCH_HOST}"/>
             <param name="SEARCH_PORT" expression="${SEARCH_PORT}"/>
             <param name="SEARCH_COLLECTION_PATH" expression="${SEARCH_COLLECTION_PATH}"/>
+            <param name="tei-sha-dir" expression="${tei-sha-dir.abs}" if="tei-sha.enabled"/>
         </xslt>
+
+        <delete if:set="tei-sha.enabled" dir="${tei-sha-dir.abs}"/>
     </target>
 
     <target name="_json" depends="_viewer-json, _solr-json, _dp-json"/>

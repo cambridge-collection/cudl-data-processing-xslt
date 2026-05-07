@@ -158,6 +158,19 @@ When enabled, the Lambda attaches user-metadata to each uploaded S3 object and u
   - any enabled field is missing or different on the destination
 - If all enabled fields are present and match, the upload is skipped for that file.
 
+### Embedded TEI SHA
+
+This flag adds a top-level field (`teiSha256`) containing the TEI item's SHA-256 into the core-xml metadata file, which is then inherited by the downstream solr, viewer and digital preservation json files.
+
+| Variable | Default | Scope | Description |
+|---|---|---|---|
+| `ENABLE_TEI_SHA_IN_CORE_XML` | `false` | Lambda, Local compose | Embed the hex SHA-256 of the source TEI bytes as a top-level `teiSha256` field in core-xml. The hash matches the `content-sha256` user-metadata that `ENABLE_SHA_METADATA` sets on `items/data/tei/<file>.xml` in the output bucket, so consumers can reconcile a derived JSON record against its source TEI without an extra `HEAD` call. It can also be used to track content changes in external systems consuming the data. |
+
+**Behaviour:**
+
+- When unset or set to `false` (default), nothing is computed and no `teiSha256` field appears in any output, preserving backwards-compatibility.
+- When `true`, Ant's `<checksum>` task writes one `.sha256` sidecar per source TEI to a tmp directory. `msTeiPreFilter.xsl` reads its own file's sidecar via `unparsed-text()` during the transform and emits `teiSha256` at the top of core-xml. Sidecars are deleted once the transform completes. Per-file SHAs are emitted correctly for both single-file (Lambda; local with a concrete `TEI_FILE`) and wildcard (`TEI_FILE=items/data/tei/**/*.xml`) invocations. The flag is read directly by Ant — no Python orchestration is involved.
+
 ### Monitoring and logging
 
 | Variable | Default | Scope | Description |
