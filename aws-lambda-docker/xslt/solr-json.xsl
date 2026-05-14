@@ -271,6 +271,8 @@
       <xsl:attribute name="key" select="concat('document', cudl:capitalise-first(.))"/>
    </xsl:template>
    
+   <xsl:template match="/json:map/json:string[@key='sourceTEI']"/>
+   
    <xsl:function name="cudl:write-displayForm" as="item()*">
       <xsl:param name="key-name"/>
       <xsl:param name="nodes"/>

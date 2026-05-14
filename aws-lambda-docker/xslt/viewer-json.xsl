@@ -23,6 +23,9 @@
       </xsl:copy>
    </xsl:template>
    
-   <xsl:template match="json:map[@key = ('transcription_content', 'translation_content')]| json:boolean[@key = ('unpaginatedAdditionalPb', 'itemAppearsInMultipleCollections')]|json:number[@key='itemCollectionCount']"/>
+   <xsl:template match="json:map[@key = ('transcription_content', 'translation_content')]|
+      json:boolean[@key = ('unpaginatedAdditionalPb', 'itemAppearsInMultipleCollections')]|
+      json:number[@key='itemCollectionCount']|
+      /json:map/json:string[@key='sourceTEI']"/>
   
 </xsl:stylesheet>
