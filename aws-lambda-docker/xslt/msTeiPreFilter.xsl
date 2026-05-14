@@ -183,8 +183,11 @@
          <string key="fileID" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:value-of select="$fileID"/>
          </string>
+         <xsl:variable name="src-path" select="replace(document-uri(/), '^file:/+', '/')"/>
+         <string key="sourceTEI" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="replace(normalize-space($src-path),'^.+?cudl-data-source/', '')"/>
+         </string>
          <xsl:if test="$tei-sha-dir">
-            <xsl:variable name="src-path" select="replace(document-uri(/), '^file:/+', '/')"/>
             <xsl:variable name="rel" select="substring-after($src-path, $clean_data_dir)"/>
             <xsl:variable name="sha-uri" select="concat('file://', $tei-sha-dir, $rel, '.sha256')"/>
             <xsl:if test="unparsed-text-available($sha-uri)">

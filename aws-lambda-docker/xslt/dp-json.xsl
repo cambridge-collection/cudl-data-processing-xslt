@@ -31,7 +31,8 @@
       <json:string key="filename">
          <xsl:value-of select="replace(tokenize(document-uri(/), '/')[last()], '\.xml', '', 'i')"/>
       </json:string>
-
+      
+      <xsl:copy-of select="/json:map/json:string[@key='sourceTEI']"/>
       <xsl:copy-of select="/json:map/json:string[@key='teiSha256']"/>
 
       <xsl:apply-templates select="json:map[@key='abstract']"/>
