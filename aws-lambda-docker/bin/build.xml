@@ -452,7 +452,7 @@
     </target>
 
     <target name="_copy_to_dist">
-        <copy todir="${dist.dir}">
+        <copy todir="${dist.dir}" includeEmptyDirs="false">
             <fileset dir="${dist-pending.dir}">
                 <include name="**/*"/>
             </fileset>
