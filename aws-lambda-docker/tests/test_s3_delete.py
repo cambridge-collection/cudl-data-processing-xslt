@@ -30,7 +30,7 @@ class TestDeleteOutputs:
             "solr-json/MS-ADD-03975.json",
             "dp-json/MS-ADD-03975.json",
             f"core-xml/{TEI_FILE}",
-            f"items/{TEI_FILE}",
+            TEI_FILE,
         ]
         for key in expected_keys:
             s3.put_object(Bucket=BUCKET, Key=key, Body=b"data")

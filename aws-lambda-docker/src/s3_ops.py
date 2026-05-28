@@ -313,7 +313,7 @@ def delete_outputs(bucket: str, tei_file: str) -> None:
         f"solr-json/{filename}.json",
         f"dp-json/{filename}.json",
         f"core-xml/{tei_file}",
-        f"items/{tei_file}",
+        tei_file,
     ]
 
     for key in direct_keys:
