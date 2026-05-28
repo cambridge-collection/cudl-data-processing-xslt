@@ -219,9 +219,7 @@ def upload_dist(
             s3_key = futures[future]
             exc = future.exception()
             if exc is not None:
-                logger.error(
-                    "Upload failed: %s", s3_key, extra={"context": {"error": str(exc)}}
-                )
+                logger.error("Upload failed: %s", s3_key, extra={"context": {"error": str(exc)}})
                 errors.append(s3_key)
             elif future.result():
                 uploaded += 1
@@ -237,9 +235,7 @@ def upload_dist(
         )
         raise TransientError(f"{len(errors)}/{len(uploads)} uploads failed: {errors}")
 
-    logger.info(
-        "Upload complete: %d uploaded, %d skipped (unchanged)", uploaded, skipped
-    )
+    logger.info("Upload complete: %d uploaded, %d skipped (unchanged)", uploaded, skipped)
 
 
 def reconcile_stale_page_html(
@@ -295,9 +291,7 @@ def reconcile_stale_page_html(
             batch = to_delete[i : i + 1000]
             s3.delete_objects(Bucket=bucket, Delete={"Objects": batch})
     except ClientError as e:
-        raise TransientError(
-            f"Stale page HTML reconciliation failed for {tei_file}: {e}"
-        ) from e
+        raise TransientError(f"Stale page HTML reconciliation failed for {tei_file}: {e}") from e
 
 
 def delete_outputs(bucket: str, tei_file: str) -> None:
