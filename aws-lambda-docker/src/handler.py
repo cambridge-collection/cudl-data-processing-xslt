@@ -6,6 +6,7 @@ must have ``FunctionResponseTypes: ["ReportBatchItemFailures"]`` enabled.
 
 from __future__ import annotations
 
+import faulthandler
 import json
 import logging
 from typing import Any
@@ -19,6 +20,9 @@ from s3_ops import delete_outputs, download_file, reconcile_stale_page_html, upl
 from tei import resolve_release_status
 
 configure_logging()
+# Dump a C-level traceback to stderr on native faults (SIGSEGV/SIGABRT/etc.)
+# that bypass Python exception handling and surface only as Runtime.ExitError.
+faulthandler.enable()
 logger = logging.getLogger(__name__)
 
 
@@ -74,9 +78,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                         }
                     },
                 )
-                batch_item_failures.extend(
-                    {"itemIdentifier": mid} for mid in ids
-                )
+                batch_item_failures.extend({"itemIdentifier": mid} for mid in ids)
                 break
 
         message_id = record["messageId"]
@@ -93,7 +95,8 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 {"message_id": message_id, "event_type": event_type, "tei_file": tei_file}
             )
 
-            logger.info(
+            # WARNING so that it will be present on a Runtime.ExitError.
+            logger.warning(
                 "Processing event",
                 extra={
                     "context": {
@@ -154,7 +157,8 @@ def _handle_created(config: Config, s3_bucket: str, tei_file: str) -> None:
         clean_dist()
         clean_source_workspace()
 
-    logger.info(
+    # WARNING so that it will be present on a Runtime.ExitError.
+    logger.warning(
         "Finished processing",
         extra={"context": {"bucket": s3_bucket, "tei_file": tei_file}},
     )
