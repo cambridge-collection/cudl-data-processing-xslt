@@ -137,7 +137,7 @@ def run_ant(config: Config, tei_file: str, *, stream_stdout: bool = False) -> No
             stripped = line.strip()
             if stripped and not any(stripped.startswith(n) for n in stderr_noise):
                 error_lines.append(stripped)
-                logger.error(stripped, extra={"source": "ant"})
+                logger.debug(stripped, extra={"source": "ant"})
 
     if result.returncode != 0:
         error_cls = _classify_error(error_lines)
@@ -150,7 +150,9 @@ def run_ant(config: Config, tei_file: str, *, stream_stdout: bool = False) -> No
             "error_type": error_cls.__name__,
         }
         logger.error("Ant build failed", extra={"context": build_context})
+        # stderr detail is captured structurally in build_context above, so the
+        # exception message stays concise to avoid re-embedding it in the
+        # handler's traceback log.
         raise error_cls(
-            f"Ant build failed for {tei_file} (exit {result.returncode}): "
-            + "; ".join(error_lines[:3])
+            f"Ant build failed for {tei_file} (exit {result.returncode})"
         )

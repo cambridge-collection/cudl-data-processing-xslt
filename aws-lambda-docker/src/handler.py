@@ -81,6 +81,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
         message_id = record["messageId"]
         event_type = "unknown"
+        tei_file: str | None = None
         try:
             event_name, s3_bucket, tei_file = _parse_record(record)
             event_type = event_name.split(":")[0] if ":" in event_name else event_name
@@ -105,12 +106,30 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 raise PermanentError(f"Unsupported event: {event_name}")
 
         except PermanentError:
-            logger.exception("Permanent failure for %s", message_id)
+            logger.exception(
+                "Permanent failure",
+                extra={
+                    "context": {
+                        "message_id": message_id,
+                        "event_type": event_type,
+                        "tei_file": tei_file,
+                    }
+                },
+            )
             batch_item_failures.append({"itemIdentifier": message_id})
             if config.emit_emf_metrics:
                 emit_error_metric(event_type, "permanent")
         except Exception:
-            logger.exception("Transient/unexpected failure for %s", message_id)
+            logger.exception(
+                "Transient/unexpected failure",
+                extra={
+                    "context": {
+                        "message_id": message_id,
+                        "event_type": event_type,
+                        "tei_file": tei_file,
+                    }
+                },
+            )
             batch_item_failures.append({"itemIdentifier": message_id})
             if config.emit_emf_metrics:
                 emit_error_metric(event_type, "transient")
