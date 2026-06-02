@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import boto3
+import pytest
+from botocore.exceptions import ClientError
 from moto import mock_aws
 
+from exceptions import PermanentError, TransientError
 from s3_ops import delete_outputs
 
 BUCKET = "test-output-bucket"
@@ -98,3 +103,35 @@ class TestDeleteOutputs:
         """Deleting from an empty bucket should not raise."""
         self._setup_bucket()
         delete_outputs(BUCKET, TEI_FILE)  # should not raise
+
+
+class TestDeleteOutputsFailures:
+    """A genuine delete failure must fail the record, classified by error code."""
+
+    def _mock_s3(self, delete_error_code: str) -> MagicMock:
+        """An S3 client whose direct deletes fail and whose pattern lists are empty."""
+        mock_s3 = MagicMock()
+        mock_s3.delete_object.side_effect = ClientError(
+            {"Error": {"Code": delete_error_code, "Message": "boom"}},
+            "DeleteObject",
+        )
+        mock_paginator = MagicMock()
+        mock_paginator.paginate.return_value = []
+        mock_s3.get_paginator.return_value = mock_paginator
+        return mock_s3
+
+    def test_permanent_code_raises_permanent(self) -> None:
+        mock_s3 = self._mock_s3("AccessDenied")
+        with (
+            patch("s3_ops._s3_client", return_value=mock_s3),
+            pytest.raises(PermanentError, match="Failed to delete"),
+        ):
+            delete_outputs(BUCKET, TEI_FILE)
+
+    def test_transient_code_raises_transient(self) -> None:
+        mock_s3 = self._mock_s3("SlowDown")
+        with (
+            patch("s3_ops._s3_client", return_value=mock_s3),
+            pytest.raises(TransientError, match="Failed to delete"),
+        ):
+            delete_outputs(BUCKET, TEI_FILE)

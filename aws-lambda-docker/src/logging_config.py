@@ -2,11 +2,35 @@
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import os
 import sys
 from datetime import datetime, timezone
+
+# Correlation fields merged into every log record by ContextFilter, so they need
+# not be threaded through every function signature. Set per SQS record in handler.
+log_context: contextvars.ContextVar[dict[str, object] | None] = contextvars.ContextVar(
+    "log_context", default=None
+)
+
+
+class ContextFilter(logging.Filter):
+    """Merge the ambient ``log_context`` into each record's ``context`` field.
+
+    Fields explicitly passed via ``extra={"context": {...}}`` take precedence
+    over the ambient values.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        ambient = log_context.get()
+        if ambient:
+            explicit = getattr(record, "context", None)
+            record.context = (
+                {**ambient, **explicit} if isinstance(explicit, dict) else dict(ambient)
+            )
+        return True
 
 
 class JSONFormatter(logging.Formatter):
@@ -51,4 +75,5 @@ def configure_logging(*, level: int | None = None) -> None:
 
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(JSONFormatter())
+    handler.addFilter(ContextFilter())
     root.addHandler(handler)

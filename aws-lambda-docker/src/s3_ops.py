@@ -294,10 +294,26 @@ def reconcile_stale_page_html(
         raise TransientError(f"Stale page HTML reconciliation failed for {tei_file}: {e}") from e
 
 
+def _log_delete_failure(bucket: str, key: str, code: str, error: str) -> dict[str, str]:
+    """Log a single delete failure at ERROR and return it for aggregation."""
+    logger.error(
+        "Failed to delete object",
+        extra={"context": {"bucket": bucket, "key": key, "error_code": code, "error": error}},
+    )
+    return {"key": key, "error_code": code}
+
+
 def delete_outputs(bucket: str, tei_file: str) -> None:
     """Delete all derived outputs for a TEI file from S3.
 
-    Deletes both released and unreleased items.
+    Deletes both released and unreleased items. Delete failures are collected
+    across all keys and re-raised once at the end (rather than swallowed) so a
+    genuine failure fails the SQS record: transient errors retry, permanent
+    ones (e.g. AccessDenied) exhaust their receive count and reach the DLQ.
+
+    Missing keys are not failures — S3 DeleteObject is idempotent and succeeds
+    for keys that do not exist, which is expected here since not every derived
+    key exists for every item.
     """
     s3 = _s3_client()
     filename = os.path.splitext(os.path.basename(tei_file))[0]
@@ -314,17 +330,33 @@ def delete_outputs(bucket: str, tei_file: str) -> None:
     ]
     direct_keys += [f"unreleased/{key}" for key in direct_keys]
 
+    failures: list[dict[str, str]] = []
+
     for key in direct_keys:
         logger.info("Deleting s3://%s/%s", bucket, key)
         try:
             s3.delete_object(Bucket=bucket, Key=key)
         except ClientError as e:
-            logger.warning("Failed to delete s3://%s/%s: %s", bucket, key, e)
+            failures.append(
+                _log_delete_failure(bucket, key, e.response["Error"].get("Code", ""), str(e))
+            )
 
     # Pattern-based deletions (HTML and page-xml with glob patterns)
     for prefix in ("", "unreleased/"):
-        _delete_matching(s3, bucket, f"{prefix}html/{html_inner_path}/", f"{filename}-*.html")
-        _delete_matching(s3, bucket, f"{prefix}page-xml/{containing_dir}/", f"{filename}-*.xml")
+        failures += _delete_matching(
+            s3, bucket, f"{prefix}html/{html_inner_path}/", f"{filename}-*.html"
+        )
+        failures += _delete_matching(
+            s3, bucket, f"{prefix}page-xml/{containing_dir}/", f"{filename}-*.xml"
+        )
+
+    if failures:
+        codes = {f["error_code"] for f in failures}
+        # All-permanent codes can't succeed on retry, so PermanentError routes to the DLQ.
+        error_cls = PermanentError if codes <= _PERMANENT_S3_CODES else TransientError
+        raise error_cls(
+            f"Failed to delete {len(failures)} output(s) for {tei_file} (codes: {sorted(codes)})"
+        )
 
 
 def _delete_matching(
@@ -332,25 +364,51 @@ def _delete_matching(
     bucket: str,
     prefix: str,
     pattern: str,
-) -> None:
-    """Delete S3 objects matching a prefix and filename glob pattern."""
+) -> list[dict[str, str]]:
+    """Delete S3 objects matching a prefix and filename glob pattern.
+
+    Returns a list of ``{key, error_code}`` dicts for objects that could not be
+    deleted (each already logged at ERROR), so the caller can aggregate them.
+    """
     paginator = s3.get_paginator("list_objects_v2")
     to_delete: list[ObjectIdentifierTypeDef] = []
 
-    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
-        for obj in page.get("Contents", []):
-            key = obj["Key"]
-            if fnmatch(os.path.basename(key), pattern):
-                to_delete.append({"Key": key})
+    try:
+        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+            for obj in page.get("Contents", []):
+                key = obj["Key"]
+                if fnmatch(os.path.basename(key), pattern):
+                    to_delete.append({"Key": key})
+    except ClientError as e:
+        # Listing failed, so the keys are unknown: report the prefix itself.
+        return [_log_delete_failure(bucket, prefix, e.response["Error"].get("Code", ""), str(e))]
 
-    if to_delete:
-        logger.info(
-            "Deleting %d objects matching %s%s from s3://%s",
-            len(to_delete),
-            prefix,
-            pattern,
-            bucket,
-        )
-        for i in range(0, len(to_delete), 1000):
-            batch = to_delete[i : i + 1000]
-            s3.delete_objects(Bucket=bucket, Delete={"Objects": batch})
+    if not to_delete:
+        return []
+
+    logger.info(
+        "Deleting %d objects matching %s%s from s3://%s",
+        len(to_delete),
+        prefix,
+        pattern,
+        bucket,
+    )
+
+    failures: list[dict[str, str]] = []
+    for i in range(0, len(to_delete), 1000):
+        batch = to_delete[i : i + 1000]
+        try:
+            resp = s3.delete_objects(Bucket=bucket, Delete={"Objects": batch})
+        except ClientError as e:
+            # Whole-batch request failure: attribute the code to every key in it.
+            code = e.response["Error"].get("Code", "")
+            failures += [_log_delete_failure(bucket, obj["Key"], code, str(e)) for obj in batch]
+            continue
+        # delete_objects returns HTTP 200 with per-object failures in "Errors".
+        failures += [
+            _log_delete_failure(
+                bucket, err.get("Key", ""), err.get("Code", ""), err.get("Message", "")
+            )
+            for err in resp.get("Errors", [])
+        ]
+    return failures
