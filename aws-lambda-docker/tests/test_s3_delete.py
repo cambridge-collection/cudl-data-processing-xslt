@@ -24,14 +24,15 @@ class TestDeleteOutputs:
     def test_deletes_direct_keys(self) -> None:
         s3 = self._setup_bucket()
 
-        # Seed direct-key objects
-        expected_keys = [
+        # Seed direct-key objects in both released and unreleased layouts
+        released_keys = [
             "json/MS-ADD-03975.json",
             "solr-json/MS-ADD-03975.json",
             "dp-json/MS-ADD-03975.json",
             f"core-xml/{TEI_FILE}",
             TEI_FILE,
         ]
+        expected_keys = released_keys + [f"unreleased/{k}" for k in released_keys]
         for key in expected_keys:
             s3.put_object(Bucket=BUCKET, Key=key, Body=b"data")
 
@@ -48,6 +49,9 @@ class TestDeleteOutputs:
             "html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html",
             "html/data/tei/MS-ADD-03975/MS-ADD-03975-002.html",
             "html/data/tei/MS-ADD-03975/MS-ADD-03975-003.html",
+            # unreleased mirror should also be deleted
+            "unreleased/html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html",
+            "unreleased/html/data/tei/MS-ADD-03975/MS-ADD-03975-002.html",
         ]
         unrelated_key = "html/data/tei/OTHER-ITEM/OTHER-ITEM-001.html"
         for key in html_keys + [unrelated_key]:
@@ -65,6 +69,8 @@ class TestDeleteOutputs:
         page_keys = [
             f"page-xml/{TEI_FILE.replace('.xml', '')}-001.xml",
             f"page-xml/{TEI_FILE.replace('.xml', '')}-002.xml",
+            # unreleased mirror should also be deleted
+            f"unreleased/page-xml/{TEI_FILE.replace('.xml', '')}-001.xml",
         ]
         # keeping_dir is items/data/tei/MS-ADD-03975
         # pattern is MS-ADD-03975-*.xml under page-xml/items/data/tei/MS-ADD-03975/

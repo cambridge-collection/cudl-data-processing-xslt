@@ -295,7 +295,10 @@ def reconcile_stale_page_html(
 
 
 def delete_outputs(bucket: str, tei_file: str) -> None:
-    """Delete all derived outputs for a TEI file from S3."""
+    """Delete all derived outputs for a TEI file from S3.
+
+    Deletes both released and unreleased items.
+    """
     s3 = _s3_client()
     filename = os.path.splitext(os.path.basename(tei_file))[0]
     containing_dir = os.path.dirname(tei_file)
@@ -309,6 +312,7 @@ def delete_outputs(bucket: str, tei_file: str) -> None:
         f"core-xml/{tei_file}",
         tei_file,
     ]
+    direct_keys += [f"unreleased/{key}" for key in direct_keys]
 
     for key in direct_keys:
         logger.info("Deleting s3://%s/%s", bucket, key)
@@ -318,8 +322,9 @@ def delete_outputs(bucket: str, tei_file: str) -> None:
             logger.warning("Failed to delete s3://%s/%s: %s", bucket, key, e)
 
     # Pattern-based deletions (HTML and page-xml with glob patterns)
-    _delete_matching(s3, bucket, f"html/{html_inner_path}/", f"{filename}-*.html")
-    _delete_matching(s3, bucket, f"page-xml/{containing_dir}/", f"{filename}-*.xml")
+    for prefix in ("", "unreleased/"):
+        _delete_matching(s3, bucket, f"{prefix}html/{html_inner_path}/", f"{filename}-*.html")
+        _delete_matching(s3, bucket, f"{prefix}page-xml/{containing_dir}/", f"{filename}-*.xml")
 
 
 def _delete_matching(
