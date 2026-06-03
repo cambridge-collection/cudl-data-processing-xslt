@@ -300,7 +300,9 @@ def reconcile_stale_page_outputs(
     Note the differing key layouts: ``page-xml`` keeps the source ``items/``
     segment, whereas ``html`` strips it.
 
-    Raises TransientError on S3 list or delete failures so the record can retry.
+    Raises TransientError on an S3 list failure or a retryable delete failure so
+    the record can retry; an all-permanent delete-failure set raises
+    PermanentError (routing the record to the DLQ), matching the cleanup path.
     """
     filename = os.path.splitext(os.path.basename(tei_file))[0]
     containing_dir = os.path.dirname(tei_file)
@@ -312,27 +314,42 @@ def reconcile_stale_page_outputs(
     ]
 
     s3 = _s3_client()
+    to_delete: list[ObjectIdentifierTypeDef] = []
     try:
-        to_delete: list[ObjectIdentifierTypeDef] = []
         for family, inner_path, pattern in families:
             to_delete += _collect_stale_page_keys(
                 s3, dist_dir, bucket, family=family, inner_path=inner_path, pattern=pattern
             )
-
-        if not to_delete:
-            return
-
-        logger.info(
-            "Deleting %d stale per-page objects for %s",
-            len(to_delete),
-            tei_file,
-            extra={"context": {"keys": [d["Key"] for d in to_delete]}},
-        )
-        for i in range(0, len(to_delete), 1000):
-            batch = to_delete[i : i + 1000]
-            s3.delete_objects(Bucket=bucket, Delete={"Objects": batch})
     except ClientError as e:
         raise TransientError(f"Stale per-page reconciliation failed for {tei_file}: {e}") from e
+
+    if not to_delete:
+        return
+
+    logger.info(
+        "Deleting %d stale per-page objects for %s",
+        len(to_delete),
+        tei_file,
+        extra={"context": {"keys": [d["Key"] for d in to_delete]}},
+    )
+    failures: list[dict[str, str]] = []
+    for i in range(0, len(to_delete), 1000):
+        batch = to_delete[i : i + 1000]
+        try:
+            resp = s3.delete_objects(Bucket=bucket, Delete={"Objects": batch})
+        except ClientError as e:
+            # Whole-batch request failure: attribute the code to every key in it.
+            code = e.response["Error"].get("Code", "")
+            failures += [_log_delete_failure(bucket, obj["Key"], code, str(e)) for obj in batch]
+            continue
+        # delete_objects returns HTTP 200 with per-object failures in "Errors".
+        failures += [
+            _log_delete_failure(
+                bucket, err.get("Key", ""), err.get("Code", ""), err.get("Message", "")
+            )
+            for err in resp.get("Errors", [])
+        ]
+    _raise_on_delete_failures(failures, tei_file)
 
 
 def _log_delete_failure(bucket: str, key: str, code: str, error: str) -> dict[str, str]:

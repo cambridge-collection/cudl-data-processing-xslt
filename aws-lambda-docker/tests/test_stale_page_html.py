@@ -16,7 +16,7 @@ import pytest
 from botocore.exceptions import ClientError
 from moto import mock_aws
 
-from exceptions import TransientError
+from exceptions import PermanentError, TransientError
 from s3_ops import reconcile_stale_page_outputs
 
 BUCKET = "test-output-bucket"
@@ -484,7 +484,7 @@ class TestReconciliationS3FailureIsTransient:
                 reconcile_stale_page_outputs(dist_dir, BUCKET, TEI_FILE)
 
     def test_delete_failure_raises_transient(self) -> None:
-        """ClientError during S3 delete is wrapped in TransientError."""
+        """A batch-level ClientError on delete is aggregated and retried."""
         _create_bucket()
         _put_s3_objects([
             "html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html",
@@ -505,7 +505,63 @@ class TestReconciliationS3FailureIsTransient:
                 "DeleteObjects",
             )
 
-            with pytest.raises(TransientError, match="reconciliation failed"):
+            with pytest.raises(TransientError, match="Failed to delete"):
+                reconcile_stale_page_outputs(dist_dir, BUCKET, TEI_FILE)
+
+    def test_per_object_delete_failure_raises_transient(self) -> None:
+        """delete_objects returns HTTP 200 with per-object Errors: must retry."""
+        _create_bucket()
+        _put_s3_objects([
+            "html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html",
+        ])
+
+        with (
+            tempfile.TemporaryDirectory() as dist_dir,
+            patch("s3_ops._s3_client") as mock_client_fn,
+        ):
+            real_s3 = boto3.client("s3", region_name="eu-west-1")
+            mock_s3 = MagicMock()
+            mock_client_fn.return_value = mock_s3
+            mock_s3.get_paginator.return_value = real_s3.get_paginator("list_objects_v2")
+            mock_s3.delete_objects.return_value = {
+                "Errors": [
+                    {
+                        "Key": "html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html",
+                        "Code": "InternalError",
+                        "Message": "boom",
+                    }
+                ]
+            }
+
+            with pytest.raises(TransientError, match="Failed to delete"):
+                reconcile_stale_page_outputs(dist_dir, BUCKET, TEI_FILE)
+
+    def test_per_object_permanent_failure_raises_permanent(self) -> None:
+        """An all-permanent per-object failure set (AccessDenied) reaches the DLQ."""
+        _create_bucket()
+        _put_s3_objects([
+            "html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html",
+        ])
+
+        with (
+            tempfile.TemporaryDirectory() as dist_dir,
+            patch("s3_ops._s3_client") as mock_client_fn,
+        ):
+            real_s3 = boto3.client("s3", region_name="eu-west-1")
+            mock_s3 = MagicMock()
+            mock_client_fn.return_value = mock_s3
+            mock_s3.get_paginator.return_value = real_s3.get_paginator("list_objects_v2")
+            mock_s3.delete_objects.return_value = {
+                "Errors": [
+                    {
+                        "Key": "html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html",
+                        "Code": "AccessDenied",
+                        "Message": "denied",
+                    }
+                ]
+            }
+
+            with pytest.raises(PermanentError, match="Failed to delete"):
                 reconcile_stale_page_outputs(dist_dir, BUCKET, TEI_FILE)
 
 
