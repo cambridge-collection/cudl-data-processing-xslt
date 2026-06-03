@@ -333,7 +333,7 @@
         <xsl:variable name="default" select="'draft'" as="xsd:string"/>
         <xsl:variable name="release_status_values" as="xsd:string*">
             <!-- The regex on date is to allow partial dates like yyyy or yyyy-mm -->
-            <xsl:for-each select="root()/tei:TEI/tei:teiHeader/tei:revisionDesc/tei:change[normalize-space(@status) =('draft','redacted','released')][not(@when) or matches(@when, '^\d{4}(-\d{2})?(-\d{2})?$')]">
+            <xsl:for-each select="root()/tei:TEI/tei:teiHeader/tei:revisionDesc/tei:change[normalize-space(@status) =('draft','redacted','released')][matches(@when, '^\d{4}(-\d{2})?(-\d{2})?$')]">
                 <xsl:sort select="@when" order="ascending"/>
                 <xsl:sequence select="string(@status)"/>
             </xsl:for-each>
