@@ -124,6 +124,7 @@ def run_ant(config: Config, tei_file: str, *, stream_stdout: bool = False) -> No
     env = {
         **os.environ,
         "ENVIRONMENT": "local",
+        "SEARCH_HOST": config.search_host,
         "SEARCH_COLLECTION_PATH": config.search_collection_path,
         "SEARCH_PORT": config.search_port,
         "SKIP_COPY_TEI_WEB_ASSETS": config.skip_copy_tei_web_assets,
