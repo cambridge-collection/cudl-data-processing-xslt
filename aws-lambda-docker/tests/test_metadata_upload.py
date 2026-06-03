@@ -242,7 +242,8 @@ class TestReleaseStatusMetadataOnly:
         head = s3.head_object(Bucket=BUCKET, Key="json/item.json")
         assert head["Metadata"]["release-status"] == "released"
 
-    def test_skips_when_dest_release_status_matches(self) -> None:
+    def test_uploads_even_when_release_status_matches(self) -> None:
+        """Release-status is not authoritative for content: always upload when SHA is off."""
         _create_bucket()
         s3 = boto3.client("s3", region_name="eu-west-1")
         s3.put_object(
@@ -261,8 +262,9 @@ class TestReleaseStatusMetadataOnly:
                 release_status="released",
             )
 
+        # Uploaded — release-status matching never causes a skip
         obj = s3.get_object(Bucket=BUCKET, Key="json/item.json")
-        assert obj["Body"].read() == b"original-body"
+        assert obj["Body"].read() == b"local-content"
 
     def test_no_sha_metadata_generated(self) -> None:
         _create_bucket()
@@ -456,8 +458,8 @@ class TestDisabledFieldsIgnored:
         obj = s3.get_object(Bucket=BUCKET, Key="json/item.json")
         assert obj["Body"].read() == b"original-body"
 
-    def test_release_status_only_ignores_differing_sha(self) -> None:
-        """With only release-status enabled, a differing SHA on dest is ignored."""
+    def test_release_status_only_always_uploads(self) -> None:
+        """With SHA off, no skip is ever taken — release-status alone cannot gate freshness."""
         _create_bucket()
         s3 = boto3.client("s3", region_name="eu-west-1")
         s3.put_object(
@@ -476,9 +478,9 @@ class TestDisabledFieldsIgnored:
                 release_status="released",
             )
 
-        # Skipped — release-status matches, SHA difference is irrelevant
+        # Uploaded — without SHA enabled the changed content is always written
         obj = s3.get_object(Bucket=BUCKET, Key="json/item.json")
-        assert obj["Body"].read() == b"original-body"
+        assert obj["Body"].read() == b"different-content"
 
     def test_sha_only_missing_release_status_on_dest_does_not_trigger(self) -> None:
         """With only SHA enabled, missing release-status on dest doesn't trigger upload."""

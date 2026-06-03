@@ -143,16 +143,17 @@ def _process_and_upload(
     """Compute metadata, check destination, and upload if needed.
 
     Returns True if the file was uploaded, False if skipped.
-    """
-    metadata_enabled = enable_sha_metadata or enable_release_status_metadata
 
+    Only SHA gates a skip; release-status is stamped but never authoritative
+    for content freshness.
+    """
     metadata: dict[str, str] = {}
     if enable_sha_metadata:
         metadata["content-sha256"] = _compute_sha256(file_path)
     if enable_release_status_metadata and release_status is not None:
         metadata["release-status"] = release_status
 
-    if metadata_enabled and _dest_metadata_matches(s3, bucket, s3_key, metadata):
+    if enable_sha_metadata and _dest_metadata_matches(s3, bucket, s3_key, metadata):
         logger.debug("Skipping %s (metadata unchanged)", s3_key)
         return False
 
