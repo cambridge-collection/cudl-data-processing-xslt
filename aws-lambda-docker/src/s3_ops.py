@@ -144,8 +144,17 @@ def _process_and_upload(
 
     Returns True if the file was uploaded, False if skipped.
 
-    Only SHA gates a skip; release-status is stamped but never authoritative
-    for content freshness.
+    If enable_sha_metadata is false, then the file is always uploaded.
+
+    If enable_sha_metadata is true, then the file is only uploaded if:
+        - the destination's stored SHA differs from the locally built file's
+          (or the destination is missing / has no SHA).
+
+    There is one edge case, if both enable_sha_metadata and
+    enable_release_status_metadata are true, the file may be uploaded if
+    the old release status differs from the current one. This edge case is
+    largely just to catch the absence of the release status object metadata
+    on the old file.
     """
     metadata: dict[str, str] = {}
     if enable_sha_metadata:
