@@ -10,7 +10,7 @@ from botocore.exceptions import ClientError
 from moto import mock_aws
 
 from exceptions import PermanentError, TransientError
-from s3_ops import delete_outputs
+from s3_ops import delete_outputs, delete_superseded_outputs
 
 BUCKET = "test-output-bucket"
 TEI_FILE = "items/data/tei/MS-ADD-03975/MS-ADD-03975.xml"
@@ -103,6 +103,77 @@ class TestDeleteOutputs:
         """Deleting from an empty bucket should not raise."""
         self._setup_bucket()
         delete_outputs(BUCKET, TEI_FILE)  # should not raise
+
+
+def _item_family_keys(prefix: str) -> list[str]:
+    """Every derived-output key for the test item under one location prefix."""
+    stem = "MS-ADD-03975"
+    return [
+        f"{prefix}json/{stem}.json",
+        f"{prefix}solr-json/{stem}.json",
+        f"{prefix}dp-json/{stem}.json",
+        f"{prefix}core-xml/{TEI_FILE}",
+        f"{prefix}{TEI_FILE}",  # tei-full
+        f"{prefix}html/data/tei/{stem}/{stem}-001.html",
+        f"{prefix}page-xml/items/data/tei/{stem}/{stem}-001.xml",
+    ]
+
+
+@mock_aws
+class TestDeleteSupersededOutputs:
+    """Surgical cleanup deletes the whole opposite-location family, and only it."""
+
+    def _setup_bucket(self):
+        s3 = boto3.client("s3", region_name="eu-west-1")
+        s3.create_bucket(
+            Bucket=BUCKET,
+            CreateBucketConfiguration={"LocationConstraint": "eu-west-1"},
+        )
+        for key in _item_family_keys("") + _item_family_keys("unreleased/"):
+            s3.put_object(Bucket=BUCKET, Key=key, Body=b"data")
+        return s3
+
+    def test_unreleased_build_cleans_released_family(self, tmp_path) -> None:
+        s3 = self._setup_bucket()
+        # A populated dist/unreleased/ marks this run's item as unreleased.
+        (tmp_path / "unreleased" / "solr-json").mkdir(parents=True)
+        (tmp_path / "unreleased" / "solr-json" / "MS-ADD-03975.json").write_text("{}")
+
+        delete_superseded_outputs(str(tmp_path), BUCKET, TEI_FILE)
+
+        remaining = sorted(
+            o["Key"] for o in s3.list_objects_v2(Bucket=BUCKET).get("Contents", [])
+        )
+        assert remaining == sorted(_item_family_keys("unreleased/"))
+
+    def test_released_build_cleans_unreleased_family(self, tmp_path) -> None:
+        s3 = self._setup_bucket()
+        (tmp_path / "solr-json").mkdir(parents=True)
+        (tmp_path / "solr-json" / "MS-ADD-03975.json").write_text("{}")
+
+        delete_superseded_outputs(str(tmp_path), BUCKET, TEI_FILE)
+
+        remaining = sorted(
+            o["Key"] for o in s3.list_objects_v2(Bucket=BUCKET).get("Contents", [])
+        )
+        assert remaining == sorted(_item_family_keys(""))
+
+    def test_absent_opposite_location_is_noop(self, tmp_path) -> None:
+        s3 = boto3.client("s3", region_name="eu-west-1")
+        s3.create_bucket(
+            Bucket=BUCKET,
+            CreateBucketConfiguration={"LocationConstraint": "eu-west-1"},
+        )
+        for key in _item_family_keys(""):
+            s3.put_object(Bucket=BUCKET, Key=key, Body=b"data")
+        (tmp_path / "solr-json").mkdir(parents=True)
+
+        delete_superseded_outputs(str(tmp_path), BUCKET, TEI_FILE)
+
+        remaining = sorted(
+            o["Key"] for o in s3.list_objects_v2(Bucket=BUCKET).get("Contents", [])
+        )
+        assert remaining == sorted(_item_family_keys(""))
 
 
 class TestDeleteOutputsFailures:

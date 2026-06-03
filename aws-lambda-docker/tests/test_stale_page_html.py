@@ -1,4 +1,4 @@
-"""Tests for Phase 7: stale page HTML reconciliation.
+"""Tests for Phase 7: stale per-page output reconciliation (HTML and page XML).
 
 Covers spec tests (a)-(i).
 """
@@ -17,7 +17,7 @@ from botocore.exceptions import ClientError
 from moto import mock_aws
 
 from exceptions import TransientError
-from s3_ops import reconcile_stale_page_html, upload_dist
+from s3_ops import reconcile_stale_page_outputs
 
 BUCKET = "test-output-bucket"
 TEI_FILE = "items/data/tei/MS-ADD-03975/MS-ADD-03975.xml"
@@ -32,14 +32,32 @@ def _create_bucket() -> None:
 
 
 def _create_local_page_html(
-    dist_dir: str, item_dir: str, filenames: list[str]
+    dist_dir: str, item_dir: str, filenames: list[str], *, location_prefix: str = ""
 ) -> None:
-    """Create local page HTML files under dist/html/{item_dir}/."""
-    d = os.path.join(dist_dir, "html", item_dir)
+    """Create local page HTML files under dist/{location}html/{item_dir}/.
+
+    ``location_prefix`` is ``""`` (released) or ``"unreleased/"`` (unreleased).
+    """
+    d = os.path.join(dist_dir, location_prefix.rstrip("/"), "html", item_dir)
     os.makedirs(d, exist_ok=True)
     for fn in filenames:
         with open(os.path.join(d, fn), "w") as f:
             f.write(f"<html>{fn}</html>")
+
+
+def _create_local_page_xml(
+    dist_dir: str, item_dir: str, filenames: list[str], *, location_prefix: str = ""
+) -> None:
+    """Create local page XML files under dist/{location}page-xml/{item_dir}/.
+
+    ``item_dir`` keeps the source ``items/`` segment, matching the page-xml
+    key layout. ``location_prefix`` is ``""`` or ``"unreleased/"``.
+    """
+    d = os.path.join(dist_dir, location_prefix.rstrip("/"), "page-xml", item_dir)
+    os.makedirs(d, exist_ok=True)
+    for fn in filenames:
+        with open(os.path.join(d, fn), "w") as f:
+            f.write(f"<TEI>{fn}</TEI>")
 
 
 def _put_s3_objects(keys: list[str], body: bytes = b"<html/>") -> None:
@@ -77,7 +95,7 @@ class TestStalePageHtmlDeleted:
                 "data/tei/MS-ADD-03975",
                 ["MS-ADD-03975-001.html"],
             )
-            reconcile_stale_page_html(dist_dir, BUCKET, TEI_FILE)
+            reconcile_stale_page_outputs(dist_dir, BUCKET, TEI_FILE)
 
         keys = _list_s3_keys()
         assert "html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html" in keys
@@ -106,7 +124,7 @@ class TestCurrentPageHtmlRetained:
                 "data/tei/MS-ADD-03975",
                 ["MS-ADD-03975-001.html", "MS-ADD-03975-002.html"],
             )
-            reconcile_stale_page_html(dist_dir, BUCKET, TEI_FILE)
+            reconcile_stale_page_outputs(dist_dir, BUCKET, TEI_FILE)
 
         keys = _list_s3_keys()
         assert "html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html" in keys
@@ -130,7 +148,7 @@ class TestEmptyLocalDeletesAll:
 
         with tempfile.TemporaryDirectory() as dist_dir:
             # No local page HTML created
-            reconcile_stale_page_html(dist_dir, BUCKET, TEI_FILE)
+            reconcile_stale_page_outputs(dist_dir, BUCKET, TEI_FILE)
 
         keys = _list_s3_keys()
         assert len(keys) == 0
@@ -159,7 +177,7 @@ class TestOtherItemsUnaffected:
                 "data/tei/MS-ADD-03975",
                 ["MS-ADD-03975-001.html"],
             )
-            reconcile_stale_page_html(dist_dir, BUCKET, TEI_FILE)
+            reconcile_stale_page_outputs(dist_dir, BUCKET, TEI_FILE)
 
         keys = _list_s3_keys()
         # Our stale page deleted
@@ -170,37 +188,177 @@ class TestOtherItemsUnaffected:
 
 
 # ---------------------------------------------------------------------------
-# (e) Non-HTML outputs for same item are not deleted
+# (d2) Stale unreleased page HTML is reconciled
 # ---------------------------------------------------------------------------
 
 
 @mock_aws
-class TestNonHtmlOutputsUnaffected:
-    def test_json_and_xml_outputs_not_deleted(self) -> None:
-        """Non-HTML outputs for the same item remain untouched."""
+class TestUnreleasedPageHtmlReconciled:
+    def test_stale_unreleased_pages_removed(self) -> None:
+        """Stale page HTML under unreleased/html/ is deleted; current retained."""
         _create_bucket()
-        non_html_keys = [
+        _put_s3_objects([
+            "unreleased/html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html",
+            "unreleased/html/data/tei/MS-ADD-03975/MS-ADD-03975-002.html",
+            "unreleased/html/data/tei/MS-ADD-03975/MS-ADD-03975-003.html",
+        ])
+
+        with tempfile.TemporaryDirectory() as dist_dir:
+            _create_local_page_html(
+                dist_dir,
+                "data/tei/MS-ADD-03975",
+                ["MS-ADD-03975-001.html"],
+                location_prefix="unreleased/",
+            )
+            reconcile_stale_page_outputs(dist_dir, BUCKET, TEI_FILE)
+
+        keys = _list_s3_keys()
+        assert "unreleased/html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html" in keys
+        assert "unreleased/html/data/tei/MS-ADD-03975/MS-ADD-03975-002.html" not in keys
+        assert "unreleased/html/data/tei/MS-ADD-03975/MS-ADD-03975-003.html" not in keys
+
+    def test_released_and_unreleased_reconciled_together(self) -> None:
+        """A single call reconciles both locations independently."""
+        _create_bucket()
+        _put_s3_objects([
+            "html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html",
+            "html/data/tei/MS-ADD-03975/MS-ADD-03975-002.html",
+            "unreleased/html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html",
+            "unreleased/html/data/tei/MS-ADD-03975/MS-ADD-03975-002.html",
+        ])
+
+        with tempfile.TemporaryDirectory() as dist_dir:
+            # Released keeps page 1; unreleased keeps page 2.
+            _create_local_page_html(
+                dist_dir, "data/tei/MS-ADD-03975", ["MS-ADD-03975-001.html"]
+            )
+            _create_local_page_html(
+                dist_dir,
+                "data/tei/MS-ADD-03975",
+                ["MS-ADD-03975-002.html"],
+                location_prefix="unreleased/",
+            )
+            reconcile_stale_page_outputs(dist_dir, BUCKET, TEI_FILE)
+
+        keys = _list_s3_keys()
+        assert "html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html" in keys
+        assert "html/data/tei/MS-ADD-03975/MS-ADD-03975-002.html" not in keys
+        assert "unreleased/html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html" not in keys
+        assert "unreleased/html/data/tei/MS-ADD-03975/MS-ADD-03975-002.html" in keys
+
+
+# ---------------------------------------------------------------------------
+# (d3) Stale page XML is reconciled (released and unreleased)
+# ---------------------------------------------------------------------------
+
+
+@mock_aws
+class TestStalePageXmlReconciled:
+    def test_stale_page_xml_removed(self) -> None:
+        """Dest page XML not in local build is deleted; current retained."""
+        _create_bucket()
+        _put_s3_objects([
+            "page-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975-001.xml",
+            "page-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975-002.xml",
+            "page-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975-003.xml",
+        ])
+
+        with tempfile.TemporaryDirectory() as dist_dir:
+            _create_local_page_xml(
+                dist_dir,
+                "items/data/tei/MS-ADD-03975",
+                ["MS-ADD-03975-001.xml"],
+            )
+            reconcile_stale_page_outputs(dist_dir, BUCKET, TEI_FILE)
+
+        keys = _list_s3_keys()
+        assert "page-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975-001.xml" in keys
+        assert "page-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975-002.xml" not in keys
+        assert "page-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975-003.xml" not in keys
+
+    def test_stale_unreleased_page_xml_removed(self) -> None:
+        """Stale page XML under unreleased/page-xml/ is deleted; current retained."""
+        _create_bucket()
+        _put_s3_objects([
+            "unreleased/page-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975-001.xml",
+            "unreleased/page-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975-002.xml",
+        ])
+
+        with tempfile.TemporaryDirectory() as dist_dir:
+            _create_local_page_xml(
+                dist_dir,
+                "items/data/tei/MS-ADD-03975",
+                ["MS-ADD-03975-001.xml"],
+                location_prefix="unreleased/",
+            )
+            reconcile_stale_page_outputs(dist_dir, BUCKET, TEI_FILE)
+
+        keys = _list_s3_keys()
+        assert "unreleased/page-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975-001.xml" in keys
+        assert (
+            "unreleased/page-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975-002.xml"
+            not in keys
+        )
+
+    def test_html_and_page_xml_reconciled_in_one_call(self) -> None:
+        """A single call reconciles both per-page families together."""
+        _create_bucket()
+        _put_s3_objects([
+            "html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html",
+            "html/data/tei/MS-ADD-03975/MS-ADD-03975-002.html",
+            "page-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975-001.xml",
+            "page-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975-002.xml",
+        ])
+
+        with tempfile.TemporaryDirectory() as dist_dir:
+            _create_local_page_html(
+                dist_dir, "data/tei/MS-ADD-03975", ["MS-ADD-03975-001.html"]
+            )
+            _create_local_page_xml(
+                dist_dir, "items/data/tei/MS-ADD-03975", ["MS-ADD-03975-001.xml"]
+            )
+            reconcile_stale_page_outputs(dist_dir, BUCKET, TEI_FILE)
+
+        keys = _list_s3_keys()
+        assert "html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html" in keys
+        assert "html/data/tei/MS-ADD-03975/MS-ADD-03975-002.html" not in keys
+        assert "page-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975-001.xml" in keys
+        assert "page-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975-002.xml" not in keys
+
+
+# ---------------------------------------------------------------------------
+# (e) Per-item single-file outputs are not deleted
+# ---------------------------------------------------------------------------
+
+
+@mock_aws
+class TestSingleFileOutputsUnaffected:
+    def test_single_file_outputs_not_deleted(self) -> None:
+        """Per-item single-file outputs remain untouched; per-page ones reconcile."""
+        _create_bucket()
+        single_file_keys = [
             "json/MS-ADD-03975.json",
             "solr-json/MS-ADD-03975.json",
             "dp-json/MS-ADD-03975.json",
             "core-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975.xml",
-            "items/items/data/tei/MS-ADD-03975/MS-ADD-03975.xml",
-            "page-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975-001.xml",
+            "items/data/tei/MS-ADD-03975/MS-ADD-03975.xml",
         ]
-        _put_s3_objects(non_html_keys)
+        _put_s3_objects(single_file_keys)
         _put_s3_objects([
             "html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html",
+            "page-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975-001.xml",
         ])
 
         with tempfile.TemporaryDirectory() as dist_dir:
-            # No local page HTML — all page HTML for item should be deleted
-            reconcile_stale_page_html(dist_dir, BUCKET, TEI_FILE)
+            # No local per-page files — all page HTML and page XML should delete
+            reconcile_stale_page_outputs(dist_dir, BUCKET, TEI_FILE)
 
         keys = _list_s3_keys()
-        # Page HTML deleted
+        # Per-page outputs deleted
         assert "html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html" not in keys
-        # All non-HTML outputs remain
-        for k in non_html_keys:
+        assert "page-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975-001.xml" not in keys
+        # Per-item single-file outputs remain
+        for k in single_file_keys:
             assert k in keys
 
 
@@ -217,7 +375,6 @@ class TestReconciliationUsesFullLocalSet:
         s3 = boto3.client("s3", region_name="eu-west-1")
 
         content_1 = b"<html>page1</html>"
-        content_2 = b"<html>page2</html>"
 
         # Pre-populate dest with page 1 (matching content) and page 2 (stale)
         s3.put_object(
@@ -244,7 +401,7 @@ class TestReconciliationUsesFullLocalSet:
                 "data/tei/MS-ADD-03975",
                 ["MS-ADD-03975-001.html", "MS-ADD-03975-002.html"],
             )
-            reconcile_stale_page_html(dist_dir, BUCKET, TEI_FILE)
+            reconcile_stale_page_outputs(dist_dir, BUCKET, TEI_FILE)
 
         keys = _list_s3_keys()
         # Pages 1 and 2 retained (even if page 1 wasn't re-uploaded)
@@ -260,7 +417,7 @@ class TestReconciliationUsesFullLocalSet:
 
 
 class TestReconciliationSkippedOnUploadFailure:
-    @patch("handler.reconcile_stale_page_html")
+    @patch("handler.reconcile_stale_page_outputs")
     @patch("handler.upload_dist", side_effect=TransientError("upload boom"))
     @patch("handler.run_ant")
     @patch("handler.download_file")
@@ -310,19 +467,21 @@ class TestReconciliationS3FailureIsTransient:
         """ClientError during S3 list is wrapped in TransientError."""
         _create_bucket()
 
-        with tempfile.TemporaryDirectory() as dist_dir:
-            with patch("s3_ops._s3_client") as mock_client_fn:
-                mock_s3 = MagicMock()
-                mock_client_fn.return_value = mock_s3
-                mock_paginator = MagicMock()
-                mock_s3.get_paginator.return_value = mock_paginator
-                mock_paginator.paginate.side_effect = ClientError(
-                    {"Error": {"Code": "InternalError", "Message": "boom"}},
-                    "ListObjectsV2",
-                )
+        with (
+            tempfile.TemporaryDirectory() as dist_dir,
+            patch("s3_ops._s3_client") as mock_client_fn,
+        ):
+            mock_s3 = MagicMock()
+            mock_client_fn.return_value = mock_s3
+            mock_paginator = MagicMock()
+            mock_s3.get_paginator.return_value = mock_paginator
+            mock_paginator.paginate.side_effect = ClientError(
+                {"Error": {"Code": "InternalError", "Message": "boom"}},
+                "ListObjectsV2",
+            )
 
-                with pytest.raises(TransientError, match="reconciliation failed"):
-                    reconcile_stale_page_html(dist_dir, BUCKET, TEI_FILE)
+            with pytest.raises(TransientError, match="reconciliation failed"):
+                reconcile_stale_page_outputs(dist_dir, BUCKET, TEI_FILE)
 
     def test_delete_failure_raises_transient(self) -> None:
         """ClientError during S3 delete is wrapped in TransientError."""
@@ -331,23 +490,23 @@ class TestReconciliationS3FailureIsTransient:
             "html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html",
         ])
 
-        with tempfile.TemporaryDirectory() as dist_dir:
-            # No local pages — all dest pages are stale
-            with patch("s3_ops._s3_client") as mock_client_fn:
-                real_s3 = boto3.client("s3", region_name="eu-west-1")
-                mock_s3 = MagicMock()
-                mock_client_fn.return_value = mock_s3
-                # Let paginate work with real data
-                mock_s3.get_paginator.return_value = real_s3.get_paginator(
-                    "list_objects_v2"
-                )
-                mock_s3.delete_objects.side_effect = ClientError(
-                    {"Error": {"Code": "InternalError", "Message": "boom"}},
-                    "DeleteObjects",
-                )
+        # No local pages — all dest pages are stale
+        with (
+            tempfile.TemporaryDirectory() as dist_dir,
+            patch("s3_ops._s3_client") as mock_client_fn,
+        ):
+            real_s3 = boto3.client("s3", region_name="eu-west-1")
+            mock_s3 = MagicMock()
+            mock_client_fn.return_value = mock_s3
+            # Let paginate work with real data
+            mock_s3.get_paginator.return_value = real_s3.get_paginator("list_objects_v2")
+            mock_s3.delete_objects.side_effect = ClientError(
+                {"Error": {"Code": "InternalError", "Message": "boom"}},
+                "DeleteObjects",
+            )
 
-                with pytest.raises(TransientError, match="reconciliation failed"):
-                    reconcile_stale_page_html(dist_dir, BUCKET, TEI_FILE)
+            with pytest.raises(TransientError, match="reconciliation failed"):
+                reconcile_stale_page_outputs(dist_dir, BUCKET, TEI_FILE)
 
 
 # ---------------------------------------------------------------------------
@@ -372,7 +531,7 @@ class TestObjectRemovedUnchanged:
             "solr-json/MS-ADD-03975.json",
             "dp-json/MS-ADD-03975.json",
             "core-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975.xml",
-            "items/items/data/tei/MS-ADD-03975/MS-ADD-03975.xml",
+            "items/data/tei/MS-ADD-03975/MS-ADD-03975.xml",
             "html/data/tei/MS-ADD-03975/MS-ADD-03975-001.html",
             "html/data/tei/MS-ADD-03975/MS-ADD-03975-002.html",
             "page-xml/items/data/tei/MS-ADD-03975/MS-ADD-03975-001.xml",

@@ -177,10 +177,18 @@ def upload_dist(
     """
     s3 = _s3_client()
 
+    # dist/unreleased/ is a sibling of dist/<type>, so it needs its own walk;
+    # its files map to matching unreleased/<prefix> keys.
+    locations = [
+        (os.path.join(dist_dir, subdir), prefix) for subdir, prefix in DIST_TO_S3_MAPPING
+    ] + [
+        (os.path.join(dist_dir, "unreleased", subdir), f"unreleased/{prefix}")
+        for subdir, prefix in DIST_TO_S3_MAPPING
+    ]
+
     # Collect all (local_file, s3_key) pairs first
     uploads: list[tuple[str, str]] = []
-    for local_subdir, s3_prefix in DIST_TO_S3_MAPPING:
-        local_path = os.path.join(dist_dir, local_subdir)
+    for local_path, s3_prefix in locations:
         if not os.path.isdir(local_path):
             logger.debug("Skipping %s (not found)", local_path)
             continue
@@ -238,39 +246,33 @@ def upload_dist(
     logger.info("Upload complete: %d uploaded, %d skipped (unchanged)", uploaded, skipped)
 
 
-def reconcile_stale_page_html(
+def _collect_stale_page_keys(
+    s3: S3Client,
     dist_dir: str,
     bucket: str,
-    tei_file: str,
-) -> None:
-    """Delete stale page HTML for the current item from the destination bucket.
+    *,
+    family: str,
+    inner_path: str,
+    pattern: str,
+) -> list[ObjectIdentifierTypeDef]:
+    """Collect stale per-page object keys for one output family, both locations.
 
-    Compares the full set of local page HTML files against the destination
-    and deletes any destination objects that are no longer present locally.
-
-    Raises TransientError on S3 list or delete failures so the record can retry.
+    A key is stale when it matches the item's per-page glob but has no local
+    counterpart. Released (``<family>/``) and unreleased (``unreleased/<family>/``)
+    are reconciled independently against their own local subtree.
     """
-    filename = os.path.splitext(os.path.basename(tei_file))[0]
-    containing_dir = os.path.dirname(tei_file)
-    html_inner_path = containing_dir.removeprefix("items/")
+    paginator = s3.get_paginator("list_objects_v2")
+    to_delete: list[ObjectIdentifierTypeDef] = []
 
-    s3_prefix = f"html/{html_inner_path}/"
-    pattern = f"{filename}-*.html"
+    for location_prefix in ("", "unreleased/"):
+        local_dir = os.path.join(dist_dir, location_prefix.rstrip("/"), family, inner_path)
+        local_basenames: set[str] = set()
+        if os.path.isdir(local_dir):
+            for f in os.listdir(local_dir):
+                if fnmatch(f, pattern):
+                    local_basenames.add(f)
 
-    # Enumerate local page HTML basenames for this item
-    local_html_dir = os.path.join(dist_dir, "html", html_inner_path)
-    local_basenames: set[str] = set()
-    if os.path.isdir(local_html_dir):
-        for f in os.listdir(local_html_dir):
-            if fnmatch(f, pattern):
-                local_basenames.add(f)
-
-    # Find stale destination objects
-    s3 = _s3_client()
-    try:
-        paginator = s3.get_paginator("list_objects_v2")
-        to_delete: list[ObjectIdentifierTypeDef] = []
-
+        s3_prefix = f"{location_prefix}{family}/{inner_path}/"
         for page in paginator.paginate(Bucket=bucket, Prefix=s3_prefix):
             for obj in page.get("Contents", []):
                 key = obj["Key"]
@@ -278,11 +280,49 @@ def reconcile_stale_page_html(
                 if fnmatch(basename, pattern) and basename not in local_basenames:
                     to_delete.append({"Key": key})
 
+    return to_delete
+
+
+def reconcile_stale_page_outputs(
+    dist_dir: str,
+    bucket: str,
+    tei_file: str,
+) -> None:
+    """Delete stale per-page outputs (page HTML and page XML) for the item.
+
+    Compares the full set of local per-page files against the destination and
+    deletes any destination objects that are no longer present locally, across
+    both the released and unreleased (``unreleased/``) locations. Per-item
+    single-file outputs (json, core-xml, ...) are overwritten in place by the
+    upload and so need no reconciliation.
+
+    Note the differing key layouts: ``page-xml`` keeps the source ``items/``
+    segment, whereas ``html`` strips it.
+
+    Raises TransientError on S3 list or delete failures so the record can retry.
+    """
+    filename = os.path.splitext(os.path.basename(tei_file))[0]
+    containing_dir = os.path.dirname(tei_file)
+    html_inner_path = containing_dir.removeprefix("items/")
+
+    families = [
+        ("html", html_inner_path, f"{filename}-*.html"),
+        ("page-xml", containing_dir, f"{filename}-*.xml"),
+    ]
+
+    s3 = _s3_client()
+    try:
+        to_delete: list[ObjectIdentifierTypeDef] = []
+        for family, inner_path, pattern in families:
+            to_delete += _collect_stale_page_keys(
+                s3, dist_dir, bucket, family=family, inner_path=inner_path, pattern=pattern
+            )
+
         if not to_delete:
             return
 
         logger.info(
-            "Deleting %d stale page HTML objects for %s",
+            "Deleting %d stale per-page objects for %s",
             len(to_delete),
             tei_file,
             extra={"context": {"keys": [d["Key"] for d in to_delete]}},
@@ -291,7 +331,7 @@ def reconcile_stale_page_html(
             batch = to_delete[i : i + 1000]
             s3.delete_objects(Bucket=bucket, Delete={"Objects": batch})
     except ClientError as e:
-        raise TransientError(f"Stale page HTML reconciliation failed for {tei_file}: {e}") from e
+        raise TransientError(f"Stale per-page reconciliation failed for {tei_file}: {e}") from e
 
 
 def _log_delete_failure(bucket: str, key: str, code: str, error: str) -> dict[str, str]:
@@ -303,35 +343,29 @@ def _log_delete_failure(bucket: str, key: str, code: str, error: str) -> dict[st
     return {"key": key, "error_code": code}
 
 
-def delete_outputs(bucket: str, tei_file: str) -> None:
-    """Delete all derived outputs for a TEI file from S3.
+def _delete_item_location(
+    s3: S3Client,
+    bucket: str,
+    tei_file: str,
+    location_prefix: str,
+) -> list[dict[str, str]]:
+    """Delete one location's derived-output family for a TEI file.
 
-    Deletes both released and unreleased items. Delete failures are collected
-    across all keys and re-raised once at the end (rather than swallowed) so a
-    genuine failure fails the SQS record: transient errors retry, permanent
-    ones (e.g. AccessDenied) exhaust their receive count and reach the DLQ.
-
-    Missing keys are not failures — S3 DeleteObject is idempotent and succeeds
-    for keys that do not exist, which is expected here since not every derived
-    key exists for every item.
+    ``location_prefix`` is ``""`` (released) or ``"unreleased/"`` (unreleased).
     """
-    s3 = _s3_client()
     filename = os.path.splitext(os.path.basename(tei_file))[0]
     containing_dir = os.path.dirname(tei_file)
     html_inner_path = containing_dir.removeprefix("items/")
 
-    # Direct key deletions
     direct_keys = [
-        f"json/{filename}.json",
-        f"solr-json/{filename}.json",
-        f"dp-json/{filename}.json",
-        f"core-xml/{tei_file}",
-        tei_file,
+        f"{location_prefix}json/{filename}.json",
+        f"{location_prefix}solr-json/{filename}.json",
+        f"{location_prefix}dp-json/{filename}.json",
+        f"{location_prefix}core-xml/{tei_file}",
+        f"{location_prefix}{tei_file}",
     ]
-    direct_keys += [f"unreleased/{key}" for key in direct_keys]
 
     failures: list[dict[str, str]] = []
-
     for key in direct_keys:
         logger.info("Deleting s3://%s/%s", bucket, key)
         try:
@@ -341,22 +375,72 @@ def delete_outputs(bucket: str, tei_file: str) -> None:
                 _log_delete_failure(bucket, key, e.response["Error"].get("Code", ""), str(e))
             )
 
-    # Pattern-based deletions (HTML and page-xml with glob patterns)
-    for prefix in ("", "unreleased/"):
-        failures += _delete_matching(
-            s3, bucket, f"{prefix}html/{html_inner_path}/", f"{filename}-*.html"
-        )
-        failures += _delete_matching(
-            s3, bucket, f"{prefix}page-xml/{containing_dir}/", f"{filename}-*.xml"
-        )
+    failures += _delete_matching(
+        s3, bucket, f"{location_prefix}html/{html_inner_path}/", f"{filename}-*.html"
+    )
+    failures += _delete_matching(
+        s3, bucket, f"{location_prefix}page-xml/{containing_dir}/", f"{filename}-*.xml"
+    )
+    return failures
 
-    if failures:
-        codes = {f["error_code"] for f in failures}
-        # All-permanent codes can't succeed on retry, so PermanentError routes to the DLQ.
-        error_cls = PermanentError if codes <= _PERMANENT_S3_CODES else TransientError
-        raise error_cls(
-            f"Failed to delete {len(failures)} output(s) for {tei_file} (codes: {sorted(codes)})"
-        )
+
+def _raise_on_delete_failures(failures: list[dict[str, str]], tei_file: str) -> None:
+    """Re-raise aggregated delete failures once, routing the SQS record.
+
+    Transient errors retry; an all-permanent set (e.g. AccessDenied) raises
+    PermanentError so the record exhausts its receive count and reaches the DLQ.
+    """
+    if not failures:
+        return
+    codes = {f["error_code"] for f in failures}
+    error_cls = PermanentError if codes <= _PERMANENT_S3_CODES else TransientError
+    raise error_cls(
+        f"Failed to delete {len(failures)} output(s) for {tei_file} (codes: {sorted(codes)})"
+    )
+
+
+def delete_outputs(bucket: str, tei_file: str) -> None:
+    """Delete all derived outputs for a TEI file from S3, both locations.
+
+    For a genuine item deletion, where no upload follows, so removing both the
+    released root and the unreleased subtree wholesale is correct. Failures are
+    collected and re-raised once so a genuine failure fails the SQS record.
+    """
+    s3 = _s3_client()
+    failures: list[dict[str, str]] = []
+    for location_prefix in ("", "unreleased/"):
+        failures += _delete_item_location(s3, bucket, tei_file, location_prefix)
+    _raise_on_delete_failures(failures, tei_file)
+
+
+def _build_produced_unreleased(dist_dir: str) -> bool:
+    """True if this run's build partitioned the item into the unreleased subtree.
+
+    A run processes a single item, so any file under dist/unreleased/ means that
+    item is currently unreleased.
+    """
+    unreleased_root = os.path.join(dist_dir, "unreleased")
+    if not os.path.isdir(unreleased_root):
+        return False
+    return any(files for _, _, files in os.walk(unreleased_root))
+
+
+def delete_superseded_outputs(dist_dir: str, bucket: str, tei_file: str) -> None:
+    """Delete this item's outputs in the location opposite to the one just built.
+
+    On a release-status flip the build writes outputs to the new location while
+    the previous run's outputs linger in the old one (stale, and for solr-json
+    still indexed). The location is taken from what the build produced rather
+    than re-derived, so the cleanup always matches what was uploaded.
+
+    Deliberately surgical — deleting both locations would also remove the
+    just-uploaded item and de-index it downstream. A missing opposite location
+    is the normal no-flip case and deletes nothing.
+    """
+    s3 = _s3_client()
+    opposite_prefix = "" if _build_produced_unreleased(dist_dir) else "unreleased/"
+    failures = _delete_item_location(s3, bucket, tei_file, opposite_prefix)
+    _raise_on_delete_failures(failures, tei_file)
 
 
 def _delete_matching(

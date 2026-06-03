@@ -16,7 +16,13 @@ from emf import emit_error_metric
 from exceptions import PermanentError
 from logging_config import configure_logging, log_context
 from processor import clean_dist, clean_source_workspace, run_ant, setup_workspace
-from s3_ops import delete_outputs, download_file, reconcile_stale_page_html, upload_dist
+from s3_ops import (
+    delete_outputs,
+    delete_superseded_outputs,
+    download_file,
+    reconcile_stale_page_outputs,
+    upload_dist,
+)
 from tei import resolve_release_status
 
 configure_logging()
@@ -152,7 +158,9 @@ def _handle_created(config: Config, s3_bucket: str, tei_file: str) -> None:
             enable_release_status_metadata=config.enable_release_status_metadata,
             release_status=release_status,
         )
-        reconcile_stale_page_html(DIST_DIR, config.aws_output_bucket, tei_file)
+        reconcile_stale_page_outputs(DIST_DIR, config.aws_output_bucket, tei_file)
+        # Only after the new outputs are uploaded, to avoid a window with neither.
+        delete_superseded_outputs(DIST_DIR, config.aws_output_bucket, tei_file)
     finally:
         clean_dist()
         clean_source_workspace()
