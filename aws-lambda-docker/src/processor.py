@@ -8,7 +8,16 @@ import re
 import shutil
 import subprocess
 
-from config import ANT_BIN, BUILDFILE, DIST_DIR, OPT_CDCP, SOURCE_DIR, TMP_CDCP, Config
+from config import (
+    ANT_BIN,
+    BUILDFILE,
+    DIST_DIR,
+    DIST_PENDING_DIR,
+    OPT_CDCP,
+    SOURCE_DIR,
+    TMP_CDCP,
+    Config,
+)
 from exceptions import PermanentError, TransientError
 
 logger = logging.getLogger(__name__)
@@ -83,10 +92,12 @@ def clean_source_workspace() -> None:
 
 
 def clean_dist() -> None:
-    """Remove and recreate the dist directory."""
-    if os.path.exists(DIST_DIR):
-        shutil.rmtree(DIST_DIR)
+    """Remove and recreate the dist and dist-pending directories."""
+    for d in (DIST_DIR, DIST_PENDING_DIR):
+        if os.path.exists(d):
+            shutil.rmtree(d)
     os.makedirs(DIST_DIR, exist_ok=True)
+    os.makedirs(f"{DIST_PENDING_DIR}/collection-xml", exist_ok=True)
 
 
 def run_ant(config: Config, tei_file: str, *, stream_stdout: bool = False) -> None:

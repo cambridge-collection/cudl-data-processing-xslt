@@ -14,6 +14,7 @@ ANT_BIN = "/opt/ant/bin/ant"
 BUILDFILE = f"{TMP_CDCP}/bin/build.xml"
 SOURCE_DIR = f"{TMP_CDCP}/cudl-data-source"
 DIST_DIR = f"{TMP_CDCP}/dist"
+DIST_PENDING_DIR = f"{TMP_CDCP}/dist-pending"
 
 
 @dataclass(frozen=True)

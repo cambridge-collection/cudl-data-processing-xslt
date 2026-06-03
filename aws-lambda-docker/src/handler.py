@@ -143,6 +143,8 @@ def _handle_created(config: Config, s3_bucket: str, tei_file: str) -> None:
     local_path = f"{SOURCE_DIR}/{tei_file}"
 
     try:
+        # Clean dist so no stale files persist after warm restart after crash
+        clean_dist()
         clean_source_workspace()
         download_file(s3_bucket, tei_file, local_path)
 
