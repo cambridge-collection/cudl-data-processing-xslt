@@ -134,13 +134,13 @@ class TestHtmlOutput:
     """Verify HTML page outputs are generated."""
 
     def test_html_pages_created(self, pipeline_run: dict[str, Any]) -> None:
-        html_dir = DIST_DIR / "www" / "items" / "data" / "tei" / ITEM_ID
+        html_dir = DIST_DIR / "html" / "data" / "tei" / ITEM_ID
         assert html_dir.exists(), f"Missing HTML output dir: {html_dir.relative_to(REPO_ROOT)}"
         html_files = sorted(html_dir.glob("*.html"))
         assert len(html_files) >= 1, "No HTML pages generated"
 
     def test_html_pages_non_empty(self, pipeline_run: dict[str, Any]) -> None:
-        html_dir = DIST_DIR / "www" / "items" / "data" / "tei" / ITEM_ID
+        html_dir = DIST_DIR / "html" / "data" / "tei" / ITEM_ID
         for html_file in html_dir.glob("*.html"):
             size = html_file.stat().st_size
             assert size > 100, f"{html_file.name} suspiciously small ({size} bytes)"

@@ -12,24 +12,31 @@ logger = logging.getLogger(__name__)
 SAXON_JAR = "/opt/saxon/saxon-he-12.4.jar"
 _SAXON_CLASS = "net.sf.saxon.Query"
 
-# XQuery that returns 'released', 'draft', or 'NOT_TEI_ROOT'.
-# Uses text serialization to avoid XML declaration in output.
+# Must stay identical to get-release-status in xslt/msTeiPreFilter.xsl;
+# enforced by tests/test_release_status_sync.py.
+RELEASE_CHANGE_SELECT = (
+    "tei:TEI/tei:teiHeader/tei:revisionDesc/tei:change"
+    "[normalize-space(@status) =('draft','redacted','released')]"
+    r"[matches(@when, '^\d{4}(-\d{2})?(-\d{2})?$')]"
+)
+
 _RELEASE_STATUS_XQUERY = (
     "declare namespace tei='http://www.tei-c.org/ns/1.0'; "
     "declare namespace output='http://www.w3.org/2010/xslt-xquery-serialization'; "
     "declare option output:method 'text'; "
     "if (empty(/tei:TEI)) then 'NOT_TEI_ROOT' "
-    "else if (exists(/tei:TEI/tei:teiHeader/tei:revisionDesc/"
-    "tei:change[@status='released'])) then 'released' "
-    "else 'draft'"
+    "else ("
+    "let $statuses := "
+    "for $c in /" + RELEASE_CHANGE_SELECT + " "
+    "order by $c/@when ascending "
+    "return string($c/@status) "
+    "return if ($statuses[last()] = 'released') then 'released' else 'draft'"
+    ")"
 )
 
 
 def resolve_release_status(tei_path: str) -> str:
     """Determine the release status of a TEI file.
-
-    Uses Saxon XQuery to check for a revisionDesc/change element
-    with status='released' in the TEI namespace.
 
     Returns 'released' or 'draft'.
 

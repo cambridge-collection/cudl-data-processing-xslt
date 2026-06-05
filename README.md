@@ -140,6 +140,17 @@ These flags disable individual processing or copy steps. They all default to opt
 | `SKIP_CORE_XML_COPY` | — | `true` | Skip copying core XML files to the output destination. |
 | `SKIP_TEI_FULL_COPY` | — | `false` | Skip copying the full original TEI files to the output. |
 
+### Released / unreleased output partitioning
+
+| Variable | Default | Scope | Description |
+|---|---|---|---|
+| `ENABLE_UNRELEASED_PARTITION` | `false` | Lambda, Local compose | Split items with `itemReleased=false` into an `unreleased/` subtree of the output, keeping released items in the top-level layout. |
+
+**Behaviour:**
+
+- When unset or `false` (default), partitioning is skipped and every item — released or not — is written to the released layout. This is the legacy behaviour.
+- When `true`, the Ant build moves each unreleased item's artifacts (core-xml, JSONs, html, page-xml, tei-full) into `unreleased/<output-type>/...`, which the copy/sync steps carry through to `s3://<bucket>/unreleased/`. On a release-status flip, the Lambda deletes the item's outputs in the opposite location so a single copy remains.
+
 ### Per-object metadata and conditional uploads
 
 When enabled, the Lambda attaches user-metadata to each uploaded S3 object and uses those metadata fields to skip unchanged uploads.

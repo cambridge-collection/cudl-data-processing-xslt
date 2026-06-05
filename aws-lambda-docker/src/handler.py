@@ -6,6 +6,7 @@ must have ``FunctionResponseTypes: ["ReportBatchItemFailures"]`` enabled.
 
 from __future__ import annotations
 
+import faulthandler
 import json
 import logging
 from typing import Any
@@ -13,12 +14,21 @@ from typing import Any
 from config import DIST_DIR, SOURCE_DIR, Config
 from emf import emit_error_metric
 from exceptions import PermanentError
-from logging_config import configure_logging
+from logging_config import configure_logging, log_context
 from processor import clean_dist, clean_source_workspace, run_ant, setup_workspace
-from s3_ops import delete_outputs, download_file, reconcile_stale_page_html, upload_dist
+from s3_ops import (
+    delete_outputs,
+    delete_superseded_outputs,
+    download_file,
+    reconcile_stale_page_outputs,
+    upload_dist,
+)
 from tei import resolve_release_status
 
 configure_logging()
+# Dump a C-level traceback to stderr on native faults (SIGSEGV/SIGABRT/etc.)
+# that bypass Python exception handling and surface only as Runtime.ExitError.
+faulthandler.enable()
 logger = logging.getLogger(__name__)
 
 
@@ -74,18 +84,25 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                         }
                     },
                 )
-                batch_item_failures.extend(
-                    {"itemIdentifier": mid} for mid in ids
-                )
+                batch_item_failures.extend({"itemIdentifier": mid} for mid in ids)
                 break
 
         message_id = record["messageId"]
         event_type = "unknown"
+        tei_file: str | None = None
+        # Set before parsing so a parse failure is still logged with the message_id.
+        ctx_token = log_context.set(
+            {"message_id": message_id, "event_type": event_type, "tei_file": tei_file}
+        )
         try:
             event_name, s3_bucket, tei_file = _parse_record(record)
             event_type = event_name.split(":")[0] if ":" in event_name else event_name
+            log_context.set(
+                {"message_id": message_id, "event_type": event_type, "tei_file": tei_file}
+            )
 
-            logger.info(
+            # WARNING so that it will be present on a Runtime.ExitError.
+            logger.warning(
                 "Processing event",
                 extra={
                     "context": {
@@ -105,15 +122,18 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 raise PermanentError(f"Unsupported event: {event_name}")
 
         except PermanentError:
-            logger.exception("Permanent failure for %s", message_id)
+            # Correlation fields are injected by ContextFilter; none needed here.
+            logger.exception("Permanent failure")
             batch_item_failures.append({"itemIdentifier": message_id})
             if config.emit_emf_metrics:
                 emit_error_metric(event_type, "permanent")
         except Exception:
-            logger.exception("Transient/unexpected failure for %s", message_id)
+            logger.exception("Transient/unexpected failure")
             batch_item_failures.append({"itemIdentifier": message_id})
             if config.emit_emf_metrics:
                 emit_error_metric(event_type, "transient")
+        finally:
+            log_context.reset(ctx_token)
 
     return {"batchItemFailures": batch_item_failures}
 
@@ -123,6 +143,8 @@ def _handle_created(config: Config, s3_bucket: str, tei_file: str) -> None:
     local_path = f"{SOURCE_DIR}/{tei_file}"
 
     try:
+        # Clean dist so no stale files persist after warm restart after crash
+        clean_dist()
         clean_source_workspace()
         download_file(s3_bucket, tei_file, local_path)
 
@@ -138,12 +160,15 @@ def _handle_created(config: Config, s3_bucket: str, tei_file: str) -> None:
             enable_release_status_metadata=config.enable_release_status_metadata,
             release_status=release_status,
         )
-        reconcile_stale_page_html(DIST_DIR, config.aws_output_bucket, tei_file)
+        reconcile_stale_page_outputs(DIST_DIR, config.aws_output_bucket, tei_file)
+        # Only after the new outputs are uploaded, to avoid a window with neither.
+        delete_superseded_outputs(DIST_DIR, config.aws_output_bucket, tei_file)
     finally:
         clean_dist()
         clean_source_workspace()
 
-    logger.info(
+    # WARNING so that it will be present on a Runtime.ExitError.
+    logger.warning(
         "Finished processing",
         extra={"context": {"bucket": s3_bucket, "tei_file": tei_file}},
     )

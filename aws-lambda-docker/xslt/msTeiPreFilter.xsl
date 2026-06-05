@@ -235,7 +235,24 @@
    </xsl:template>
 
     <xsl:variable name="valid_surfaces" select="//tei:facsimile/tei:surface[not(key('surface-id-points-to-corresp',@xml:id))]" as="item()*"/>
-    
+
+    <!-- Document-wide release status, derived once from revisionDesc/change and reused per page. -->
+    <xsl:variable name="release-status" as="map(xsd:string, item())">
+        <xsl:variable name="default" select="'draft'" as="xsd:string"/>
+        <!-- The regex on date is to allow partial dates like yyyy or yyyy-mm -->
+        <xsl:variable name="release_status_values" as="xsd:string*">
+            <xsl:for-each select="/tei:TEI/tei:teiHeader/tei:revisionDesc/tei:change[normalize-space(@status) =('draft','redacted','released')][matches(@when, '^\d{4}(-\d{2})?(-\d{2})?$')]">
+                <xsl:sort select="@when" order="ascending"/>
+                <xsl:sequence select="string(@status)"/>
+            </xsl:for-each>
+        </xsl:variable>
+        <xsl:variable name="logical_tei_status" select="$release_status_values[last()]" as="xsd:string?"/>
+        <xsl:map>
+            <xsl:map-entry key="'itemStatus'" select="($logical_tei_status, $default)[normalize-space(.)][1]"/>
+            <xsl:map-entry key="'isReleased'" select="$logical_tei_status = 'released'"/>
+        </xsl:map>
+    </xsl:variable>
+
    <xsl:template name="get-numberOfPages">
       <number key="numberOfPages" xmlns="http://www.w3.org/2005/xpath-functions">
          <xsl:choose>
@@ -330,24 +347,21 @@
    </xsl:template>
     
     <xsl:template name="get-release-status">
-        <xsl:variable name="default" select="'draft'" as="xsd:string"/>
-        <xsl:variable name="release_status_values" as="xsd:string*">
-            <!-- The regex on date is to allow partial dates like yyyy or yyyy-mm -->
-            <xsl:for-each select="root()/tei:TEI/tei:teiHeader/tei:revisionDesc/tei:change[normalize-space(@status) =('draft','redacted','released')][not(@when) or matches(@when, '^\d{4}(-\d{2})?(-\d{2})?$')]">
-                <xsl:sort select="@when" order="ascending"/>
-                <xsl:sequence select="string(@status)"/>
-            </xsl:for-each>
-        </xsl:variable>
-        
-        <xsl:variable name="logical_tei_status" select="$release_status_values[last()]" as="xsd:string?"/>
-        
-        <boolean key="itemReleased" xmlns="http://www.w3.org/2005/xpath-functions">
-            <xsl:value-of select="($logical_tei_status = 'released')"/>
-        </boolean>
-        
-        <string key="itemStatus" xmlns="http://www.w3.org/2005/xpath-functions">
-            <xsl:value-of select="($logical_tei_status, $default)[normalize-space(.)][1]"/>
-        </string>
+       <xsl:param name="pos"/>
+
+       <boolean key="isReleased" xmlns="http://www.w3.org/2005/xpath-functions">
+          <xsl:value-of select="$release-status('isReleased')"/>
+       </boolean>
+
+       <xsl:if test="$pos = 1">
+          <boolean key="itemReleased" xmlns="http://www.w3.org/2005/xpath-functions">
+             <xsl:value-of select="$release-status('isReleased')"/>
+          </boolean>
+
+          <string key="itemStatus" xmlns="http://www.w3.org/2005/xpath-functions">
+             <xsl:value-of select="$release-status('itemStatus')"/>
+          </string>
+       </xsl:if>
     </xsl:template>
 
 
@@ -2737,9 +2751,9 @@
                         </xsl:choose>
                      </number>
                       
-                     <xsl:if test="position() eq 1">
-                         <xsl:call-template name="get-release-status"/>
-                     </xsl:if>
+                     <xsl:call-template name="get-release-status">
+                        <xsl:with-param name="pos" select="position()"/>
+                     </xsl:call-template>
                       
                      <xsl:if test="normalize-space(tei:media[@mimeType='transcription_diplomatic']/@url)">
                         <string key="transcriptionDiplomaticURL" xmlns="http://www.w3.org/2005/xpath-functions">
@@ -2864,9 +2878,9 @@
                      <xsl:value-of select="1"/>
                   </number>
                   
-                   <xsl:if test="position() eq 1">
-                       <xsl:call-template name="get-release-status"/>
-                   </xsl:if>
+                  <xsl:call-template name="get-release-status">
+                     <xsl:with-param name="pos" select="position()"/>
+                  </xsl:call-template>
                </map>
             </xsl:otherwise>
          </xsl:choose>

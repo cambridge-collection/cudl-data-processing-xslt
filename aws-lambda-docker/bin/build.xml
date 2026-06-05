@@ -87,6 +87,10 @@
         <equals arg1="${env.SKIP_COPY_TEI_WEB_ASSETS}" arg2="true" casesensitive="false"/>
     </condition>
 
+    <condition property="enable.unreleased.partition" value="true" else="false">
+        <equals arg1="${env.ENABLE_UNRELEASED_PARTITION}" arg2="true" casesensitive="false"/>
+    </condition>
+
     <condition property="skip.tei.full.copy" value="true" else="false">
         <equals arg1="${env.SKIP_TEI_FULL_COPY}" arg2="true" casesensitive="false"/>
     </condition>
@@ -446,13 +450,37 @@
 
     <target name="release-outputs" depends="if.local.environment">
         <antcall target="_relocate-html-output"/>
+        <!-- Off by default: every item stays in the released layout (legacy behaviour). -->
+        <antcall if:true="${enable.unreleased.partition}" target="_partition-unreleased"/>
         <antcall if:true="${is.local.environment}" target="_copy_to_dist"/>
         <antcall unless:true="${is.local.environment}" target="_copy_to_s3"/>
         <antcall target="cleanup"/>
     </target>
 
+    <!-- Partition outputs by release status. Reads itemReleased from each
+         core-xml file and moves the matching family of artifacts (core-xml,
+         JSONs, html, page-xml, tei-full) of any item with itemReleased=false
+         into ${dist-pending.dir}/unreleased/<output-type>/... so the existing
+         copy/sync targets carry it through to dist/unreleased/ or
+         s3://bucket/unreleased/. Works identically for one file or wildcards
+         because the whole pending tree is partitioned in a single pass. -->
+    <target name="_partition-unreleased">
+        <exec executable="python3" failonerror="${xslt.fail.on.error}">
+            <arg value="${buildfile.dir}/partition_unreleased.py"/>
+            <arg value="--core-xml-dir"/>
+            <arg value="${core_xml.pending.dir}"/>
+            <arg value="--dist-pending"/>
+            <arg value="${dist-pending.dir}"/>
+            <arg value="--page-xml-dir"/>
+            <arg value="${page-xml.pending.dir}"/>
+            <arg if:true="${skip.core.xml.copy}" value="--skip-core-xml"/>
+            <arg if:true="${skip.page.xml.copy}" value="--skip-page-xml"/>
+            <arg if:true="${skip.tei.full.copy}" value="--skip-tei-full"/>
+        </exec>
+    </target>
+
     <target name="_copy_to_dist">
-        <copy todir="${dist.dir}">
+        <copy todir="${dist.dir}" includeEmptyDirs="false">
             <fileset dir="${dist-pending.dir}">
                 <include name="**/*"/>
             </fileset>
@@ -470,7 +498,104 @@
             <antcall target="_copy_viewer_json_to_s3"/>
             <antcall target="_copy_dp_json_to_s3"/>
             <antcall target="_copy_solr_json_to_s3"/>
+            <antcall target="_copy_unreleased_to_s3"/>
         </parallel>
+    </target>
+
+    <!-- Mirrors the released-output sync targets, but for the unreleased/
+         subtree produced by _partition-unreleased. Each sync only fires if
+         the corresponding pending dir exists, so this is a no-op when the
+         build produced no unreleased items. -->
+    <target name="_copy_unreleased_to_s3">
+        <parallel>
+            <antcall unless:true="${no.copy.xml}" target="_copy_unreleased_xml_derivs_to_s3"/>
+            <antcall target="_copy_unreleased_www_to_s3"/>
+            <antcall target="_copy_unreleased_viewer_json_to_s3"/>
+            <antcall target="_copy_unreleased_dp_json_to_s3"/>
+            <antcall target="_copy_unreleased_solr_json_to_s3"/>
+        </parallel>
+    </target>
+
+    <target name="_copy_unreleased_xml_derivs_to_s3">
+        <condition property="unreleased.core-xml.exists" value="true" else="false">
+            <available file="${dist-pending.dir}/unreleased/core-xml" type="dir"/>
+        </condition>
+        <echo if:true="${unreleased.core-xml.exists}" unless:true="${skip.core.xml.copy}" message="Copying ${dist-pending.dir}/unreleased/core-xml to S3://${AWS_OUTPUT_BUCKET}/unreleased/core-xml"/>
+        <exec if:true="${unreleased.core-xml.exists}" unless:true="${skip.core.xml.copy}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="sync"/>
+            <arg value="--quiet"/>
+            <arg value="${dist-pending.dir}/unreleased/core-xml"/>
+            <arg value="s3://${AWS_OUTPUT_BUCKET}/unreleased/core-xml"/>
+        </exec>
+
+        <condition property="unreleased.page-xml.exists" value="true" else="false">
+            <available file="${dist-pending.dir}/unreleased/page-xml" type="dir"/>
+        </condition>
+        <echo if:true="${unreleased.page-xml.exists}" unless:true="${skip.page.xml.copy}" message="Copying ${dist-pending.dir}/unreleased/page-xml to S3://${AWS_OUTPUT_BUCKET}/unreleased/page-xml"/>
+        <exec if:true="${unreleased.page-xml.exists}" unless:true="${skip.page.xml.copy}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="sync"/>
+            <arg value="--quiet"/>
+            <arg value="${dist-pending.dir}/unreleased/page-xml"/>
+            <arg value="s3://${AWS_OUTPUT_BUCKET}/unreleased/page-xml"/>
+        </exec>
+    </target>
+
+    <target name="_copy_unreleased_www_to_s3">
+        <condition property="unreleased.html.exists" value="true" else="false">
+            <available file="${dist-pending.dir}/unreleased/html" type="dir"/>
+        </condition>
+        <echo if:true="${unreleased.html.exists}" message="Copying ${dist-pending.dir}/unreleased/html/ to S3://${AWS_OUTPUT_BUCKET}/unreleased/html"/>
+        <exec if:true="${unreleased.html.exists}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="sync"/>
+            <arg value="--quiet"/>
+            <arg value="${dist-pending.dir}/unreleased/html/"/>
+            <arg value="s3://${AWS_OUTPUT_BUCKET}/unreleased/html"/>
+        </exec>
+    </target>
+
+    <target name="_copy_unreleased_viewer_json_to_s3">
+        <condition property="unreleased.viewer-json.exists" value="true" else="false">
+            <available file="${dist-pending.dir}/unreleased/json" type="dir"/>
+        </condition>
+        <echo if:true="${unreleased.viewer-json.exists}" message="Copying ${dist-pending.dir}/unreleased/json to S3://${AWS_OUTPUT_BUCKET}/unreleased/json"/>
+        <exec if:true="${unreleased.viewer-json.exists}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="sync"/>
+            <arg value="--quiet"/>
+            <arg value="${dist-pending.dir}/unreleased/json"/>
+            <arg value="s3://${AWS_OUTPUT_BUCKET}/unreleased/json"/>
+        </exec>
+    </target>
+
+    <target name="_copy_unreleased_dp_json_to_s3">
+        <condition property="unreleased.dp-json.exists" value="true" else="false">
+            <available file="${dist-pending.dir}/unreleased/dp-json" type="dir"/>
+        </condition>
+        <echo if:true="${unreleased.dp-json.exists}" message="Copying ${dist-pending.dir}/unreleased/dp-json to S3://${AWS_OUTPUT_BUCKET}/unreleased/dp-json"/>
+        <exec if:true="${unreleased.dp-json.exists}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="sync"/>
+            <arg value="--quiet"/>
+            <arg value="${dist-pending.dir}/unreleased/dp-json"/>
+            <arg value="s3://${AWS_OUTPUT_BUCKET}/unreleased/dp-json"/>
+        </exec>
+    </target>
+
+    <target name="_copy_unreleased_solr_json_to_s3">
+        <condition property="unreleased.solr-json.exists" value="true" else="false">
+            <available file="${dist-pending.dir}/unreleased/solr-json" type="dir"/>
+        </condition>
+        <echo if:true="${unreleased.solr-json.exists}" message="Copying ${dist-pending.dir}/unreleased/solr-json to S3://${AWS_OUTPUT_BUCKET}/unreleased/solr-json"/>
+        <exec if:true="${unreleased.solr-json.exists}" executable="aws" resolveexecutable="true">
+            <arg value="s3"/>
+            <arg value="sync"/>
+            <arg value="--quiet"/>
+            <arg value="${dist-pending.dir}/unreleased/solr-json"/>
+            <arg value="s3://${AWS_OUTPUT_BUCKET}/unreleased/solr-json"/>
+        </exec>
     </target>
 
     <target name="_copy_tei_full_to_s3">

@@ -126,6 +126,30 @@ class TestUploadDist:
         obj = s3.get_object(Bucket=BUCKET, Key="html/cudl-resources/fonts/Cardo.woff2")
         assert obj["ContentType"] == "font/woff2"
 
+    def test_uploads_unreleased_subtree(self) -> None:
+        """dist/unreleased/<type>/ maps to unreleased/<prefix>/ alongside released."""
+        s3 = boto3.client("s3", region_name="eu-west-1")
+        s3.create_bucket(
+            Bucket=BUCKET,
+            CreateBucketConfiguration={"LocationConstraint": "eu-west-1"},
+        )
+
+        with tempfile.TemporaryDirectory() as dist_dir:
+            released = os.path.join(dist_dir, "json")
+            os.makedirs(released)
+            with open(os.path.join(released, "REL.json"), "w") as f:
+                f.write("{}")
+            unreleased = os.path.join(dist_dir, "unreleased", "solr-json")
+            os.makedirs(unreleased)
+            with open(os.path.join(unreleased, "DRAFT.json"), "w") as f:
+                f.write("{}")
+
+            upload_dist(dist_dir, BUCKET)
+
+        resp = s3.list_objects_v2(Bucket=BUCKET)
+        keys = sorted(obj["Key"] for obj in resp["Contents"])
+        assert keys == ["json/REL.json", "unreleased/solr-json/DRAFT.json"]
+
     def test_skips_missing_subdirs(self) -> None:
         """No error when dist has no matching subdirectories."""
         s3 = boto3.client("s3", region_name="eu-west-1")

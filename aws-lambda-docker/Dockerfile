@@ -11,8 +11,8 @@ ENV JAVA_HOME=/usr/lib/jvm/java-11-amazon-corretto
 WORKDIR /tmp
 
 # Download and extract apache ant to /opt
-RUN wget --no-check-certificate --no-cookies "https://dlcdn.apache.org//ant/binaries/apache-ant-${ANT_VERSION}-bin.tar.gz" \
-    && wget --no-check-certificate --no-cookies "https://dlcdn.apache.org//ant/binaries/apache-ant-${ANT_VERSION}-bin.tar.gz.sha512" \
+RUN wget --no-cookies "https://dlcdn.apache.org//ant/binaries/apache-ant-${ANT_VERSION}-bin.tar.gz" \
+    && wget --no-cookies "https://dlcdn.apache.org//ant/binaries/apache-ant-${ANT_VERSION}-bin.tar.gz.sha512" \
     && echo "$(cat apache-ant-${ANT_VERSION}-bin.tar.gz.sha512) apache-ant-${ANT_VERSION}-bin.tar.gz" | sha512sum -c \
     && tar -zvxf "apache-ant-${ANT_VERSION}-bin.tar.gz" -C /opt/ \
     && ln -s /opt/apache-ant-${ANT_VERSION} /opt/ant \
@@ -21,7 +21,7 @@ RUN wget --no-check-certificate --no-cookies "https://dlcdn.apache.org//ant/bina
 
 # Download Saxon jar -- can't find checksum files for releases
 RUN mkdir saxon \
-    && wget --no-check-certificate --no-cookies "https://github.com/Saxonica/Saxon-HE/releases/download/SaxonHE12-4/SaxonHE12-4J.zip" \
+    && wget --no-cookies "https://github.com/Saxonica/Saxon-HE/releases/download/SaxonHE12-4/SaxonHE12-4J.zip" \
     && unzip SaxonHE12-4J.zip -d saxon \
     && mv saxon /opt/
 

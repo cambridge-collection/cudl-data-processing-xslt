@@ -20,6 +20,7 @@ def config() -> Config:
         search_collection_path="collections",
         ant_target="full",
         skip_copy_tei_web_assets="false",
+        enable_unreleased_partition="false",
         emit_emf_metrics=False,
         lambda_timeout_margin_ms=5000,
         enable_sha_metadata=False,
@@ -63,6 +64,7 @@ class TestRunAnt:
         assert env["SEARCH_COLLECTION_PATH"] == "collections"
         assert env["SEARCH_PORT"] == "8983"
         assert env["SKIP_COPY_TEI_WEB_ASSETS"] == "false"
+        assert env["ENABLE_UNRELEASED_PARTITION"] == "false"
 
     @patch("processor.subprocess.run")
     def test_nonzero_exit_raises_permanent_by_default(
@@ -108,6 +110,7 @@ class TestRunAnt:
             search_collection_path="c",
             ant_target="html-only",
             skip_copy_tei_web_assets="true",
+            enable_unreleased_partition="false",
             emit_emf_metrics=False,
             lambda_timeout_margin_ms=5000,
             enable_sha_metadata=False,

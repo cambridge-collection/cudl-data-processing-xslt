@@ -8,7 +8,16 @@ import re
 import shutil
 import subprocess
 
-from config import ANT_BIN, BUILDFILE, DIST_DIR, OPT_CDCP, SOURCE_DIR, TMP_CDCP, Config
+from config import (
+    ANT_BIN,
+    BUILDFILE,
+    DIST_DIR,
+    DIST_PENDING_DIR,
+    OPT_CDCP,
+    SOURCE_DIR,
+    TMP_CDCP,
+    Config,
+)
 from exceptions import PermanentError, TransientError
 
 logger = logging.getLogger(__name__)
@@ -83,10 +92,12 @@ def clean_source_workspace() -> None:
 
 
 def clean_dist() -> None:
-    """Remove and recreate the dist directory."""
-    if os.path.exists(DIST_DIR):
-        shutil.rmtree(DIST_DIR)
+    """Remove and recreate the dist and dist-pending directories."""
+    for d in (DIST_DIR, DIST_PENDING_DIR):
+        if os.path.exists(d):
+            shutil.rmtree(d)
     os.makedirs(DIST_DIR, exist_ok=True)
+    os.makedirs(f"{DIST_PENDING_DIR}/collection-xml", exist_ok=True)
 
 
 def run_ant(config: Config, tei_file: str, *, stream_stdout: bool = False) -> None:
@@ -113,9 +124,11 @@ def run_ant(config: Config, tei_file: str, *, stream_stdout: bool = False) -> No
     env = {
         **os.environ,
         "ENVIRONMENT": "local",
+        "SEARCH_HOST": config.search_host,
         "SEARCH_COLLECTION_PATH": config.search_collection_path,
         "SEARCH_PORT": config.search_port,
         "SKIP_COPY_TEI_WEB_ASSETS": config.skip_copy_tei_web_assets,
+        "ENABLE_UNRELEASED_PARTITION": config.enable_unreleased_partition,
     }
 
     stdout_arg = None if stream_stdout else subprocess.PIPE
@@ -137,7 +150,7 @@ def run_ant(config: Config, tei_file: str, *, stream_stdout: bool = False) -> No
             stripped = line.strip()
             if stripped and not any(stripped.startswith(n) for n in stderr_noise):
                 error_lines.append(stripped)
-                logger.error(stripped, extra={"source": "ant"})
+                logger.debug(stripped, extra={"source": "ant"})
 
     if result.returncode != 0:
         error_cls = _classify_error(error_lines)
@@ -150,7 +163,9 @@ def run_ant(config: Config, tei_file: str, *, stream_stdout: bool = False) -> No
             "error_type": error_cls.__name__,
         }
         logger.error("Ant build failed", extra={"context": build_context})
+        # stderr detail is captured structurally in build_context above, so the
+        # exception message stays concise to avoid re-embedding it in the
+        # handler's traceback log.
         raise error_cls(
-            f"Ant build failed for {tei_file} (exit {result.returncode}): "
-            + "; ".join(error_lines[:3])
+            f"Ant build failed for {tei_file} (exit {result.returncode})"
         )
