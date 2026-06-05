@@ -1,5 +1,5 @@
-"""Guard that the tei.py XQuery and the msTeiPreFilter.xsl get-release-status
-template keep using the same change-selection expression."""
+"""Guard that the tei.py XQuery and the msTeiPreFilter.xsl release-status
+variable keep using the same change-selection expression."""
 
 from __future__ import annotations
 
@@ -19,20 +19,20 @@ def _collapse(text: str) -> str:
 
 def _release_status_for_each() -> ET.Element:
     tree = ET.parse(XSLT_PATH)
-    template = next(
-        t
-        for t in tree.iter(f"{{{XSL}}}template")
-        if t.get("name") == "get-release-status"
+    variable = next(
+        v
+        for v in tree.iter(f"{{{XSL}}}variable")
+        if v.get("name") == "release-status"
     )
-    for_eaches = template.findall(f".//{{{XSL}}}for-each")
-    assert len(for_eaches) == 1, "expected exactly one for-each in get-release-status"
+    for_eaches = variable.findall(f".//{{{XSL}}}for-each")
+    assert len(for_eaches) == 1, "expected exactly one for-each in release-status"
     return for_eaches[0]
 
 
 def test_xslt_select_matches_python_expression() -> None:
     select = _release_status_for_each().get("select")
     assert select is not None
-    assert _collapse(select) == _collapse("root()/" + RELEASE_CHANGE_SELECT)
+    assert _collapse(select) == _collapse("/" + RELEASE_CHANGE_SELECT)
 
 
 def test_xslt_sorts_by_when_ascending() -> None:
