@@ -87,6 +87,10 @@
         <equals arg1="${env.SKIP_COPY_TEI_WEB_ASSETS}" arg2="true" casesensitive="false"/>
     </condition>
 
+    <condition property="enable.unreleased.partition" value="true" else="false">
+        <equals arg1="${env.ENABLE_UNRELEASED_PARTITION}" arg2="true" casesensitive="false"/>
+    </condition>
+
     <condition property="skip.tei.full.copy" value="true" else="false">
         <equals arg1="${env.SKIP_TEI_FULL_COPY}" arg2="true" casesensitive="false"/>
     </condition>
@@ -446,7 +450,8 @@
 
     <target name="release-outputs" depends="if.local.environment">
         <antcall target="_relocate-html-output"/>
-        <antcall target="_partition-unreleased"/>
+        <!-- Off by default: every item stays in the released layout (legacy behaviour). -->
+        <antcall if:true="${enable.unreleased.partition}" target="_partition-unreleased"/>
         <antcall if:true="${is.local.environment}" target="_copy_to_dist"/>
         <antcall unless:true="${is.local.environment}" target="_copy_to_s3"/>
         <antcall target="cleanup"/>

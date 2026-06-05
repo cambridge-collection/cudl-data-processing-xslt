@@ -16,6 +16,7 @@ class TestConfigFromEnv:
         monkeypatch.delenv("SEARCH_COLLECTION_PATH", raising=False)
         monkeypatch.delenv("ANT_TARGET", raising=False)
         monkeypatch.delenv("SKIP_COPY_TEI_WEB_ASSETS", raising=False)
+        monkeypatch.delenv("ENABLE_UNRELEASED_PARTITION", raising=False)
         monkeypatch.delenv("LAMBDA_TIMEOUT_MARGIN_MS", raising=False)
         monkeypatch.delenv("ENABLE_SHA_METADATA", raising=False)
         monkeypatch.delenv("ENABLE_RELEASE_STATUS_METADATA", raising=False)
@@ -28,6 +29,7 @@ class TestConfigFromEnv:
         assert cfg.search_collection_path == "collections"
         assert cfg.ant_target == "full"
         assert cfg.skip_copy_tei_web_assets == "false"
+        assert cfg.enable_unreleased_partition == "false"
         assert cfg.lambda_timeout_margin_ms == 5000
         assert cfg.enable_sha_metadata is False
         assert cfg.enable_release_status_metadata is False
@@ -39,6 +41,7 @@ class TestConfigFromEnv:
         monkeypatch.setenv("SEARCH_COLLECTION_PATH", "custom/path")
         monkeypatch.setenv("ANT_TARGET", "html-only")
         monkeypatch.setenv("SKIP_COPY_TEI_WEB_ASSETS", "true")
+        monkeypatch.setenv("ENABLE_UNRELEASED_PARTITION", "true")
 
         cfg = Config.from_env()
 
@@ -48,6 +51,7 @@ class TestConfigFromEnv:
         assert cfg.search_collection_path == "custom/path"
         assert cfg.ant_target == "html-only"
         assert cfg.skip_copy_tei_web_assets == "true"
+        assert cfg.enable_unreleased_partition == "true"
 
 
 class TestConfigValidation:
@@ -102,6 +106,7 @@ class TestConfigValidation:
             search_collection_path="c",
             ant_target="full",
             skip_copy_tei_web_assets="false",
+            enable_unreleased_partition="false",
             emit_emf_metrics=False,
             lambda_timeout_margin_ms=5000,
             enable_sha_metadata=False,

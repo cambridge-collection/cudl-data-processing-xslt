@@ -128,6 +128,7 @@ def run_ant(config: Config, tei_file: str, *, stream_stdout: bool = False) -> No
         "SEARCH_COLLECTION_PATH": config.search_collection_path,
         "SEARCH_PORT": config.search_port,
         "SKIP_COPY_TEI_WEB_ASSETS": config.skip_copy_tei_web_assets,
+        "ENABLE_UNRELEASED_PARTITION": config.enable_unreleased_partition,
     }
 
     stdout_arg = None if stream_stdout else subprocess.PIPE
