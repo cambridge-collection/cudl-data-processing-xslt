@@ -1,6 +1,6 @@
 FROM public.ecr.aws/lambda/python:3.12
 
-ENV ANT_VERSION=1.10.14
+ENV ANT_VERSION=1.10.17
 ENV ANT_HOME=/opt/ant
 
 # Install system dependencies for Ant and Saxon
@@ -11,8 +11,8 @@ ENV JAVA_HOME=/usr/lib/jvm/java-11-amazon-corretto
 WORKDIR /tmp
 
 # Download and extract apache ant to /opt
-RUN wget --no-cookies "https://dlcdn.apache.org//ant/binaries/apache-ant-${ANT_VERSION}-bin.tar.gz" \
-    && wget --no-cookies "https://dlcdn.apache.org//ant/binaries/apache-ant-${ANT_VERSION}-bin.tar.gz.sha512" \
+RUN wget --no-cookies "https://archive.apache.org/dist/ant/binaries/apache-ant-${ANT_VERSION}-bin.tar.gz" \
+    && wget --no-cookies "https://archive.apache.org/dist/ant/binaries/apache-ant-${ANT_VERSION}-bin.tar.gz.sha512" \
     && echo "$(cat apache-ant-${ANT_VERSION}-bin.tar.gz.sha512) apache-ant-${ANT_VERSION}-bin.tar.gz" | sha512sum -c \
     && tar -zvxf "apache-ant-${ANT_VERSION}-bin.tar.gz" -C /opt/ \
     && ln -s /opt/apache-ant-${ANT_VERSION} /opt/ant \
