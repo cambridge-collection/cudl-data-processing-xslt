@@ -75,7 +75,7 @@ Two directories at the root level of this repository:
 
 The processor can enrich outputs with each item's collection membership by
 querying a search service. This is **optional** and only happens when
-`SEARCH_HOST` points at a reachable cudl-search-api — a remote instance, or a
+`SEARCH_HOST` points at a reachable cudl-search — a remote instance, or a
 local one for dev work.
 
 To run it locally, check out the CUDL Solr and search API repositories
@@ -86,7 +86,7 @@ layout differs):
 parent-directory/
 ├── cudl-data-processing-xslt/
 ├── cudl-solr/
-└── cudl-search-api/
+└── cudl-search/
 ```
 
 Then bring up the stack as described in
@@ -95,12 +95,12 @@ Then bring up the stack as described in
 ### Starting the local search infrastructure
 
 Solr and the search API have a longer lifecycle than an individual XSLT build.
-Their local Compose stack is owned by `cudl-search-api` and can run independently
+Their local Compose stack is owned by `cudl-search` and can run independently
 of this processor. Start it once at the beginning of a development session:
 
 ```bash
 docker compose \
-  -f ../cudl-search-api/docker-compose-local-search.yml \
+  -f ../cudl-search/docker-compose-local-search.yml \
   up -d --build --wait
 ```
 
@@ -146,7 +146,7 @@ TEI_FILE=items/data/tei/MS-ADD-03975/MS-ADD-03975.xml \
 `TEI_FILE` also accepts wildcards. The following will rebuild files for MS-ADD-04000 to MS-ADD-04009:
 
 ```bash
-TEI_FILE='items/data/tei/**/MS-ADD-0400*.xml' \
+TEI_FILE='items/data/tei/MS-ADD-0400*/MS-ADD-0400*.xml' \
   docker compose -f docker-compose-local.yml run --rm cudl-tei-processing
 ```
 
@@ -161,7 +161,7 @@ Stop the search infrastructure at the end of the development session:
 
 ```bash
 docker compose \
-  -f ../cudl-search-api/docker-compose-local-search.yml \
+  -f ../cudl-search/docker-compose-local-search.yml \
   down
 ```
 
