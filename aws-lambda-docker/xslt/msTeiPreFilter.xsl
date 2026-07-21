@@ -51,38 +51,40 @@
 
    <xsl:key name="collection_items" match="/*:map/*:map[@key='response']/*:array[@key='docs']/*:map/*:array[@key='items._id']/*:string" use="string-join(tokenize(tokenize(., '/')[last()], '\.')[position() lt last()], '.')"/>
 
+   <xsl:variable name="collection-query">
+      <xsl:if test="$SEARCH_HOST != ''">
+         <xsl:variable name="search_addr" select="string-join(($SEARCH_HOST, $SEARCH_PORT)[normalize-space(.)], ':')"/>
+         <xsl:variable name="request_uri" select="concat('http://', $search_addr, '/items/', encode-for-uri($fileID), '/collections')"/>
+         <xsl:try>
+            <xsl:message select="concat('Submitting request to: ', $request_uri)"/>
+            <xsl:copy-of select="json-to-xml(unparsed-text($request_uri))"/>
+            <xsl:catch>
+               <xsl:message terminate="yes">ERROR: Search API not responding for <xsl:value-of select="$request_uri"/></xsl:message>
+            </xsl:catch>
+         </xsl:try>
+      </xsl:if>
+   </xsl:variable>
+
+   <xsl:variable name="collection-response-items" select="$collection-query/*:map/*:array[@key='items']/*:map"/>
+
+   <xsl:variable name="item-collections" as="element()*"
+      select="($collection-response-items[*:string[@key='item'] = concat('json/', $fileID, '.json')],
+               $collection-response-items[1])[1]/*:array[@key='collections']/*:map"/>
+
    <xsl:template name="get-collection">
       <xsl:if test="$SEARCH_HOST !=''">
-         <xsl:variable name="search_addr" select="string-join(($SEARCH_HOST, $SEARCH_PORT)[normalize-space(.)], ':')"/>
-         
-         <xsl:variable name="collection-query">
-             <xsl:variable name="request_uri" select="concat('http://', $search_addr, '/items/', encode-for-uri($fileID), '/collections')"/>
-            <xsl:try>
-               <xsl:message select="concat('Submitting request to: ', $request_uri)"/>
-               <xsl:copy-of select="json-to-xml(unparsed-text($request_uri))"/>
-               <xsl:catch>
-                  <xsl:message terminate="yes">ERROR: Search API not responding for <xsl:value-of select="$request_uri"/></xsl:message>
-               </xsl:catch>
-            </xsl:try>
-         </xsl:variable>
-
-         <xsl:variable name="response_items" select="$collection-query/*:map/*:array[@key='items']/*:map"/>
-         <xsl:variable name="item_obj"
-            select="($response_items[*:string[@key='item'] = concat('json/', $fileID, '.json')],
-                     $response_items[1])[1]"/>
-         <xsl:variable name="item_collections" select="$item_obj/*:array[@key='collections']/*:map"/>
 
          <xsl:choose>
-            <xsl:when test="empty($response_items)">
+            <xsl:when test="empty($collection-response-items)">
                <xsl:message terminate="yes">ERROR: Response from Search API for <xsl:value-of select="$fileID"/> does not appear to be valid item-collections JSON response</xsl:message>
             </xsl:when>
-            <xsl:when test="empty($item_collections)">
+            <xsl:when test="empty($item-collections)">
                <xsl:message>WARN: <xsl:value-of select="$fileID"/> does not seem to belong to collection</xsl:message>
             </xsl:when>
             <xsl:otherwise>
                
                <array key="collection" xmlns="http://www.w3.org/2005/xpath-functions">
-                  <xsl:for-each select="$item_collections">
+                  <xsl:for-each select="$item-collections">
                      <xsl:variable name="item_collection_slug" select="normalize-space(*:string[@key='slug'][1])"/>
                      <xsl:variable name="item_collection_title" select="normalize-space(*:string[@key='titleEn'][1])"/>
                      <xsl:variable name="child_pos" select="*:number[@key='position'][1]"/>
@@ -155,13 +157,34 @@
                   </xsl:for-each>
                </array>
                <boolean key="itemAppearsInMultipleCollections" xmlns="http://www.w3.org/2005/xpath-functions">
-                  <xsl:value-of select="count($item_collections) gt 1"/>
+                  <xsl:value-of select="count($item-collections) gt 1"/>
                </boolean>
                <number key="itemCollectionCount" xmlns="http://www.w3.org/2005/xpath-functions">
-                  <xsl:value-of select="count($item_collections)"/>
+                  <xsl:value-of select="count($item-collections)"/>
                </number>
             </xsl:otherwise>
          </xsl:choose>
+      </xsl:if>
+   </xsl:template>
+
+   <xsl:template name="get-collections">
+      <xsl:if test="exists($item-collections)">
+         <map key="collections" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:copy-of select="cudl:display(true())"/>
+            <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:variable name="links" as="xsd:string*">
+                  <xsl:for-each select="$item-collections">
+                     <xsl:sort select="normalize-space(*:string[@key='titleEn'][1])"/>
+                     <xsl:variable name="slug" select="encode-for-uri(normalize-space(*:string[@key='slug'][1]))"/>
+                     <xsl:variable name="title" select="normalize-space(*:string[@key='titleEn'][1])"/>
+                     <xsl:sequence select="concat('&lt;li&gt;&lt;a href=&quot;/collections/', $slug, '/1&quot;&gt;', $title, '&lt;/a&gt;&lt;/li&gt;')"/>
+                  </xsl:for-each>
+               </xsl:variable>
+               <xsl:value-of select="concat('&lt;ul class=&quot;collections&quot;&gt;', string-join($links, ''), '&lt;/ul&gt;')"/>
+            </string>
+            <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">Member of</string>
+            <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">1</number>
+         </map>
       </xsl:if>
    </xsl:template>
 
@@ -386,6 +409,7 @@
             <xsl:with-param name="level" select="'doc'"/>
          </xsl:call-template>
          <xsl:call-template name="get-calendarnum"/>
+         <xsl:call-template name="get-collections"/>
 
          <xsl:choose>
             <xsl:when test="count(tei:msContents/tei:msItem) = 1">
@@ -4859,6 +4883,7 @@
          <cudl:element name="descriptiveMetadata" jsontype="array">
             <cudl:element name="part" jsontype="object">
                <cudl:element name="ID" jsontype="string" />
+               <cudl:element name="collections" label="Member of" jsontype="string" />
                <cudl:element name="physicalLocation" label="Physical Location" jsontype="string" />
                <cudl:element name="shelfLocator"  label="Classmark" jsontype="string" />
                <cudl:element name="altIdentifiers" label="Alternative Identifier(s)" jsontype="array">
