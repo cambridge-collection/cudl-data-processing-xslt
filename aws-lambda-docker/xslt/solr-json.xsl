@@ -51,7 +51,14 @@
                <xsl:value-of select="$documentShelfLocator"/>
             </json:string>
          </xsl:if>
-         
+
+         <xsl:variable name="documentAbstract" select="(/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:map[@key='abstract'][descendant::json:string[@key='displayForm']]//json:string[@key='displayForm'])[1]"/>
+         <xsl:if test="normalize-space($documentAbstract)">
+            <json:string key="documentAbstract">
+               <xsl:value-of select="$documentAbstract"/>
+            </json:string>
+         </xsl:if>
+
          <json:string key="hasPage">
             <xsl:value-of select="cudl:convert-boolean-to-yes-no(true())"/>
          </json:string>
