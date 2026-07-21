@@ -352,15 +352,15 @@
        <boolean key="isReleased" xmlns="http://www.w3.org/2005/xpath-functions">
           <xsl:value-of select="$release-status('isReleased')"/>
        </boolean>
+       
+       <string key="itemStatus" xmlns="http://www.w3.org/2005/xpath-functions">
+          <xsl:value-of select="$release-status('itemStatus')"/>
+       </string>
 
        <xsl:if test="$pos = 1">
           <boolean key="itemReleased" xmlns="http://www.w3.org/2005/xpath-functions">
              <xsl:value-of select="$release-status('isReleased')"/>
           </boolean>
-
-          <string key="itemStatus" xmlns="http://www.w3.org/2005/xpath-functions">
-             <xsl:value-of select="$release-status('itemStatus')"/>
-          </string>
        </xsl:if>
     </xsl:template>
 
