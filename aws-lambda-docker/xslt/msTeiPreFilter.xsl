@@ -226,6 +226,7 @@
          <xsl:call-template name="get-text-direction"/>
          <xsl:call-template name="get-transcription-flags"/>
          <xsl:call-template name="get-sourceData"/>
+         <xsl:call-template name="get-arkcam"/>
 
          <!--is this a complete representation of the item-->
          <!--QUERY - deprecate?--><!-- TODO IS IT USED -->
@@ -416,6 +417,7 @@
                <xsl:call-template name="get-abstract">
                      <xsl:with-param name="level" select="'doc'"/>
                   </xsl:call-template>
+               <xsl:call-template name="get-ark-pid"/>
                <xsl:call-template name="get-doc-and-item-names"/>
                <xsl:call-template name="get-doc-events"/>
                <xsl:call-template name="get-doc-physloc"/>
@@ -461,6 +463,7 @@
                <xsl:call-template name="get-abstract">
                      <xsl:with-param name="level" select="'doc'"/>
                   </xsl:call-template>
+               <xsl:call-template name="get-ark-pid"/>
                <xsl:call-template name="get-languages">
                      <xsl:with-param name="level" select="'doc'"/>
                   </xsl:call-template>
@@ -504,6 +507,7 @@
                <xsl:call-template name="get-abstract">
                   <xsl:with-param name="level" select="'part'"/>
                </xsl:call-template>
+               <xsl:call-template name="get-ark-pid"/>
                <xsl:call-template name="get-doc-and-item-names"/>
                <xsl:call-template name="get-doc-events"/>
                <xsl:call-template name="get-doc-physloc"/>
@@ -556,6 +560,7 @@
                <xsl:call-template name="get-abstract">
                   <xsl:with-param name="level" select="'part'"/>
                </xsl:call-template>
+               <xsl:call-template name="get-ark-pid"/>
                <xsl:call-template name="get-languages">
                   <xsl:with-param name="level" select="'doc'"/>
                </xsl:call-template>
@@ -843,6 +848,39 @@
                <xsl:with-param name="seq" select="1"/>
             </xsl:call-template>
          </map>
+      </xsl:if>
+   </xsl:template>
+
+   <xsl:template name="get-ark-pid">
+      <xsl:variable name="arkCudl" select="ancestor-or-self::tei:teiHeader[1]//tei:publicationStmt/tei:idno[@type='ARKCAM'][@subtype='cudl'][normalize-space(.)][1]"/>
+      <xsl:if test="$arkCudl">
+         <xsl:variable name="ark" select="normalize-space($arkCudl)"/>
+         <xsl:variable name="url" select="concat('https://resolver.ark.lib.cam.ac.uk/', $ark)"/>
+         <map key="arkPid" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:copy-of select="cudl:display(true())"/>
+            <string key="displayForm">
+               <xsl:value-of select="concat('&lt;a href=&quot;', $url, '&quot;&gt;', $ark, '&lt;/a&gt;')"/>
+            </string>
+            <string key="label">Persistent Identifier (ARK)</string>
+            <number key="seq">1</number>
+         </map>
+      </xsl:if>
+   </xsl:template>
+
+   <xsl:template name="get-arkcam">
+      <xsl:if test="/tei:TEI/tei:teiHeader/tei:fileDesc/tei:publicationStmt/tei:idno[@type='ARKCAM'][normalize-space(.)]">
+         <array key="arkcam" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:for-each select="/tei:TEI/tei:teiHeader/tei:fileDesc/tei:publicationStmt/tei:idno[@type='ARKCAM'][normalize-space(.)]">
+               <map>
+                  <string key="name">
+                     <xsl:value-of select="@subtype"/>
+                  </string>
+                  <string key="value">
+                     <xsl:value-of select="normalize-space(.)"/>
+                  </string>
+               </map>
+            </xsl:for-each>
+         </array>
       </xsl:if>
    </xsl:template>
 
@@ -5160,6 +5198,7 @@
                <cudl:element name="bibliographies" label="Bibliography" jsontype="array">
                   <cudl:element name="bibliography" jsontype="string"/>
                </cudl:element>
+               <cudl:element name="arkPid" label="Persistent Identifier (ARK)" jsontype="string" />
                <!-- Non-display data: used by viewer but not displayed in metadata block -->
                <cudl:element name="thumbnailUrl" jsontype="string" />
                <cudl:element name="thumbnailOrientation" jsontype="string" />
@@ -5178,6 +5217,12 @@
                   </cudl:element>
                </cudl:element>
                <!-- <cudl:element name="content" jsontype="string" /> -->
+            </cudl:element>
+         </cudl:element>
+         <cudl:element name="arkcam" jsontype="array">
+            <cudl:element name="arkcamItem" jsontype="object">
+               <cudl:element name="name" jsontype="string" />
+               <cudl:element name="value" jsontype="string" />
             </cudl:element>
          </cudl:element>
          <cudl:element name="numberOfPages" jsontype="number"/>

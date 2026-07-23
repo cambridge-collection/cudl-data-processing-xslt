@@ -59,6 +59,12 @@
             </json:string>
          </xsl:if>
 
+         <xsl:for-each select="/json:map/json:array[@key='arkcam']/json:map">
+            <json:string key="arkcam-{json:string[@key='name']}_ss">
+               <xsl:value-of select="json:string[@key='value']"/>
+            </json:string>
+         </xsl:for-each>
+
          <json:string key="hasPage">
             <xsl:value-of select="cudl:convert-boolean-to-yes-no(true())"/>
          </json:string>
@@ -126,7 +132,7 @@
          <xsl:variable name="metadata" as="item()*">
             <xsl:variable name="t1" as="item()*">
                <xsl:variable name="part_metadata" select="key('part_metadata', $part_num)"/>
-               <xsl:apply-templates select="$part_metadata//json:map[normalize-space(@key)][not(descendant::json:map[normalize-space(@key)])][descendant::json:string[@key='displayForm']]" mode="flatten"/>
+               <xsl:apply-templates select="$part_metadata//json:map[normalize-space(@key)][not(@key='arkPid')][not(descendant::json:map[normalize-space(@key)])][descendant::json:string[@key='displayForm']]" mode="flatten"/>
                <xsl:apply-templates select="$part_metadata//json:array[@key='century']" mode="flatten"/>
                <xsl:copy-of select="$part_metadata//json:number[@key=('yearStart','yearEnd')]"/>
                <xsl:copy-of select="$part_metadata//json:array[@key='dateRange']"/>
