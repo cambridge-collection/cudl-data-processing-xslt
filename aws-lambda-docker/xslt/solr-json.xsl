@@ -253,22 +253,22 @@
    
    <xsl:template match="json:array[@key='collection']">
       <json:array key="collection-slug">
-         <xsl:for-each select="json:map/json:string[@key='url-slug'][not(matches(.,'::'))]">
+         <xsl:for-each select="json:map/json:string[@key='url-slug']">
             <json:string>
-               <xsl:value-of select="."/>
+               <xsl:value-of select="tokenize(., '::')[last()]"/>
             </json:string>
          </xsl:for-each>
       </json:array>
       <json:array key="collection">
-         <xsl:for-each select="json:map/json:string[@key='name-short'][not(matches(.,'::'))]">
+         <xsl:for-each select="json:map/json:string[@key='name-short']">
             <json:string>
-               <xsl:value-of select="."/>
+               <xsl:value-of select="tokenize(., '::')[last()]"/>
             </json:string>
          </xsl:for-each>
       </json:array>
-      <xsl:for-each select="json:map/json:map[@key='sort'][normalize-space(json:string[@key='name'][not(matches(.,'::'))])]">
+      <xsl:for-each select="json:map/json:map[@key='sort'][normalize-space(json:string[@key='name'])]">
          <json:string>
-            <xsl:attribute name="key" select="json:string[@key='name']"/>
+            <xsl:attribute name="key" select="tokenize(json:string[@key='name'], '::')[last()]"/>
             <xsl:value-of select="json:string[@key='value']"/>
          </json:string>
       </xsl:for-each>

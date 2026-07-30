@@ -93,7 +93,8 @@
                      <xsl:variable name="parent_slug" select="normalize-space($parent_object/*:string[@key='slug'][1])"/>
                      <xsl:variable name="parent_pos" select="$parent_object/*:number[@key='position'][1]"/>
                      
-                     <xsl:if test="exists($parent_object)">
+                     <xsl:if test="exists($parent_object) and
+                                   empty(preceding-sibling::*:map[normalize-space(*:array[@key='parent']/*:map[1]/*:string[@key='slug'][1]) = $parent_slug])">
                         <map xmlns="http://www.w3.org/2005/xpath-functions">
                            <string key="url-slug" xmlns="http://www.w3.org/2005/xpath-functions">
                               <xsl:value-of select="$parent_slug"/>
