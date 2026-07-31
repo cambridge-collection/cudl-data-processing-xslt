@@ -2929,6 +2929,10 @@
                </xsl:when>
             <xsl:otherwise>
                <map xmlns="http://www.w3.org/2005/xpath-functions">
+                  <string key="id" xmlns="http://www.w3.org/2005/xpath-functions">
+                     <xsl:value-of select="concat($fileID, '-1')"/>
+                  </string>
+
                   <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
                      <xsl:text>cover</xsl:text>
                   </string>
@@ -2940,10 +2944,26 @@
                   <number key="sequence" xmlns="http://www.w3.org/2005/xpath-functions">
                      <xsl:value-of select="1"/>
                   </number>
-                  
+
+                  <string key="itemURL" xmlns="http://www.w3.org/2005/xpath-functions">
+                     <xsl:value-of select="concat($fileID, '/1')"/>
+                  </string>
+
                   <xsl:call-template name="get-release-status">
                      <xsl:with-param name="pos" select="position()"/>
                   </xsl:call-template>
+
+                  <map key="transcription_content" xmlns="http://www.w3.org/2005/xpath-functions">
+                     <string key="pageHasTranscription" xmlns="http://www.w3.org/2005/xpath-functions">
+                        <xsl:value-of select="cudl:convert-boolean-to-yes-no(false())"/>
+                     </string>
+                  </map>
+
+                  <map key="translation_content" xmlns="http://www.w3.org/2005/xpath-functions">
+                     <string key="pageHasTranslation" xmlns="http://www.w3.org/2005/xpath-functions">
+                        <xsl:value-of select="cudl:convert-boolean-to-yes-no(false())"/>
+                     </string>
+                  </map>
                </map>
             </xsl:otherwise>
          </xsl:choose>
