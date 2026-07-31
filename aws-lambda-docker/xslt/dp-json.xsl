@@ -9,6 +9,8 @@
    
    <xsl:mode on-no-match="shallow-copy" />
    
+   <xsl:variable name="pids" select="/json:map/json:array[@key='arkcam']"/>
+   
    <xsl:template match="/json:map">
       <xsl:variable name="result" as="item()">
          <xsl:copy>
@@ -34,7 +36,17 @@
       
       <xsl:copy-of select="/json:map/json:string[@key='sourceTEI']"/>
       <xsl:copy-of select="/json:map/json:string[@key='teiSha256']"/>
-
+      
+      <xsl:if test="$pids/json:map[json:string[@key='name'][lower-case(normalize-space(.)) = 'tei']]">
+         <json:string key="arkPid">
+            <xsl:value-of select="($pids/json:map[json:string[@key='name'][lower-case(normalize-space(.)) = 'tei']])[1]/json:string[@key='value']"/>
+         </json:string>
+      </xsl:if>
+      <xsl:if test="count($pids/json:map[json:string[@key='name'][lower-case(normalize-space(.)) != 'tei']]) ge 1">
+         <json:array key="representation_arks">
+            <xsl:copy-of select="$pids/json:map[json:string[@key='name'][lower-case(normalize-space(.)) != 'tei']]"/>
+         </json:array>
+      </xsl:if>
       <xsl:apply-templates select="json:map[@key='abstract']"/>
       <xsl:apply-templates select="json:map[@key='shelfLocator']"/>
       <xsl:apply-templates select="json:map[@key='publications']"/>
