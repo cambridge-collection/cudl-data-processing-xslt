@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+import threading
 from unittest import mock
 
 import boto3
@@ -195,6 +196,53 @@ class TestUploadDist:
             "json/a.json",
             "json/b.json",
         ]
+
+
+@mock_aws
+class TestUploadDistClientIsolation:
+    """Worker threads must never share an S3 client (shared clients segfault)."""
+
+    def test_each_worker_thread_gets_its_own_client(self) -> None:
+        s3 = boto3.client("s3", region_name="eu-west-1")
+        s3.create_bucket(
+            Bucket=BUCKET,
+            CreateBucketConfiguration={"LocationConstraint": "eu-west-1"},
+        )
+
+        original = _upload_single_file
+        seen: list[tuple[int, int]] = []
+        lock = threading.Lock()
+
+        def record_client(
+            s3_client: object,
+            file_path: str,
+            bucket: str,
+            s3_key: str,
+            metadata: object = None,
+        ) -> None:
+            with lock:
+                seen.append((threading.get_ident(), id(s3_client)))
+            original(s3_client, file_path, bucket, s3_key)  # type: ignore[arg-type]
+
+        with tempfile.TemporaryDirectory() as dist_dir:
+            json_dir = os.path.join(dist_dir, "json")
+            os.makedirs(json_dir)
+            for i in range(20):
+                with open(os.path.join(json_dir, f"f{i:02d}.json"), "w") as f:
+                    f.write(f"content-{i}")
+
+            with mock.patch("s3_ops._upload_single_file", side_effect=record_client):
+                upload_dist(dist_dir, BUCKET, max_workers=4)
+
+        assert len(seen) == 20
+        by_client: dict[int, set[int]] = {}
+        by_thread: dict[int, set[int]] = {}
+        for thread_id, client_id in seen:
+            by_client.setdefault(client_id, set()).add(thread_id)
+            by_thread.setdefault(thread_id, set()).add(client_id)
+        assert all(len(threads) == 1 for threads in by_client.values())
+        assert all(len(clients) == 1 for clients in by_thread.values())
+        assert len(by_client) == len(by_thread) > 1
 
 
 @mock_aws
