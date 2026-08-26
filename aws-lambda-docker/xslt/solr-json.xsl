@@ -9,6 +9,8 @@
    
    <xsl:import href="common-util.xsl"/>
    
+   <xsl:template match="json:array[@key='descriptiveMetadata']|json:array[@key='logicalStructures']"/>
+   
    <xsl:key name="keys" match="json:array[@key='descriptiveMetadata']/json:map[1]//json:*[normalize-space(@key)]" use="@key"/>
    <xsl:key name="listItemPagesSeq" match="json:array[@key='listItemPages']/json:map" use="json:number[@key='startPage']"/>
    
@@ -28,23 +30,12 @@
    
    <xsl:template match="/json:map">
       <xsl:copy>
-         <xsl:apply-templates select="*"/>
-      </xsl:copy>
-   </xsl:template>
-   
-   <xsl:key name="logical_structure" match="json:array[@key='logicalStructures']//json:map[normalize-space(json:string[@key = 'startPageID'])]" use="json:string[@key = 'startPageID']"/>
-   
-   <xsl:key name="part_metadata" match="json:array[@key='descriptiveMetadata']/json:map[not(normalize-space(@key))][normalize-space(json:string[@key = 'ID'])]" use="json:string[@key = 'ID']"/>
-   
-   <xsl:variable name="firstPage" select="(/json:map/json:array[@key='pages']/json:map)[1]"/>
-   <xsl:variable name="lastPage" select="(/json:map/json:array[@key='pages']/json:map)[last()]"/>
-   
-   <xsl:template match="json:array[@key='pages']/json:map">
-      <xsl:copy>
+         <!-- Solr's split=/pages copies root-level fields into every page document, but only
+              those emitted before the pages array; anything after it is silently dropped. -->
          <json:string key="documentTitle">
             <xsl:value-of select="$logical_struture_elem/json:string[@key='label']"/>
          </json:string>
-         
+
          <xsl:variable name="documentShelfLocator" select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:map[@key='shelfLocator'][descendant::json:string[@key='displayForm']]//json:string[@key='displayForm']"/>
          <xsl:if test="normalize-space($documentShelfLocator)">
             <json:string key="documentShelfLocator">
@@ -65,6 +56,19 @@
             </json:string>
          </xsl:for-each>
 
+         <xsl:apply-templates select="*"/>
+      </xsl:copy>
+   </xsl:template>
+   
+   <xsl:key name="logical_structure" match="json:array[@key='logicalStructures']//json:map[normalize-space(json:string[@key = 'startPageID'])]" use="json:string[@key = 'startPageID']"/>
+   
+   <xsl:key name="part_metadata" match="json:array[@key='descriptiveMetadata']/json:map[not(normalize-space(@key))][normalize-space(json:string[@key = 'ID'])]" use="json:string[@key = 'ID']"/>
+   
+   <xsl:variable name="firstPage" select="(/json:map/json:array[@key='pages']/json:map)[1]"/>
+   <xsl:variable name="lastPage" select="(/json:map/json:array[@key='pages']/json:map)[last()]"/>
+   
+   <xsl:template match="json:array[@key='pages']/json:map">
+      <xsl:copy>
          <json:string key="hasPage">
             <xsl:value-of select="cudl:convert-boolean-to-yes-no(true())"/>
          </json:string>
