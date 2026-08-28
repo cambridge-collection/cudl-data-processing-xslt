@@ -66,38 +66,108 @@ This information is coded in escaped JSON contained within the `body` property. 
 
 ### Prerequisites
 
-Two directories at the root level of the repository:
+Two directories at the root level of this repository:
 
 * `data`, which contains the source data for your collection. This can be copied from the relevant S3 source bucket.
 * `dist`, which will contain the finished outputs.
 
+#### Optional: collection-membership lookups
+
+The processor can enrich outputs with each item's collection membership by
+querying a search service. This is **optional** and only happens when
+`SEARCH_HOST` points at a reachable cudl-search — a remote instance, or a
+local one for dev work.
+
+To run it locally, check out the CUDL Solr and search API repositories
+alongside this one (override the Solr location with `CUDL_SOLR_DIR` if your
+layout differs):
+
+```text
+parent-directory/
+├── cudl-data-processing-xslt/
+├── cudl-solr/
+└── cudl-search/
+```
+
+Then bring up the stack as described in
+[Starting the local search infrastructure](#starting-the-local-search-infrastructure).
+
+### Starting the local search infrastructure
+
+Solr and the search API have a longer lifecycle than an individual XSLT build.
+Their local Compose stack is owned by `cudl-search` and can run independently
+of this processor. Start it once at the beginning of a development session:
+
+```bash
+docker compose \
+  -f ../cudl-search/docker-compose-local-search.yml \
+  up -d --build --wait
+```
+
+The search API is then available directly at <http://localhost>. For
+example:
+
+```bash
+curl 'http://localhost/items?q=*'
+```
+
+Solr is available at <http://localhost:8983>. Its data persists in
+`../cudl-solr/external-vol` when the infrastructure containers are stopped or
+recreated.
+
+The Solr image creates the CUDL cores and their configuration, but a fresh
+instance does not contain collection or item-collection records. Seed the
+indexes with the collections covering the items you intend to build — see the
+[Search / Solr integration](#search--solr-integration) requirement on indexing
+the released collection JSON before a build.
+
 ### Building the container and processing data
 
 You must specify the file you want to process in the environment variable called `TEI_FILE` before you mount the container. This contains the path to the source file, relative to the root of the `./data`. This file will be processed as soon as the container is run.
+
+Build the processing image the first time, and again after changing its
+Dockerfile, Python code or dependencies:
+
+```bash
+docker compose -f docker-compose-local.yml build
+```
+
+The local `./aws-lambda-docker/bin` and `./aws-lambda-docker/xslt` directories are mounted into the processing
+container. XSLT and Ant build-file changes therefore do not require an image
+rebuild; just run a new disposable processing container.
  
 To process MS-ADD-03975:
 
 ```bash
-export TEI_FILE=items/data/tei/MS-ADD-03975/MS-ADD-03975.xml
-docker compose -f docker-compose-local.yml up --build
+TEI_FILE=items/data/tei/MS-ADD-03975/MS-ADD-03975.xml \
+  docker compose -f docker-compose-local.yml run --rm cudl-tei-processing
 ```
 
 `TEI_FILE` also accepts wildcards. The following will rebuild files for MS-ADD-04000 to MS-ADD-04009:
 
 ```bash
-export TEI_FILE=items/data/tei/**/MS-ADD-0400*.xml
-docker compose -f docker-compose-local.yml up --build
+TEI_FILE='items/data/tei/MS-ADD-0400*/MS-ADD-0400*.xml' \
+  docker compose -f docker-compose-local.yml run --rm cudl-tei-processing
 ```
 
 You cannot pass multiple files (with paths) to the container. It only accepts a single file or wildcards.
 
-If the `TEI_FILE` environment variable is not set, the container will assume that you want to process all files (**/*.xml) in `./data`.
+`TEI_FILE` is required by the local runner. To process all source XML files,
+set it explicitly to `**/*.xml`.
 
 Set `LOG_LEVEL=DEBUG` in your `.env` file (or export it) for verbose output when debugging.
 
+Stop the search infrastructure at the end of the development session:
+
+```bash
+docker compose \
+  -f ../cudl-search/docker-compose-local-search.yml \
+  down
+```
+
 ## Environment variables
 
-All compose files inherit from `docker-compose-base.yml`, which loads a `.env` file. Variables marked **Lambda** are used when the container runs as an AWS Lambda. Variables marked **Local compose** only apply when running via `docker-compose-local.yml` or `docker-compose-aws-dev.yml`.
+The processing compose files inherit from `docker-compose-base.yml`, which loads a `.env` file. Variables marked **Lambda** are used when the container runs as an AWS Lambda. Variables marked **Local compose** only apply when running via `docker-compose-local.yml` or `docker-compose-aws-dev.yml`.
 
 ### AWS credentials (needed for local development work)
 
@@ -116,12 +186,14 @@ These are only needed when running the container locally against real AWS resour
 | `AWS_OUTPUT_BUCKET` | `""` | Lambda | S3 bucket for processed outputs. **Required** for Lambda. |
 | `ANT_TARGET` | `full` | Lambda, Local compose | Ant build target to execute. |
 | `ENVIRONMENT` | — | Ant build | Set to `local` by both local compose files. Controls whether Ant copies outputs locally or to S3. |
-| `TEI_FILE` | — | Local compose | Path (relative to `./data`) of the TEI file to process. Accepts wildcards. If unset, all `**/*.xml` files in `./data` are processed. |
+| `TEI_FILE` | — | Local compose | Required path (relative to `./data`) of the TEI file to process. Accepts wildcards; use `**/*.xml` to process all source XML files. |
 | `XSLT_FAIL_ON_ERROR` | `true` | Lambda, Local compose | Whether the XSLT transform should abort on error. Set to `false` when running bulk transformations locally. Otherwise a malformed TEI would cause the batch to fail entirely. |
 
 ### Search / Solr integration
 
 Passed through to the XSLT stylesheets via the Ant build. These variables are used for lookups when indexing an item to determine which collection(s) it belongs to.
+
+The lookup is optional: it only runs when `SEARCH_HOST` is set, and this applies equally to Lambda and local deployments. **When it is enabled**, the lookup reads collection records from the search index, so the released collection JSON for the collections covering an item must be indexed into Solr **before** that item is built. If the index is missing those records, the build produces no collection-membership information for the item.
 
 | Variable | Default | Scope | Description |
 |---|---|---|---|

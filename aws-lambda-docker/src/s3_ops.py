@@ -6,6 +6,7 @@ import hashlib
 import logging
 import mimetypes
 import os
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from fnmatch import fnmatch
 from typing import TYPE_CHECKING, Any
@@ -28,6 +29,24 @@ S3_RETRY_CONFIG = BotoConfig(retries={"max_attempts": 3, "mode": "adaptive"})
 def _s3_client() -> S3Client:
     """Create an S3 client with adaptive retry."""
     return boto3.client("s3", config=S3_RETRY_CONFIG)
+
+
+_thread_local = threading.local()
+_client_creation_lock = threading.Lock()
+
+
+def _thread_s3_client() -> S3Client:
+    """Return this thread's own S3 client, creating it on first use.
+
+    Sharing one client across the upload pool segfaults in the OpenSSL handshake;
+    boto3's default Session is also unsafe for concurrent client creation.
+    """
+    client: S3Client | None = getattr(_thread_local, "s3", None)
+    if client is None:
+        with _client_creation_lock:
+            client = _s3_client()
+        _thread_local.s3 = client
+    return client
 
 
 FONT_MIME_TYPES: dict[str, str] = {
@@ -131,7 +150,6 @@ def _upload_single_file(
 
 
 def _process_and_upload(
-    s3: S3Client,
     file_path: str,
     bucket: str,
     s3_key: str,
@@ -156,6 +174,8 @@ def _process_and_upload(
     largely just to catch the absence of the release status object metadata
     on the old file.
     """
+    s3 = _thread_s3_client()
+
     metadata: dict[str, str] = {}
     if enable_sha_metadata:
         metadata["content-sha256"] = _compute_sha256(file_path)
@@ -185,8 +205,6 @@ def upload_dist(
     When metadata flags are enabled, compares per-object metadata before uploading
     and skips unchanged files.
     """
-    s3 = _s3_client()
-
     # dist/unreleased/ is a sibling of dist/<type>, so it needs its own walk;
     # its files map to matching unreleased/<prefix> keys.
     locations = [
@@ -220,7 +238,6 @@ def upload_dist(
         futures = {
             pool.submit(
                 _process_and_upload,
-                s3,
                 file_path,
                 bucket,
                 s3_key,

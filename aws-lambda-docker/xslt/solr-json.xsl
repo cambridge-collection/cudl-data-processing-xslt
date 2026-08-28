@@ -9,6 +9,8 @@
    
    <xsl:import href="common-util.xsl"/>
    
+   <xsl:template match="json:array[@key='descriptiveMetadata']|json:array[@key='logicalStructures']"/>
+   
    <xsl:key name="keys" match="json:array[@key='descriptiveMetadata']/json:map[1]//json:*[normalize-space(@key)]" use="@key"/>
    <xsl:key name="listItemPagesSeq" match="json:array[@key='listItemPages']/json:map" use="json:number[@key='startPage']"/>
    
@@ -28,6 +30,32 @@
    
    <xsl:template match="/json:map">
       <xsl:copy>
+         <!-- Solr's split=/pages copies root-level fields into every page document, but only
+              those emitted before the pages array; anything after it is silently dropped. -->
+         <json:string key="documentTitle">
+            <xsl:value-of select="$logical_struture_elem/json:string[@key='label']"/>
+         </json:string>
+
+         <xsl:variable name="documentShelfLocator" select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:map[@key='shelfLocator'][descendant::json:string[@key='displayForm']]//json:string[@key='displayForm']"/>
+         <xsl:if test="normalize-space($documentShelfLocator)">
+            <json:string key="documentShelfLocator">
+               <xsl:value-of select="$documentShelfLocator"/>
+            </json:string>
+         </xsl:if>
+
+         <xsl:variable name="documentAbstract" select="(/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:map[@key='abstract'][descendant::json:string[@key='displayForm']]//json:string[@key='displayForm'])[1]"/>
+         <xsl:if test="normalize-space($documentAbstract)">
+            <json:string key="documentAbstract">
+               <xsl:value-of select="$documentAbstract"/>
+            </json:string>
+         </xsl:if>
+
+         <xsl:for-each select="/json:map/json:array[@key='arkcam']/json:map">
+            <json:string key="arkcam-{json:string[@key='name']}_ss">
+               <xsl:value-of select="json:string[@key='value']"/>
+            </json:string>
+         </xsl:for-each>
+
          <xsl:apply-templates select="*"/>
       </xsl:copy>
    </xsl:template>
@@ -41,17 +69,6 @@
    
    <xsl:template match="json:array[@key='pages']/json:map">
       <xsl:copy>
-         <json:string key="documentTitle">
-            <xsl:value-of select="$logical_struture_elem/json:string[@key='label']"/>
-         </json:string>
-         
-         <xsl:variable name="documentShelfLocator" select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]//json:map[@key='shelfLocator'][descendant::json:string[@key='displayForm']]//json:string[@key='displayForm']"/>
-         <xsl:if test="normalize-space($documentShelfLocator)">
-            <json:string key="documentShelfLocator">
-               <xsl:value-of select="$documentShelfLocator"/>
-            </json:string>
-         </xsl:if>
-         
          <json:string key="hasPage">
             <xsl:value-of select="cudl:convert-boolean-to-yes-no(true())"/>
          </json:string>
@@ -119,7 +136,7 @@
          <xsl:variable name="metadata" as="item()*">
             <xsl:variable name="t1" as="item()*">
                <xsl:variable name="part_metadata" select="key('part_metadata', $part_num)"/>
-               <xsl:apply-templates select="$part_metadata//json:map[normalize-space(@key)][not(descendant::json:map[normalize-space(@key)])][descendant::json:string[@key='displayForm']]" mode="flatten"/>
+               <xsl:apply-templates select="$part_metadata//json:map[normalize-space(@key)][not(@key='arkPid')][not(descendant::json:map[normalize-space(@key)])][descendant::json:string[@key='displayForm']]" mode="flatten"/>
                <xsl:apply-templates select="$part_metadata//json:array[@key='century']" mode="flatten"/>
                <xsl:copy-of select="$part_metadata//json:number[@key=('yearStart','yearEnd')]"/>
                <xsl:copy-of select="$part_metadata//json:array[@key='dateRange']"/>
@@ -240,22 +257,22 @@
    
    <xsl:template match="json:array[@key='collection']">
       <json:array key="collection-slug">
-         <xsl:for-each select="json:map/json:string[@key='url-slug'][not(matches(.,'::'))]">
+         <xsl:for-each select="json:map/json:string[@key='url-slug']">
             <json:string>
-               <xsl:value-of select="."/>
+               <xsl:value-of select="tokenize(., '::')[last()]"/>
             </json:string>
          </xsl:for-each>
       </json:array>
       <json:array key="collection">
-         <xsl:for-each select="json:map/json:string[@key='name-short'][not(matches(.,'::'))]">
+         <xsl:for-each select="json:map/json:string[@key='name-short']">
             <json:string>
-               <xsl:value-of select="."/>
+               <xsl:value-of select="tokenize(., '::')[last()]"/>
             </json:string>
          </xsl:for-each>
       </json:array>
-      <xsl:for-each select="json:map/json:map[@key='sort'][normalize-space(json:string[@key='name'][not(matches(.,'::'))])]">
+      <xsl:for-each select="json:map/json:map[@key='sort'][normalize-space(json:string[@key='name'])]">
          <json:string>
-            <xsl:attribute name="key" select="json:string[@key='name']"/>
+            <xsl:attribute name="key" select="tokenize(json:string[@key='name'], '::')[last()]"/>
             <xsl:value-of select="json:string[@key='value']"/>
          </json:string>
       </xsl:for-each>

@@ -51,38 +51,40 @@
 
    <xsl:key name="collection_items" match="/*:map/*:map[@key='response']/*:array[@key='docs']/*:map/*:array[@key='items._id']/*:string" use="string-join(tokenize(tokenize(., '/')[last()], '\.')[position() lt last()], '.')"/>
 
+   <xsl:variable name="collection-query">
+      <xsl:if test="$SEARCH_HOST != ''">
+         <xsl:variable name="search_addr" select="string-join(($SEARCH_HOST, $SEARCH_PORT)[normalize-space(.)], ':')"/>
+         <xsl:variable name="request_uri" select="concat('http://', $search_addr, '/items/', encode-for-uri($fileID), '/collections')"/>
+         <xsl:try>
+            <xsl:message select="concat('Submitting request to: ', $request_uri)"/>
+            <xsl:copy-of select="json-to-xml(unparsed-text($request_uri))"/>
+            <xsl:catch>
+               <xsl:message terminate="yes">ERROR: Search API not responding for <xsl:value-of select="$request_uri"/></xsl:message>
+            </xsl:catch>
+         </xsl:try>
+      </xsl:if>
+   </xsl:variable>
+
+   <xsl:variable name="collection-response-items" select="$collection-query/*:map/*:array[@key='items']/*:map"/>
+
+   <xsl:variable name="item-collections" as="element()*"
+      select="($collection-response-items[*:string[@key='item'] = concat('json/', $fileID, '.json')],
+               $collection-response-items[1])[1]/*:array[@key='collections']/*:map"/>
+
    <xsl:template name="get-collection">
       <xsl:if test="$SEARCH_HOST !=''">
-         <xsl:variable name="search_addr" select="string-join(($SEARCH_HOST, $SEARCH_PORT)[normalize-space(.)], ':')"/>
-         
-         <xsl:variable name="collection-query">
-             <xsl:variable name="request_uri" select="concat('http://', $search_addr, '/items/', encode-for-uri($fileID), '/collections')"/>
-            <xsl:try>
-               <xsl:message select="concat('Submitting request to: ', $request_uri)"/>
-               <xsl:copy-of select="json-to-xml(unparsed-text($request_uri))"/>
-               <xsl:catch>
-                  <xsl:message terminate="yes">ERROR: Search API not responding for <xsl:value-of select="$request_uri"/></xsl:message>
-               </xsl:catch>
-            </xsl:try>
-         </xsl:variable>
-
-         <xsl:variable name="response_items" select="$collection-query/*:map/*:array[@key='items']/*:map"/>
-         <xsl:variable name="item_obj"
-            select="($response_items[*:string[@key='item'] = concat('json/', $fileID, '.json')],
-                     $response_items[1])[1]"/>
-         <xsl:variable name="item_collections" select="$item_obj/*:array[@key='collections']/*:map"/>
 
          <xsl:choose>
-            <xsl:when test="empty($response_items)">
+            <xsl:when test="empty($collection-response-items)">
                <xsl:message terminate="yes">ERROR: Response from Search API for <xsl:value-of select="$fileID"/> does not appear to be valid item-collections JSON response</xsl:message>
             </xsl:when>
-            <xsl:when test="empty($item_collections)">
+            <xsl:when test="empty($item-collections)">
                <xsl:message>WARN: <xsl:value-of select="$fileID"/> does not seem to belong to collection</xsl:message>
             </xsl:when>
             <xsl:otherwise>
                
                <array key="collection" xmlns="http://www.w3.org/2005/xpath-functions">
-                  <xsl:for-each select="$item_collections">
+                  <xsl:for-each select="$item-collections">
                      <xsl:variable name="item_collection_slug" select="normalize-space(*:string[@key='slug'][1])"/>
                      <xsl:variable name="item_collection_title" select="normalize-space(*:string[@key='titleEn'][1])"/>
                      <xsl:variable name="child_pos" select="*:number[@key='position'][1]"/>
@@ -91,7 +93,8 @@
                      <xsl:variable name="parent_slug" select="normalize-space($parent_object/*:string[@key='slug'][1])"/>
                      <xsl:variable name="parent_pos" select="$parent_object/*:number[@key='position'][1]"/>
                      
-                     <xsl:if test="exists($parent_object)">
+                     <xsl:if test="exists($parent_object) and
+                                   empty(preceding-sibling::*:map[normalize-space(*:array[@key='parent']/*:map[1]/*:string[@key='slug'][1]) = $parent_slug])">
                         <map xmlns="http://www.w3.org/2005/xpath-functions">
                            <string key="url-slug" xmlns="http://www.w3.org/2005/xpath-functions">
                               <xsl:value-of select="$parent_slug"/>
@@ -155,13 +158,34 @@
                   </xsl:for-each>
                </array>
                <boolean key="itemAppearsInMultipleCollections" xmlns="http://www.w3.org/2005/xpath-functions">
-                  <xsl:value-of select="count($item_collections) gt 1"/>
+                  <xsl:value-of select="count($item-collections) gt 1"/>
                </boolean>
                <number key="itemCollectionCount" xmlns="http://www.w3.org/2005/xpath-functions">
-                  <xsl:value-of select="count($item_collections)"/>
+                  <xsl:value-of select="count($item-collections)"/>
                </number>
             </xsl:otherwise>
          </xsl:choose>
+      </xsl:if>
+   </xsl:template>
+
+   <xsl:template name="get-collections">
+      <xsl:if test="exists($item-collections)">
+         <map key="collections" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:copy-of select="cudl:display(true())"/>
+            <string key="displayForm" xmlns="http://www.w3.org/2005/xpath-functions">
+               <xsl:variable name="links" as="xsd:string*">
+                  <xsl:for-each select="$item-collections">
+                     <xsl:sort select="normalize-space(*:string[@key='titleEn'][1])"/>
+                     <xsl:variable name="slug" select="encode-for-uri(normalize-space(*:string[@key='slug'][1]))"/>
+                     <xsl:variable name="title" select="normalize-space(*:string[@key='titleEn'][1])"/>
+                     <xsl:sequence select="concat('&lt;li&gt;&lt;a href=&quot;/collections/', $slug, '/1&quot;&gt;', $title, '&lt;/a&gt;&lt;/li&gt;')"/>
+                  </xsl:for-each>
+               </xsl:variable>
+               <xsl:value-of select="concat('&lt;ul class=&quot;collections&quot;&gt;', string-join($links, ''), '&lt;/ul&gt;')"/>
+            </string>
+            <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">Member of</string>
+            <number key="seq" xmlns="http://www.w3.org/2005/xpath-functions">1</number>
+         </map>
       </xsl:if>
    </xsl:template>
 
@@ -203,6 +227,7 @@
          <xsl:call-template name="get-text-direction"/>
          <xsl:call-template name="get-transcription-flags"/>
          <xsl:call-template name="get-sourceData"/>
+         <xsl:call-template name="get-arkcam"/>
 
          <!--is this a complete representation of the item-->
          <!--QUERY - deprecate?--><!-- TODO IS IT USED -->
@@ -352,15 +377,15 @@
        <boolean key="isReleased" xmlns="http://www.w3.org/2005/xpath-functions">
           <xsl:value-of select="$release-status('isReleased')"/>
        </boolean>
+       
+       <string key="itemStatus" xmlns="http://www.w3.org/2005/xpath-functions">
+          <xsl:value-of select="$release-status('itemStatus')"/>
+       </string>
 
        <xsl:if test="$pos = 1">
           <boolean key="itemReleased" xmlns="http://www.w3.org/2005/xpath-functions">
              <xsl:value-of select="$release-status('isReleased')"/>
           </boolean>
-
-          <string key="itemStatus" xmlns="http://www.w3.org/2005/xpath-functions">
-             <xsl:value-of select="$release-status('itemStatus')"/>
-          </string>
        </xsl:if>
     </xsl:template>
 
@@ -386,12 +411,14 @@
             <xsl:with-param name="level" select="'doc'"/>
          </xsl:call-template>
          <xsl:call-template name="get-calendarnum"/>
+         <xsl:call-template name="get-collections"/>
 
          <xsl:choose>
             <xsl:when test="count(tei:msContents/tei:msItem) = 1">
                <xsl:call-template name="get-abstract">
                      <xsl:with-param name="level" select="'doc'"/>
                   </xsl:call-template>
+               <xsl:call-template name="get-ark-pid"/>
                <xsl:call-template name="get-doc-and-item-names"/>
                <xsl:call-template name="get-doc-events"/>
                <xsl:call-template name="get-doc-physloc"/>
@@ -437,6 +464,7 @@
                <xsl:call-template name="get-abstract">
                      <xsl:with-param name="level" select="'doc'"/>
                   </xsl:call-template>
+               <xsl:call-template name="get-ark-pid"/>
                <xsl:call-template name="get-languages">
                      <xsl:with-param name="level" select="'doc'"/>
                   </xsl:call-template>
@@ -480,6 +508,7 @@
                <xsl:call-template name="get-abstract">
                   <xsl:with-param name="level" select="'part'"/>
                </xsl:call-template>
+               <xsl:call-template name="get-ark-pid"/>
                <xsl:call-template name="get-doc-and-item-names"/>
                <xsl:call-template name="get-doc-events"/>
                <xsl:call-template name="get-doc-physloc"/>
@@ -532,6 +561,7 @@
                <xsl:call-template name="get-abstract">
                   <xsl:with-param name="level" select="'part'"/>
                </xsl:call-template>
+               <xsl:call-template name="get-ark-pid"/>
                <xsl:call-template name="get-languages">
                   <xsl:with-param name="level" select="'doc'"/>
                </xsl:call-template>
@@ -819,6 +849,39 @@
                <xsl:with-param name="seq" select="1"/>
             </xsl:call-template>
          </map>
+      </xsl:if>
+   </xsl:template>
+
+   <xsl:template name="get-ark-pid">
+      <xsl:variable name="arkCudl" select="ancestor-or-self::tei:teiHeader[1]//tei:publicationStmt/tei:idno[@type='ARKCAM'][@subtype='cudl'][normalize-space(.)][1]"/>
+      <xsl:if test="$arkCudl">
+         <xsl:variable name="ark" select="normalize-space($arkCudl)"/>
+         <xsl:variable name="url" select="concat('https://resolver.ark.lib.cam.ac.uk/', $ark)"/>
+         <map key="arkPid" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:copy-of select="cudl:display(true())"/>
+            <string key="displayForm">
+               <xsl:value-of select="concat('&lt;a href=&quot;', $url, '&quot;&gt;', $ark, '&lt;/a&gt;')"/>
+            </string>
+            <string key="label">Persistent Identifier (ARK)</string>
+            <number key="seq">1</number>
+         </map>
+      </xsl:if>
+   </xsl:template>
+
+   <xsl:template name="get-arkcam">
+      <xsl:if test="/tei:TEI/tei:teiHeader/tei:fileDesc/tei:publicationStmt/tei:idno[@type='ARKCAM'][normalize-space(.)]">
+         <array key="arkcam" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:for-each select="/tei:TEI/tei:teiHeader/tei:fileDesc/tei:publicationStmt/tei:idno[@type='ARKCAM'][normalize-space(.)]">
+               <map>
+                  <string key="name">
+                     <xsl:value-of select="@subtype"/>
+                  </string>
+                  <string key="value">
+                     <xsl:value-of select="normalize-space(.)"/>
+                  </string>
+               </map>
+            </xsl:for-each>
+         </array>
       </xsl:if>
    </xsl:template>
 
@@ -2866,6 +2929,10 @@
                </xsl:when>
             <xsl:otherwise>
                <map xmlns="http://www.w3.org/2005/xpath-functions">
+                  <string key="id" xmlns="http://www.w3.org/2005/xpath-functions">
+                     <xsl:value-of select="concat($fileID, '-1')"/>
+                  </string>
+
                   <string key="label" xmlns="http://www.w3.org/2005/xpath-functions">
                      <xsl:text>cover</xsl:text>
                   </string>
@@ -2877,10 +2944,26 @@
                   <number key="sequence" xmlns="http://www.w3.org/2005/xpath-functions">
                      <xsl:value-of select="1"/>
                   </number>
-                  
+
+                  <string key="itemURL" xmlns="http://www.w3.org/2005/xpath-functions">
+                     <xsl:value-of select="concat($fileID, '/1')"/>
+                  </string>
+
                   <xsl:call-template name="get-release-status">
                      <xsl:with-param name="pos" select="position()"/>
                   </xsl:call-template>
+
+                  <map key="transcription_content" xmlns="http://www.w3.org/2005/xpath-functions">
+                     <string key="pageHasTranscription" xmlns="http://www.w3.org/2005/xpath-functions">
+                        <xsl:value-of select="cudl:convert-boolean-to-yes-no(false())"/>
+                     </string>
+                  </map>
+
+                  <map key="translation_content" xmlns="http://www.w3.org/2005/xpath-functions">
+                     <string key="pageHasTranslation" xmlns="http://www.w3.org/2005/xpath-functions">
+                        <xsl:value-of select="cudl:convert-boolean-to-yes-no(false())"/>
+                     </string>
+                  </map>
                </map>
             </xsl:otherwise>
          </xsl:choose>
@@ -4859,6 +4942,7 @@
          <cudl:element name="descriptiveMetadata" jsontype="array">
             <cudl:element name="part" jsontype="object">
                <cudl:element name="ID" jsontype="string" />
+               <cudl:element name="collections" label="Member of" jsontype="string" />
                <cudl:element name="physicalLocation" label="Physical Location" jsontype="string" />
                <cudl:element name="shelfLocator"  label="Classmark" jsontype="string" />
                <cudl:element name="altIdentifiers" label="Alternative Identifier(s)" jsontype="array">
@@ -5135,6 +5219,7 @@
                <cudl:element name="bibliographies" label="Bibliography" jsontype="array">
                   <cudl:element name="bibliography" jsontype="string"/>
                </cudl:element>
+               <cudl:element name="arkPid" label="Persistent Identifier (ARK)" jsontype="string" />
                <!-- Non-display data: used by viewer but not displayed in metadata block -->
                <cudl:element name="thumbnailUrl" jsontype="string" />
                <cudl:element name="thumbnailOrientation" jsontype="string" />
@@ -5153,6 +5238,12 @@
                   </cudl:element>
                </cudl:element>
                <!-- <cudl:element name="content" jsontype="string" /> -->
+            </cudl:element>
+         </cudl:element>
+         <cudl:element name="arkcam" jsontype="array">
+            <cudl:element name="arkcamItem" jsontype="object">
+               <cudl:element name="name" jsontype="string" />
+               <cudl:element name="value" jsontype="string" />
             </cudl:element>
          </cudl:element>
          <cudl:element name="numberOfPages" jsontype="number"/>

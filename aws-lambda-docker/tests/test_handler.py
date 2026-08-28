@@ -123,6 +123,93 @@ class TestHandlerRouting:
         assert result == {"batchItemFailures": [{"itemIdentifier": "bad-event"}]}
 
 
+class TestRequestIdCorrelation:
+    """The Lambda request id is logged so a native crash can be traced to its record."""
+
+    @patch("handler._handle_created")
+    @patch("handler.setup_workspace")
+    def test_request_id_in_log_context_during_processing(
+        self,
+        mock_setup: MagicMock,
+        mock_created: MagicMock,
+        env_config: None,
+    ) -> None:
+        from handler import handler
+        from logging_config import log_context
+
+        seen: list[dict[str, object]] = []
+        mock_created.side_effect = lambda *a, **kw: seen.append(dict(log_context.get() or {}))
+
+        ctx = _make_context(60_000)
+        ctx.aws_request_id = "req-abc-123"
+
+        handler(_wrap_records(_make_sqs_record(message_id="msg-a")), ctx)
+
+        assert len(seen) == 1
+        assert seen[0]["aws_request_id"] == "req-abc-123"
+        assert seen[0]["message_id"] == "msg-a"
+        assert seen[0]["tei_file"] == TEI_FILE
+
+    @patch("handler._handle_created")
+    @patch("handler.setup_workspace")
+    def test_missing_context_does_not_break_processing(
+        self,
+        mock_setup: MagicMock,
+        mock_created: MagicMock,
+        env_config: None,
+    ) -> None:
+        from handler import handler
+
+        result = handler(_wrap_records(_make_sqs_record(message_id="msg-a")), None)
+
+        assert result == {"batchItemFailures": []}
+        mock_created.assert_called_once()
+
+
+class TestSetupFailure:
+    """Invocation-level setup failures still report every record as a failure."""
+
+    @patch("handler.setup_workspace")
+    def test_workspace_setup_failure_fails_whole_batch(
+        self,
+        mock_setup: MagicMock,
+        env_config: None,
+    ) -> None:
+        from handler import handler
+
+        mock_setup.side_effect = OSError("read-only filesystem")
+
+        result = handler(
+            _wrap_records(
+                _make_sqs_record(message_id="msg-a"),
+                _make_sqs_record(message_id="msg-b"),
+            ),
+            None,
+        )
+
+        assert result == {
+            "batchItemFailures": [
+                {"itemIdentifier": "msg-a"},
+                {"itemIdentifier": "msg-b"},
+            ]
+        }
+
+    @patch("handler.setup_workspace")
+    def test_invalid_config_fails_whole_batch(
+        self,
+        mock_setup: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from handler import handler
+
+        monkeypatch.delenv("AWS_OUTPUT_BUCKET", raising=False)
+
+        result = handler(_wrap_records(_make_sqs_record(message_id="msg-a")), None)
+
+        assert result == {"batchItemFailures": [{"itemIdentifier": "msg-a"}]}
+        mock_setup.assert_not_called()
+
+
 class TestPartialBatchFailures:
     """Verify per-record failure isolation and batchItemFailures reporting."""
 

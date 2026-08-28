@@ -7,6 +7,7 @@ services:
       ENVIRONMENT: local
       TEI_FILE: ${TEI_FILE}
       SEARCH_HOST: host.docker.internal
+      SEARCH_PORT: ${SEARCH_PORT:-80}
       SKIP_COPY_TEI_WEB_ASSETS: ${SKIP_COPY_TEI_WEB_ASSETS:-true}
       SKIP_PAGE_XML_COPY: ${SKIP_PAGE_XML_COPY:-true}
       SKIP_CORE_XML_COPY: ${SKIP_CORE_XML_COPY:-true}
@@ -18,4 +19,8 @@ services:
     volumes:
       - ./dist:/tmp/opt/cdcp/dist
       - ./data:/tmp/opt/cdcp/cudl-data-source
+      - ./aws-lambda-docker/bin:/opt/cdcp/bin:ro
+      - ./aws-lambda-docker/xslt:/opt/cdcp/xslt:ro
+    extra_hosts:
+      - host.docker.internal:host-gateway
     entrypoint: ["python", "/var/task/local_runner.py"]

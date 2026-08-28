@@ -50,6 +50,11 @@ def _parse_record(record: dict[str, Any]) -> tuple[str, str, str]:
         raise PermanentError(f"Cannot parse SQS record: {e}") from e
 
 
+def _failure_items(records: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Build batchItemFailures entries for every record carrying a message id."""
+    return [{"itemIdentifier": r["messageId"]} for r in records if r.get("messageId")]
+
+
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Lambda handler for SQS events containing S3 notifications.
 
@@ -59,12 +64,21 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     permanent errors exhaust their receive count and reach the DLQ via
     the SQS redrive policy.
     """
-    config = Config.from_env()
-    config.validate_for_aws()
-    setup_workspace()
+    records = event.get("Records", [])
+    # Correlates a Runtime.ExitError, which CloudWatch tags with this id, back to
+    # the record named in the last "Processing event" line.
+    request_id = getattr(context, "aws_request_id", None)
+
+    try:
+        config = Config.from_env()
+        config.validate_for_aws()
+        setup_workspace()
+    except Exception:
+        # Propagating would kill the invocation before any response is built.
+        logger.exception("Invocation setup failed, failing whole batch")
+        return {"batchItemFailures": _failure_items(records)}
 
     batch_item_failures: list[dict[str, str]] = []
-    records = event["Records"]
 
     for i, record in enumerate(records):
         # Check remaining Lambda execution time before each record
@@ -84,7 +98,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
                         }
                     },
                 )
-                batch_item_failures.extend({"itemIdentifier": mid} for mid in ids)
+                batch_item_failures.extend(_failure_items(unprocessed))
                 break
 
         message_id = record["messageId"]
@@ -92,13 +106,23 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         tei_file: str | None = None
         # Set before parsing so a parse failure is still logged with the message_id.
         ctx_token = log_context.set(
-            {"message_id": message_id, "event_type": event_type, "tei_file": tei_file}
+            {
+                "aws_request_id": request_id,
+                "message_id": message_id,
+                "event_type": event_type,
+                "tei_file": tei_file,
+            }
         )
         try:
             event_name, s3_bucket, tei_file = _parse_record(record)
             event_type = event_name.split(":")[0] if ":" in event_name else event_name
             log_context.set(
-                {"message_id": message_id, "event_type": event_type, "tei_file": tei_file}
+                {
+                    "aws_request_id": request_id,
+                    "message_id": message_id,
+                    "event_type": event_type,
+                    "tei_file": tei_file,
+                }
             )
 
             # WARNING so that it will be present on a Runtime.ExitError.
