@@ -387,6 +387,24 @@ def _log_delete_failure(bucket: str, key: str, code: str, error: str) -> dict[st
     return {"key": key, "error_code": code}
 
 
+def _object_exists(s3: S3Client, bucket: str, key: str) -> bool:
+    """True when the key currently resolves to an object.
+
+    Deleting an absent key is only reliably a no-op on an unversioned bucket.
+    Where versioning is enabled or suspended, S3 writes a delete marker and
+    emits an ObjectRemoved event, which any notification configured for that
+    prefix then forwards downstream. Existence is checked first rather than
+    relying on DELETE being idempotent.
+    """
+    try:
+        s3.head_object(Bucket=bucket, Key=key)
+    except ClientError as e:
+        if e.response["Error"].get("Code", "") in ("404", "NoSuchKey"):
+            return False
+        raise
+    return True
+
+
 def _delete_item_location(
     s3: S3Client,
     bucket: str,
@@ -411,8 +429,10 @@ def _delete_item_location(
 
     failures: list[dict[str, str]] = []
     for key in direct_keys:
-        logger.info("Deleting s3://%s/%s", bucket, key)
         try:
+            if not _object_exists(s3, bucket, key):
+                continue
+            logger.info("Deleting s3://%s/%s", bucket, key)
             s3.delete_object(Bucket=bucket, Key=key)
         except ClientError as e:
             failures.append(
@@ -479,7 +499,8 @@ def delete_superseded_outputs(dist_dir: str, bucket: str, tei_file: str) -> None
 
     Deliberately surgical — deleting both locations would also remove the
     just-uploaded item and de-index it downstream. A missing opposite location
-    is the normal no-flip case and deletes nothing.
+    is the normal no-flip case and issues no delete request at all; see
+    ``_object_exists`` for why that matters.
     """
     s3 = _s3_client()
     opposite_prefix = "" if _build_produced_unreleased(dist_dir) else "unreleased/"

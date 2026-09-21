@@ -158,7 +158,7 @@ class TestDeleteSupersededOutputs:
         )
         assert remaining == sorted(_item_family_keys(""))
 
-    def test_absent_opposite_location_is_noop(self, tmp_path) -> None:
+    def test_absent_opposite_location_leaves_released_family(self, tmp_path) -> None:
         s3 = boto3.client("s3", region_name="eu-west-1")
         s3.create_bucket(
             Bucket=BUCKET,
@@ -174,6 +174,82 @@ class TestDeleteSupersededOutputs:
             o["Key"] for o in s3.list_objects_v2(Bucket=BUCKET).get("Contents", [])
         )
         assert remaining == sorted(_item_family_keys(""))
+
+
+class TestDeleteSupersededIssuesNoBlindDeletes:
+    """No DeleteObject may be issued for a key that isn't there.
+
+    Depending on the bucket's versioning state, a delete of an absent key may
+    write a delete marker and emit an ObjectRemoved event rather than being a
+    no-op. Asserting on resulting bucket state cannot catch that — the state is
+    unchanged either way — so these assert on the calls actually made.
+    """
+
+    def _mock_s3(self, present_keys: set[str]) -> MagicMock:
+        """An S3 client where only ``present_keys`` exist; pattern lists are empty."""
+        mock_s3 = MagicMock()
+
+        def head_object(Bucket: str, Key: str):  # noqa: N803 - boto3 kwarg names
+            if Key in present_keys:
+                return {"Metadata": {}}
+            raise ClientError({"Error": {"Code": "404", "Message": "Not Found"}}, "HeadObject")
+
+        mock_s3.head_object.side_effect = head_object
+        mock_paginator = MagicMock()
+        mock_paginator.paginate.return_value = []
+        mock_s3.get_paginator.return_value = mock_paginator
+        return mock_s3
+
+    def test_absent_opposite_location_issues_zero_deletes(self, tmp_path) -> None:
+        mock_s3 = self._mock_s3(present_keys=set())
+        (tmp_path / "solr-json").mkdir(parents=True)
+
+        with patch("s3_ops._s3_client", return_value=mock_s3):
+            delete_superseded_outputs(str(tmp_path), BUCKET, TEI_FILE)
+
+        assert mock_s3.delete_object.call_count == 0
+
+    def test_present_opposite_location_still_deletes(self, tmp_path) -> None:
+        present = set(_item_family_keys("unreleased/"))
+        mock_s3 = self._mock_s3(present_keys=present)
+        (tmp_path / "solr-json").mkdir(parents=True)
+
+        with patch("s3_ops._s3_client", return_value=mock_s3):
+            delete_superseded_outputs(str(tmp_path), BUCKET, TEI_FILE)
+
+        deleted = {c.kwargs["Key"] for c in mock_s3.delete_object.call_args_list}
+        # Only the five direct keys go through delete_object; the html and
+        # page-xml families are handled by the (empty) paginated pattern sweep.
+        assert deleted == {k for k in present if "/html/" not in k and "/page-xml/" not in k}
+
+    def test_mixed_presence_deletes_only_what_exists(self, tmp_path) -> None:
+        present = {"unreleased/solr-json/MS-ADD-03975.json"}
+        mock_s3 = self._mock_s3(present_keys=present)
+        (tmp_path / "solr-json").mkdir(parents=True)
+
+        with patch("s3_ops._s3_client", return_value=mock_s3):
+            delete_superseded_outputs(str(tmp_path), BUCKET, TEI_FILE)
+
+        deleted = {c.kwargs["Key"] for c in mock_s3.delete_object.call_args_list}
+        assert deleted == present
+
+    def test_head_failure_is_reported_not_swallowed(self, tmp_path) -> None:
+        mock_s3 = MagicMock()
+        mock_s3.head_object.side_effect = ClientError(
+            {"Error": {"Code": "AccessDenied", "Message": "boom"}}, "HeadObject"
+        )
+        mock_paginator = MagicMock()
+        mock_paginator.paginate.return_value = []
+        mock_s3.get_paginator.return_value = mock_paginator
+        (tmp_path / "solr-json").mkdir(parents=True)
+
+        with (
+            patch("s3_ops._s3_client", return_value=mock_s3),
+            pytest.raises(PermanentError, match="Failed to delete"),
+        ):
+            delete_superseded_outputs(str(tmp_path), BUCKET, TEI_FILE)
+
+        assert mock_s3.delete_object.call_count == 0
 
 
 class TestDeleteOutputsFailures:
