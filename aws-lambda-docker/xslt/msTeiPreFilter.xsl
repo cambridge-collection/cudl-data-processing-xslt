@@ -2697,10 +2697,10 @@
          </xsl:call-template>
       </xsl:if>
 
-       <xsl:if test="exists(//tei:revisionDesc/tei:change/tei:*[self::tei:persName|self::tei:name|self::tei:orgName][normalize-space(.)])">
+      <xsl:if test="exists(//tei:revisionDesc/tei:change/tei:*[self::tei:persName|self::tei:name|self::tei:orgName][not(@ref='#CUDLPIDWorkflow')][normalize-space(.)])">
          <map key="dataRevisions" xmlns="http://www.w3.org/2005/xpath-functions">
             <xsl:variable name="dataRevisions">
-               <xsl:value-of select="distinct-values(//tei:revisionDesc/tei:change/tei:*[self::tei:persName|self::tei:name|self::tei:orgName][normalize-space(.)])" separator=", "/>
+               <xsl:value-of select="distinct-values(//tei:revisionDesc/tei:change/tei:*[self::tei:persName|self::tei:name|self::tei:orgName][not(@ref='#CUDLPIDWorkflow')][normalize-space(.)])" separator=", "/>
             </xsl:variable>
 
             <xsl:call-template name="write-data-obj-flat">
