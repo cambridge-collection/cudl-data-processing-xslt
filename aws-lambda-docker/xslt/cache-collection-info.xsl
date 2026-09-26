@@ -42,7 +42,7 @@
                     <xsl:for-each select="current-group()">
                         <xsl:variable name="count" select="key('filenames', current-grouping-key(), json:array[@key='items'])/count(preceding-sibling::*) + 1" />
                         <xsl:variable name="collection_name" select="cudl:get-collection-name(json:map[@key='name'])"/>
-                        <string key="{replace($collection_name,'\s','_')}_sort">
+                        <string key="{replace($collection_name,'\s','_')}_collsort">
                             <xsl:value-of select="format-number($count, '0000')"/>
                         </string>
                     </xsl:for-each>
