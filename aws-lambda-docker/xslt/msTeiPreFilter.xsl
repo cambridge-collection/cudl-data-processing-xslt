@@ -126,7 +126,7 @@
                               </xsl:variable>
                               
                               <string key="name" xmlns="http://www.w3.org/2005/xpath-functions">
-                                 <xsl:value-of select="concat($parent_slug,'_sort')"/>
+                                 <xsl:value-of select="concat($parent_slug,'_collsort')"/>
                               </string>
                               
                               <string key="value" xmlns="http://www.w3.org/2005/xpath-functions">
@@ -146,7 +146,7 @@
                         </string>
                         <map key="sort" xmlns="http://www.w3.org/2005/xpath-functions">
                            <string key="name" xmlns="http://www.w3.org/2005/xpath-functions">
-                              <xsl:value-of select="string-join(($parent_slug,concat($item_collection_slug,'_sort'))[normalize-space(.)], '::')"/>
+                              <xsl:value-of select="string-join(($parent_slug,concat($item_collection_slug,'_collsort'))[normalize-space(.)], '::')"/>
                            </string>
                            <xsl:if test="$child_pos castable as xsd:int">
                               <string key="value" xmlns="http://www.w3.org/2005/xpath-functions">
