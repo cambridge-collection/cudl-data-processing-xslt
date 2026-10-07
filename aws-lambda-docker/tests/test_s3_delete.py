@@ -258,6 +258,7 @@ class TestDeleteOutputsFailures:
     def _mock_s3(self, delete_error_code: str) -> MagicMock:
         """An S3 client whose direct deletes fail and whose pattern lists are empty."""
         mock_s3 = MagicMock()
+        mock_s3.head_object.return_value = {"Metadata": {}}
         mock_s3.delete_object.side_effect = ClientError(
             {"Error": {"Code": delete_error_code, "Message": "boom"}},
             "DeleteObject",
