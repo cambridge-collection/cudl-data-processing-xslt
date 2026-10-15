@@ -276,6 +276,10 @@
             <xsl:value-of select="json:string[@key='value']"/>
          </json:string>
       </xsl:for-each>
+      <xsl:call-template name="cudl:hierarchical-facet-fields">
+         <xsl:with-param name="field-name" select="'facet-collection'"/>
+         <xsl:with-param name="paths" select="json:map/json:string[@key='name-short']/string()"/>
+      </xsl:call-template>
    </xsl:template>
    
    <xsl:template match="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]/json:string[@key=('thumbnailUrl', 'thumbnailOrientation')]" mode="#all">
