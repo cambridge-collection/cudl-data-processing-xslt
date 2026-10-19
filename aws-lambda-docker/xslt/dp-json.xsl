@@ -99,13 +99,25 @@
    </xsl:template>
    
    <xsl:template match="/json:map/json:array[@key='pages']">
-      <json:array key="images">
-         <xsl:for-each select="json:map/json:string[@key='IIIFImageURL'][normalize-space(.)]">
+      <xsl:if test="exists(json:map/json:string[@key='IIIFImageURL'][normalize-space(.)][not(matches(.,'^(https?:)?//','i'))])">
+         <json:array key="images">
+         <xsl:for-each select="json:map/json:string[@key='IIIFImageURL'][normalize-space(.)][not(matches(.,'^(https?:)?//','i'))]">
             <json:string>
                <xsl:value-of select="normalize-space(.)"/>
             </json:string>
          </xsl:for-each>
       </json:array>
+      </xsl:if>
+      <!-- NB: We don't need external_images right now -->
+      <!--<xsl:if test="exists(json:map/json:string[@key='IIIFImageURL'][normalize-space(.)][matches(.,'^(https?:)?//','i')])">
+         <json:array key="external_images">
+            <xsl:for-each select="json:map/json:string[@key='IIIFImageURL'][normalize-space(.)][matches(.,'^(https?:)?//','i')]">
+               <json:string>
+                  <xsl:value-of select="normalize-space(.)"/>
+               </json:string>
+            </xsl:for-each>
+         </json:array>
+      </xsl:if>-->
    </xsl:template>
    
    <xsl:variable name="target_keys" select="('abstract', 'title', 'shelfLocator', 'publishers', 'subjects', 'authors')"/>
