@@ -73,7 +73,9 @@
 
    <xsl:template name="get-collection">
       <xsl:if test="$SEARCH_HOST !=''">
-
+         <string key="facet-collectionCount" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="format-number(count($item-collections),'00')"/>
+         </string>
          <xsl:choose>
             <xsl:when test="empty($collection-response-items)">
                <xsl:message terminate="yes">ERROR: Response from Search API for <xsl:value-of select="$fileID"/> does not appear to be valid item-collections JSON response</xsl:message>
