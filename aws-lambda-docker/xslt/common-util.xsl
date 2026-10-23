@@ -15,6 +15,19 @@
       <xsl:value-of select="concat(upper-case(substring($text,1,1)),substring($text, 2))" />
    </xsl:function>
    
+   <xsl:function name="cudl:decimal-key" as="xsd:string">
+      <xsl:param name="numbers" as="xsd:string+"/>
+
+      <xsl:sequence select="string-join($numbers ! string(xsd:decimal(.)), ' ')"/>
+   </xsl:function>
+
+   <xsl:function name="cudl:point-key" as="xsd:string">
+      <xsl:param name="lat" as="xsd:string"/>
+      <xsl:param name="lon" as="xsd:string"/>
+
+      <xsl:sequence select="cudl:decimal-key(($lat, $lon))"/>
+   </xsl:function>
+
    <!--Convert boolean to Yes/No -->
    <xsl:function name="cudl:convert-boolean-to-yes-no">
       <xsl:param name="var" />

@@ -84,6 +84,15 @@
                </json:boolean>
                
                <xsl:apply-templates select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]/json:string[@key=('thumbnailUrl', 'thumbnailOrientation')]" mode="embed_documentThumbnail"/>
+
+               <xsl:call-template name="write-points">
+                  <xsl:with-param name="key" select="'item_origin_ps'"/>
+                  <xsl:with-param name="values" select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]/json:array[@key='item_origin_ps']/json:string"/>
+               </xsl:call-template>
+               <xsl:call-template name="write-points">
+                  <xsl:with-param name="key" select="'item_origin_srpts'"/>
+                  <xsl:with-param name="values" select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]/json:array[@key='item_origin_srpts']/json:string"/>
+               </xsl:call-template>
             </xsl:when>
             <xsl:otherwise>
                <json:boolean key="itemLevel">
@@ -159,7 +168,27 @@
          </xsl:variable>
          
          <xsl:copy-of select="$metadata"/>
-         
+
+         <!-- Kept out of $metadata, whose merge compares text rather than numbers -->
+         <xsl:call-template name="write-points">
+            <xsl:with-param name="key" select="'origin_ps'"/>
+            <xsl:with-param name="values" select="key('part_metadata', $part_num)//json:array[@key='origin_ps']/json:string"/>
+         </xsl:call-template>
+         <xsl:call-template name="write-points">
+            <xsl:with-param name="key" select="'origin_srpts'"/>
+            <xsl:with-param name="values" select="key('part_metadata', $part_num)//json:array[@key='origin_srpts']/json:string"/>
+         </xsl:call-template>
+         <xsl:variable name="part_coverage_srpts" select="key('part_metadata', $part_num)//json:array[@key='coverage_srpts']/json:string"/>
+         <xsl:variable name="item_metadata" select="/json:map/json:array[@key='descriptiveMetadata']/json:map[1]"/>
+         <xsl:call-template name="write-points">
+            <xsl:with-param name="key" select="'coverage_ps'"/>
+            <xsl:with-param name="values" select="if (exists($part_coverage_srpts)) then key('part_metadata', $part_num)//json:array[@key='coverage_ps']/json:string else $item_metadata/json:array[@key='item_coverage_ps']/json:string"/>
+         </xsl:call-template>
+         <xsl:call-template name="write-points">
+            <xsl:with-param name="key" select="'coverage_srpts'"/>
+            <xsl:with-param name="values" select="if (exists($part_coverage_srpts)) then $part_coverage_srpts else $item_metadata/json:array[@key='item_coverage_srpts']/json:string"/>
+         </xsl:call-template>
+
          <xsl:apply-templates select="json:map[@key='transcription_content']/json:string[@key='surfaceID']"/>
          
          <xsl:variable name="item_sort" select="string-join((/json:map/json:string[@key='fileID'], format-number(json:number[@key='sequence'], '0000000')), '::')"/>
@@ -186,6 +215,46 @@
       </xsl:copy>
    </xsl:template>
    
+   <xsl:template name="write-points">
+      <xsl:param name="key" as="xsd:string"/>
+      <xsl:param name="values" as="xsd:string*"/>
+
+      <xsl:variable name="unique" as="xsd:string*">
+         <xsl:for-each-group select="$values" group-by="if (starts-with(., 'ENVELOPE(')) then cudl:envelope-key(.) else cudl:origin-point-key(.)">
+            <xsl:sequence select="current-group()[1]"/>
+         </xsl:for-each-group>
+      </xsl:variable>
+      <xsl:choose>
+         <xsl:when test="count($unique) eq 1">
+            <json:string key="{$key}">
+               <xsl:value-of select="$unique"/>
+            </json:string>
+         </xsl:when>
+         <xsl:when test="count($unique) gt 1">
+            <json:array key="{$key}">
+               <xsl:for-each select="$unique">
+                  <json:string>
+                     <xsl:value-of select="."/>
+                  </json:string>
+               </xsl:for-each>
+            </json:array>
+         </xsl:when>
+      </xsl:choose>
+   </xsl:template>
+
+   <xsl:function name="cudl:origin-point-key" as="xsd:string">
+      <xsl:param name="point" as="xsd:string"/>
+
+      <xsl:variable name="lat-lon" select="if (starts-with($point, 'POINT(')) then reverse(tokenize(replace($point, '^POINT\((.+)\)$', '$1'), ' ')) else tokenize($point, ',')"/>
+      <xsl:sequence select="cudl:point-key($lat-lon[1], $lat-lon[2])"/>
+   </xsl:function>
+
+   <xsl:function name="cudl:envelope-key" as="xsd:string">
+      <xsl:param name="envelope" as="xsd:string"/>
+
+      <xsl:sequence select="cudl:decimal-key(tokenize(replace($envelope, '^ENVELOPE\((.+)\)$', '$1'), ','))"/>
+   </xsl:function>
+
    <xsl:template match="json:boolean|json:string|json:number" mode="turn-to-array">
       <xsl:copy>
          <xsl:value-of select="."/>
