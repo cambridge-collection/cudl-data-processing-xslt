@@ -1,6 +1,7 @@
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="3.1" 
    xmlns:tei="http://www.tei-c.org/ns/1.0"
    xmlns:cudl="http://cudl.lib.cam.ac.uk/xtf/" 
+   xmlns:json="http://www.w3.org/2005/xpath-functions"
    xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
    exclude-result-prefixes="#all"
    xmlns:lambda="http://cudl.lib.cam.ac.uk/lambda/">
@@ -14,6 +15,19 @@
       <xsl:value-of select="concat(upper-case(substring($text,1,1)),substring($text, 2))" />
    </xsl:function>
    
+   <xsl:function name="cudl:decimal-key" as="xsd:string">
+      <xsl:param name="numbers" as="xsd:string+"/>
+
+      <xsl:sequence select="string-join($numbers ! string(xsd:decimal(.)), ' ')"/>
+   </xsl:function>
+
+   <xsl:function name="cudl:point-key" as="xsd:string">
+      <xsl:param name="lat" as="xsd:string"/>
+      <xsl:param name="lon" as="xsd:string"/>
+
+      <xsl:sequence select="cudl:decimal-key(($lat, $lon))"/>
+   </xsl:function>
+
    <!--Convert boolean to Yes/No -->
    <xsl:function name="cudl:convert-boolean-to-yes-no">
       <xsl:param name="var" />
@@ -289,5 +303,34 @@
                             and 
                             not(preceding::tei:addSpan/replace(normalize-space(@spanTo), '#', '') = following::tei:anchor/@xml:id)])"/>
    </xsl:function>
+   
+   <xsl:template name="cudl:hierarchical-facet-fields">
+      <xsl:param name="field-name" as="xsd:string" required="yes"/>
+      <xsl:param name="paths" as="xsd:string*" required="yes"/>
+      <xsl:param name="separator" as="xsd:string" select="'::'"/>
+      
+      <xsl:variable name="segmented-paths" as="array(xsd:string)*"
+         select="$paths ! array { tokenize(., $separator, 'q') ! normalize-space()[. ne ''] }"/>
+      
+      <xsl:for-each select="1 to max((0, $segmented-paths ! count(?*)))">
+         <xsl:variable name="depth" select="."/>
+         <json:array key="{$field-name}-{$depth - 1}">
+            <xsl:for-each-group select="$segmented-paths[count(?*) ge $depth] ! string-join(?*[position() le $depth], $separator)" group-by=".">
+               <json:string>
+                  <xsl:value-of select="current-grouping-key()"/>
+               </json:string>
+            </xsl:for-each-group>
+         </json:array>
+         <xsl:if test="$depth gt 1">
+            <json:array key="{$field-name}-prefixes-{$depth - 1}">
+               <xsl:for-each-group select="$segmented-paths[count(?*) ge $depth] ! string-join(?*[position() lt $depth], $separator)" group-by=".">
+                  <json:string>
+                     <xsl:value-of select="current-grouping-key()"/>
+                  </json:string>
+               </xsl:for-each-group>
+            </json:array>
+         </xsl:if>
+      </xsl:for-each>
+   </xsl:template>
    
 </xsl:stylesheet>

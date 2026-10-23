@@ -38,6 +38,7 @@
     <xsl:key name="surfaceNs" match="//tei:surface[not(key('surface-id-points-to-corresp',@xml:id))]" use="normalize-space(@n)"/>
     <xsl:key name="surfaceAll" match="//tei:surface" use="(@xml:id, concat('#',@xml:id))"/>
    <xsl:key name="pbNs" match="//tei:pb[normalize-space(@n)]" use="@n"/>
+   <xsl:key name="geoDecls" match="tei:geoDecl" use="@xml:id"/>
 
    <xsl:template match="/">
       <xsl:call-template name="get-meta"/>
@@ -73,7 +74,9 @@
 
    <xsl:template name="get-collection">
       <xsl:if test="$SEARCH_HOST !=''">
-
+         <string key="facet-collectionCount" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:value-of select="format-number(count($item-collections),'00')"/>
+         </string>
          <xsl:choose>
             <xsl:when test="empty($collection-response-items)">
                <xsl:message terminate="yes">ERROR: Response from Search API for <xsl:value-of select="$fileID"/> does not appear to be valid item-collections JSON response</xsl:message>
@@ -412,6 +415,17 @@
          </xsl:call-template>
          <xsl:call-template name="get-calendarnum"/>
          <xsl:call-template name="get-collections"/>
+         <!-- The only place that warns about invalid <geo>: it reads each one once -->
+         <xsl:call-template name="write-origin-points">
+            <xsl:with-param name="geos" select=".//tei:origPlace//tei:geo | ancestor::tei:teiHeader[1]//tei:profileDesc/tei:correspDesc/tei:correspAction//tei:placeName//tei:geo"/>
+            <xsl:with-param name="prefix" select="'item_'"/>
+            <xsl:with-param name="warn" select="true()"/>
+         </xsl:call-template>
+         <xsl:call-template name="write-coverage">
+            <xsl:with-param name="geos" select=".//tei:msItem/tei:note//tei:geo"/>
+            <xsl:with-param name="prefix" select="'item_'"/>
+            <xsl:with-param name="warn" select="true()"/>
+         </xsl:call-template>
 
          <xsl:choose>
             <xsl:when test="count(tei:msContents/tei:msItem) = 1">
@@ -447,6 +461,9 @@
                   </xsl:call-template>
                   <xsl:call-template name="get-item-excerpts"/>
                   <xsl:call-template name="get-item-notes"/>
+                  <xsl:call-template name="write-coverage">
+                     <xsl:with-param name="geos" select="tei:note//tei:geo"/>
+                  </xsl:call-template>
                   <xsl:call-template name="get-item-filiation"/>
                </xsl:for-each>
             </xsl:when>
@@ -543,6 +560,9 @@
                   </xsl:call-template>
                   <xsl:call-template name="get-item-excerpts"/>
                   <xsl:call-template name="get-item-notes"/>
+                  <xsl:call-template name="write-coverage">
+                     <xsl:with-param name="geos" select="tei:note//tei:geo"/>
+                  </xsl:call-template>
                   <xsl:call-template name="get-item-filiation"/>
                </xsl:for-each>
             </xsl:when>
@@ -621,6 +641,9 @@
          </xsl:call-template>
          <xsl:call-template name="get-item-excerpts"/>
          <xsl:call-template name="get-item-notes"/>
+         <xsl:call-template name="write-coverage">
+            <xsl:with-param name="geos" select="tei:note//tei:geo"/>
+         </xsl:call-template>
          <xsl:call-template name="get-item-filiation"/>
          <xsl:call-template name="get-biblio">
             <xsl:with-param name="level" select="'item'"/>
@@ -1084,6 +1107,11 @@
                            </map>
                         </xsl:if>
 
+                        <xsl:call-template name="write-origin-points">
+                           <!-- '!' keeps the copies in order; '//' would sort separate trees arbitrarily -->
+                           <xsl:with-param name="geos" select="$place-elems ! descendant::tei:geo"/>
+                        </xsl:call-template>
+
                         <xsl:variable name="preferred-date-elem" as="item()*">
                            <xsl:variable name="correspAction-elems" select="ancestor-or-self::tei:teiHeader[1]//tei:correspDesc/tei:correspAction" as="item()*"/>
                            <xsl:copy-of select="($correspAction-elems[@type='sent']//tei:date,$correspAction-elems[not(@type='sent')]//tei:date,.//tei:origDate,.//tei:date)[1]" />
@@ -1184,6 +1212,11 @@
                               </array>
                            </map>
                         </xsl:if>
+
+                        <xsl:call-template name="write-origin-points">
+                           <!-- '!' keeps the copies in order; '//' would sort separate trees arbitrarily -->
+                           <xsl:with-param name="geos" select="$place-elems ! descendant::tei:geo"/>
+                        </xsl:call-template>
 
                         <xsl:variable name="preferred-date-elem" as="item()*">
                            <xsl:variable name="correspAction-elems" select="$context-elem//tei:correspAction" as="item()*"/>
@@ -4909,6 +4942,150 @@
          <xsl:sequence select="xsd:integer($year_tmp)"/>
       </xsl:if>
    </xsl:function>
+
+   <!-- Nested ifs, because 'and' may evaluate the casts before the castable checks -->
+   <xsl:function name="cudl:geo-lat-lon" as="xsd:string*">
+      <xsl:param name="geo" as="element()"/>
+
+      <xsl:variable name="parts" select="tokenize(normalize-space($geo), ' ')"/>
+      <xsl:if test="count($parts) eq 2 and (every $part in $parts satisfies $part castable as xsd:decimal)">
+         <xsl:if test="abs(xsd:decimal($parts[1])) le 90 and abs(xsd:decimal($parts[2])) le 180">
+            <xsl:sequence select="$parts ! replace(., '^\+', '')"/>
+         </xsl:if>
+      </xsl:if>
+   </xsl:function>
+
+   <xsl:template name="write-origin-points">
+      <xsl:param name="geos" as="element()*"/>
+      <xsl:param name="prefix" as="xsd:string" select="''"/>
+      <xsl:param name="warn" as="xsd:boolean" select="false()"/>
+
+      <xsl:variable name="points" as="array(xsd:string)*">
+         <xsl:for-each select="$geos">
+            <xsl:variable name="lat-lon" select="cudl:geo-lat-lon(.)"/>
+            <xsl:choose>
+               <xsl:when test="exists($lat-lon)">
+                  <xsl:sequence select="array{$lat-lon}"/>
+               </xsl:when>
+               <xsl:when test="$warn">
+                  <xsl:message select="concat('WARN: ', $fileID, '.xml has invalid geo: ''', normalize-space(.), '''')"/>
+               </xsl:when>
+            </xsl:choose>
+         </xsl:for-each>
+      </xsl:variable>
+
+      <xsl:if test="exists($points)">
+         <xsl:variable name="unique" as="array(xsd:string)*">
+            <xsl:for-each-group select="$points" group-by="cudl:point-key(?1, ?2)">
+               <xsl:sequence select="current-group()[1]"/>
+            </xsl:for-each-group>
+         </xsl:variable>
+         <array key="{$prefix}origin_ps" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:for-each select="$unique">
+               <string xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="concat(?1, ',', ?2)"/>
+               </string>
+            </xsl:for-each>
+         </array>
+         <array key="{$prefix}origin_srpts" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:for-each select="$unique">
+               <string xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="concat('POINT(', ?2, ' ', ?1, ')')"/>
+               </string>
+            </xsl:for-each>
+         </array>
+      </xsl:if>
+   </xsl:template>
+
+   <xsl:variable name="marc255-dms" as="xsd:string">([EWNS])[\s\p{Z}&#x85;]*(\d{1,3})°[\s\p{Z}&#x85;]*(?:(\d{1,2}(?:\.\d+)?)[\s\p{Z}&#x85;]*[ʹ'′])?[\s\p{Z}&#x85;]*(?:(\d{1,2}(?:\.\d+)?)[\s\p{Z}&#x85;]*[ʺ"″])?</xsl:variable>
+   <xsl:variable name="marc255-box-regex" select="concat('^\([\s\p{Z}&#x85;]*', $marc255-dms, '[\s\p{Z}&#x85;]*-+[\s\p{Z}&#x85;]*', $marc255-dms, '[\s\p{Z}&#x85;]*/[\s\p{Z}&#x85;]*', $marc255-dms, '[\s\p{Z}&#x85;]*-+[\s\p{Z}&#x85;]*', $marc255-dms, '[\s\p{Z}&#x85;]*\)?$')"/>
+
+   <!-- map{'numbers': (west, east, north, south, lat, lon)} for a valid box, otherwise map{'reason': ...} -->
+   <xsl:function name="cudl:marc255-box" as="map(xsd:string, xsd:string+)">
+      <xsl:param name="text" as="xsd:string"/>
+
+      <xsl:variable name="groups" as="xsd:string*">
+         <xsl:analyze-string select="$text" regex="{$marc255-box-regex}">
+            <xsl:matching-substring>
+               <xsl:sequence select="for $i in 1 to 16 return regex-group($i)"/>
+            </xsl:matching-substring>
+         </xsl:analyze-string>
+      </xsl:variable>
+      <xsl:variable name="hemispheres" select="$groups[position() mod 4 eq 1]"/>
+      <xsl:variable name="edges" as="xsd:decimal*">
+         <xsl:for-each select="0 to 3">
+            <xsl:variable name="edge" select="subsequence($groups, . * 4 + 1, 4)"/>
+            <xsl:variable name="value" select="xsd:decimal($edge[2]) + xsd:decimal(($edge[3][. ne ''], '0')[1]) div 60 + xsd:decimal(($edge[4][. ne ''], '0')[1]) div 3600"/>
+            <xsl:sequence select="if ($edge[1] = ('W', 'S')) then -$value else $value"/>
+         </xsl:for-each>
+      </xsl:variable>
+      <xsl:variable name="west" select="$edges[1]"/>
+      <xsl:variable name="east" select="$edges[2]"/>
+      <xsl:variable name="north" select="$edges[3]"/>
+      <xsl:variable name="south" select="$edges[4]"/>
+      <xsl:variable name="reason" select="
+         if (empty($groups)) then 'not a MARC 255 box'
+         else if (not($hemispheres[1] = ('E', 'W') and $hemispheres[2] = ('E', 'W') and $hemispheres[3] = ('N', 'S') and $hemispheres[4] = ('N', 'S'))) then 'hemispheres are not E/W, E/W, N/S, N/S'
+         else if (some $part in $groups[position() mod 4 = (3, 0)][. ne ''] satisfies xsd:decimal($part) ge 60) then 'minutes or seconds of 60 or more'
+         else if (abs($west) gt 180 or abs($east) gt 180) then 'longitude outside ±180'
+         else if (abs($north) gt 90 or abs($south) gt 90) then 'latitude outside ±90'
+         else if ($north lt $south) then 'north is south of south'
+         else ()"/>
+      <xsl:choose>
+         <xsl:when test="exists($reason)">
+            <xsl:sequence select="map{'reason': $reason}"/>
+         </xsl:when>
+         <xsl:otherwise>
+            <!-- West > east crosses the antimeridian -->
+            <xsl:variable name="lon" select="if ($west gt $east) then (($west + $east + 360) div 2) ! (if (. gt 180) then . - 360 else .) else ($west + $east) div 2"/>
+            <xsl:sequence select="map{'numbers': ($west, $east, $north, $south, ($north + $south) div 2, $lon) ! string(round(., 6))}"/>
+         </xsl:otherwise>
+      </xsl:choose>
+   </xsl:function>
+
+   <xsl:template name="write-coverage">
+      <xsl:param name="geos" as="element()*"/>
+      <xsl:param name="prefix" as="xsd:string" select="''"/>
+      <xsl:param name="warn" as="xsd:boolean" select="false()"/>
+
+      <xsl:variable name="boxes" as="array(xsd:string)*">
+         <xsl:for-each select="$geos[@decls]">
+            <xsl:variable name="decls" select="tokenize(normalize-space(@decls), ' ')"/>
+            <xsl:variable name="broken" select="$decls[not(starts-with(., '#') and key('geoDecls', substring(., 2), root(current())))][1]"/>
+            <xsl:variable name="box" select="if (exists($decls) and empty($broken) and key('geoDecls', $decls ! substring(., 2))/@datum = 'MARC255') then cudl:marc255-box(normalize-space(.)) else ()"/>
+            <xsl:variable name="warning" select="
+               if (empty($decls)) then 'has geo with broken decls (decls is empty)'
+               else if (exists($broken)) then concat('has geo with broken decls (''', $broken, ''' points to no geoDecl in this file)')
+               else if (exists($box?reason)) then concat('has invalid MARC 255 geo (', $box?reason, ')')
+               else ()"/>
+            <xsl:choose>
+               <xsl:when test="exists($box?numbers)">
+                  <xsl:sequence select="array{$box?numbers}"/>
+               </xsl:when>
+               <xsl:when test="$warn and exists($warning)">
+                  <xsl:message select="concat('WARN: ', $fileID, '.xml ', $warning, ': ''', normalize-space(.), '''')"/>
+               </xsl:when>
+            </xsl:choose>
+         </xsl:for-each>
+      </xsl:variable>
+
+      <xsl:if test="exists($boxes)">
+         <array key="{$prefix}coverage_ps" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:for-each-group select="$boxes" group-by="cudl:point-key(?5, ?6)">
+               <string xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="concat(?5, ',', ?6)"/>
+               </string>
+            </xsl:for-each-group>
+         </array>
+         <array key="{$prefix}coverage_srpts" xmlns="http://www.w3.org/2005/xpath-functions">
+            <xsl:for-each-group select="$boxes" group-by="cudl:decimal-key((?1, ?2, ?3, ?4))">
+               <string xmlns="http://www.w3.org/2005/xpath-functions">
+                  <xsl:value-of select="concat('ENVELOPE(', string-join((?1, ?2, ?3, ?4), ', '), ')')"/>
+               </string>
+            </xsl:for-each-group>
+         </array>
+      </xsl:if>
+   </xsl:template>
 
    <xsl:function name="cudl:display" as="item()">
       <xsl:param name="bool" as="xsd:boolean"/>
